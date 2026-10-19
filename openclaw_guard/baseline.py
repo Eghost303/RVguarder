@@ -568,7 +568,7 @@ def _render_html(report: ComplianceReport) -> str:
 </head>
 <body>
   <div class="card">
-    <h1>RVguarder（龙虾卫士）基线合规报告</h1>
+    <h1>RVguarder 基线合规报告</h1>
     <p>生成时间：{report.generated_at}</p>
     <p>目标根目录：{report.target_root or "未识别"}</p>
     <p>配置路径：{report.config_path or "未识别"}</p>

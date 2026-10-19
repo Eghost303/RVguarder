@@ -690,7 +690,7 @@ export default {{
             return {{
               requireApproval: {{
                 pluginId: PLUGIN_ID,
-                title: boundedApprovalText(result.title, "龙虾卫士安全确认", MAX_APPROVAL_TITLE_CHARS),
+                title: boundedApprovalText(result.title, "RVguarder 安全确认", MAX_APPROVAL_TITLE_CHARS),
                 description: boundedApprovalText(result.message, "该工具调用需要确认，请查看操作目标和风险后决定。", MAX_APPROVAL_DESCRIPTION_CHARS),
                 severity: result.severity || "warning",
                 allowedDecisions: result.allowed_decisions || ["allow-once", "deny"],
@@ -725,7 +725,7 @@ export default {{
             }} catch {{ /* observation never changes a Guard decision */ }}
             return {{
               block: true,
-              blockReason: boundedApprovalText(result.blockReason || result.message, "龙虾卫士已阻止该操作，请查看风险说明。", MAX_APPROVAL_DESCRIPTION_CHARS),
+              blockReason: boundedApprovalText(result.blockReason || result.message, "RVguarder 已阻止该操作，请查看风险说明。", MAX_APPROVAL_DESCRIPTION_CHARS),
             }};
           }}
 

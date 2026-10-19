@@ -1,7 +1,7 @@
 ---
 home: true
 title: RVguarder
-heroText: RVguarder / 龙虾卫士
+heroText: RVguarder
 tagline: Non-intrusive runtime security protection for OpenClaw
 actions:
   - text: 快速开始

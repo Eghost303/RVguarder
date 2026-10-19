@@ -5,8 +5,8 @@
  */
 
 const T = {
-  appName: '龙虾卫士',
-  appSub: 'OpenClaw 安全插件',
+  appName: 'RVguarder',
+  appSub: 'OpenClaw Agent 安全插件',
   dashboard: '概览',
   actions: '动作审批',
   rules: '安全规则',

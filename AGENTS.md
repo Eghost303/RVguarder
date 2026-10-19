@@ -1,10 +1,10 @@
-# AGENTS.md — RVguarder（龙虾卫士）
+# AGENTS.md — RVguarder
 
-> 面向 OpenClaw 的非侵入式运行时安全保护系统 | v0.7.0-dev（PMKB 1.2.0）
+> OpenClaw Agent 插件：执行前审批、PMKB 授权建模与运行时验证 | v0.7.0-dev（PMKB 1.2.0）
 
 ## 项目定位
 
-龙虾卫士通过 OpenClaw Plugin SDK 的钩子系统，在不修改 OpenClaw 源码的前提下，为 AI Agent 增加：
+RVguarder 通过 OpenClaw Plugin SDK 的钩子系统，在不修改 OpenClaw 源码的前提下，为 AI Agent 增加：
 - **执行前审批** — `before_tool_call` 拦截 + `requireApproval` 物理挂起
 - **语义风险分析** — DeepSeek LLM 驱动的 7 维度 50+ 标签语义标签体系
 - **运行时行为验证（RV）** — ChainRule DSL 生成监视器 + 滑动窗口，检测链式攻击模式

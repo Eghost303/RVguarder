@@ -5,7 +5,7 @@ test.describe("RVguarder UI", () => {
   test("RV 模式开关可无刷新切换，并控制 Trace 显示", async ({ page }) => {
     const baseUrl = getBaseUrl();
     await page.goto(baseUrl, { waitUntil: "domcontentloaded" });
-    await expect(page.getByRole("heading", { name: "龙虾卫士" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "RVguarder" })).toBeVisible();
 
     await expect(page.locator(".trace-card")).toBeVisible();
 
@@ -72,7 +72,7 @@ test.describe("RVguarder UI", () => {
     expect(decision.action).toBe("require_approval");
 
     await page.goto(baseUrl, { waitUntil: "domcontentloaded" });
-    await expect(page.getByRole("heading", { name: "龙虾卫士" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "RVguarder" })).toBeVisible();
 
     await expect(page.locator(".trace-card")).toBeVisible();
     await expect(page.locator(".trace-card")).toContainText("总耗时");

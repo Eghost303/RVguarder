@@ -62,7 +62,7 @@ class WebCliTests(unittest.TestCase):
             self.assertTrue((target / "assets").exists())
             self.assertTrue(list((target / "assets").glob("*.js")))
             self.assertTrue(list((target / "assets").glob("*.css")))
-            self.assertIn("龙虾卫士", index_html)
+            self.assertIn("RVguarder", index_html)
             self.assertIn("/assets/", index_html)
 
     def test_ui_assets_support_normal_mode_summary(self) -> None:

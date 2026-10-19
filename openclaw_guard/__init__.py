@@ -1,5 +1,5 @@
-"""RVguarder / 龙虾卫士."""
+"""RVguarder — OpenClaw agent plugin."""
 
 __version__ = "0.7.0-dev"
 PRODUCT_NAME = "RVguarder"
-PRODUCT_NAME_ZH = "龙虾卫士"
+PRODUCT_NAME_ZH = "RVguarder"

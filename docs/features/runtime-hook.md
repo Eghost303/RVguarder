@@ -2,13 +2,13 @@
 
 ## 这页讲什么
 
-这一页说明龙虾卫士如何在**不修改 OpenClaw 源码**的前提下，把高风险工具调用真正拦在执行前，以及如何把 OpenClaw 原生审批结果及时同步到 Guard Dashboard。
+这一页说明RVguarder如何在**不修改 OpenClaw 源码**的前提下，把高风险工具调用真正拦在执行前，以及如何把 OpenClaw 原生审批结果及时同步到 Guard Dashboard。
 
 权限知识库、语义命中和双作用域 RV 的系统级结果见[权限知识库与 RV 运行时架构结果](../architecture/permission-kb-runtime-architecture.md)。
 
 ## 核心机制
 
-龙虾卫士不会去改 OpenClaw 内部逻辑，而是利用 OpenClaw 自带的插件能力：
+RVguarder不会去改 OpenClaw 内部逻辑，而是利用 OpenClaw 自带的插件能力：
 
 - 生成一个本地插件包（`runtime/openclaw-guard-plugin/`）
 - 写入 `plugins.load.paths` 和 `plugins.entries`
@@ -187,7 +187,7 @@ Guard 还会在查询或处理新 Hook 前收拢超过 6 分钟未回调的 `pen
 
 ## 首次启用
 
-第一次在某个 OpenClaw 环境里启用龙虾卫士时，会自动生成：
+第一次在某个 OpenClaw 环境里启用RVguarder时，会自动生成：
 
 - `runtime/openclaw-guard-plugin/` — 插件包（含 `package.json`、`openclaw.plugin.json`、`index.js`）
 - `runtime/hook-bridge.json` — 鉴权 token 和 Guard 地址
@@ -268,7 +268,7 @@ openclaw config validate
 
 ### 什么是 RV 模式
 
-RV（Runtime Verification，运行时验证）模式是龙虾卫士的一项可选高级安全能力。开启后，系统会在常规规则引擎之外，运行由 **ChainRule DSL 编译生成的办公场景监视器**，通过滑动窗口分析工具调用的行为序列，识别链式风险。
+RV（Runtime Verification，运行时验证）模式是RVguarder的一项可选高级安全能力。开启后，系统会在常规规则引擎之外，运行由 **ChainRule DSL 编译生成的办公场景监视器**，通过滑动窗口分析工具调用的行为序列，识别链式风险。
 
 ### 统一工具事件模型
 
@@ -295,7 +295,7 @@ RV 链式规约命中 block 时独立硬阻断，不再要求 PMKB 同时确认 
 
 ### 开启/关闭 RV 模式
 
-在龙虾卫士 Dashboard 右上角，点击 **RV 模式** 开关按钮：
+在RVguarder Dashboard 右上角，点击 **RV 模式** 开关按钮：
 
 - **开启**（绿色高亮）：Dashboard 显示安全执行链路 Trace 时间线和 RV 引擎状态面板
 - **关闭**（灰色）：恢复标准视图，隐藏 Trace 和 RV 详情

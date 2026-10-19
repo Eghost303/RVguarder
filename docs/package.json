@@ -1,7 +1,7 @@
 {
   "name": "openclaw-guard-docs",
   "private": true,
-  "description": "VuePress documentation site for RVguarder (龙虾卫士)",
+  "description": "VuePress documentation site for RVguarder, an OpenClaw agent plugin",
   "scripts": {
     "docs:dev": "vuepress dev .",
     "docs:build": "vuepress build ."
