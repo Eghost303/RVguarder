@@ -1,0 +1,333 @@
+from pathlib import Path
+import json
+import shutil
+import subprocess
+
+import pytest
+
+from openclaw_guard.models import BehaviorEvent
+from openclaw_guard.policy.catalog import PolicyBundle
+from openclaw_guard.policy.engine import AuthorizationPolicyEngine
+from openclaw_guard.policy.models import (
+    AuthorizationTrace,
+    ContextRef,
+    CoverageResult,
+    DataRef,
+    OperationRef,
+    PermissionRef,
+    PrincipalRef,
+    ResourceRef,
+)
+from openclaw_guard.integrations.hook_runtime import DEFAULT_DECISION_TIMEOUT_MS, _plugin_source
+from openclaw_guard import api
+
+
+@pytest.fixture
+def services(tmp_path):
+    project = tmp_path / "OpenclawGuard"
+    project.mkdir()
+    config_path = project / "openclaw.json"
+    config_path.write_text(json.dumps({"models": {"providers": {}}}), encoding="utf-8")
+    from openclaw_guard.services import build_services
+    return build_services(project, config_path=config_path)
+
+
+def test_permission_ref_carries_all_least_privilege_dimensions_and_is_hashable():
+    permission = PermissionRef(
+        family="document.read",
+        resource_type="document",
+        resource_ids=["doc-1"],
+        scope="workspace",
+        classification="sensitive",
+        field_scope=["title"],
+        purpose="meeting_summary",
+        ttl_seconds=300,
+    )
+    assert permission.resource_ids == ("doc-1",)
+    assert permission.field_scope == ("title",)
+    assert hash(permission)
+
+
+def test_policy_engine_uses_distinct_requested_and_required_trace(tmp_path):
+    root = Path("policies/permissions")
+    engine = AuthorizationPolicyEngine(root)
+    event = BehaviorEvent(
+        event_id="h3",
+        timestamp="2026-01-01T00:00:00Z",
+        action_type="file_write",
+        process_name="openclaw",
+        pid=None,
+        user="u1",
+        target_paths=["/tmp/report.txt"],
+        metadata={
+            "requested_permissions": [{"family": "file.write", "resource_type": "file", "scope": "external"}],
+            "required_trace": [{"family": "file.write", "resource_type": "file", "scope": "workspace"}],
+        },
+    )
+    decision = engine.evaluate(event)
+    assert decision.excessive_permissions
+    assert decision.p_after
+
+
+def test_default_policy_bundle_is_independent_of_working_directory(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    engine = AuthorizationPolicyEngine()
+    assert engine.bundle.version == "1.2.0"
+
+
+def test_generated_openclaw_approval_contract_is_single_owner_with_scoped_persistence():
+    source = _plugin_source(guard_url="http://127.0.0.1:8780", auth_token="token")
+    assert "allowedDecisions: result.allowed_decisions || [\"allow-once\", \"deny\"]" in source
+    assert "decision === \"allow-always\"" in source
+    assert "timeoutBehavior" not in source
+    assert 'registrationId: "openclaw_guard_before_tool_call"' in source
+    assert DEFAULT_DECISION_TIMEOUT_MS == 2_000
+    assert "180000" not in source
+    assert "DEFAULT_DECISION_TIMEOUT_MS = 2000" in source
+
+
+def test_generated_openclaw_approval_description_is_bounded():
+    source = _plugin_source(guard_url="http://127.0.0.1:8780", auth_token="token")
+    assert "MAX_APPROVAL_DESCRIPTION_CHARS = 512" in source
+    assert "boundedApprovalText(result.message" in source
+
+
+@pytest.mark.skipif(shutil.which("node") is None, reason="需要 Node.js 验证生成插件运行时行为")
+def test_generated_plugin_fails_open_for_all_tools_on_http_errors(tmp_path):
+    plugin_path = tmp_path / "openclaw-guard-plugin.mjs"
+    plugin_path.write_text(_plugin_source(guard_url="http://guard.test", auth_token="token"), encoding="utf-8")
+    script = r'''
+const plugin = (await import(process.argv[1])).default;
+globalThis.fetch = async (url) => url.endsWith("/api/health")
+  ? { ok: true, text: async () => JSON.stringify({ ok: true, product: "openclaw-guard" }) }
+  : { ok: false, status: 500, text: async () => JSON.stringify({ detail: "guard responded with error" }) };
+const callbacks = {};
+const api = {
+  pluginConfig: { guardUrl: "http://guard.test", authToken: "token", failClosed: true },
+  on(name, handler) { callbacks[name] = handler; },
+  registerGatewayMethod() {},
+  logger: { info() {}, warn() {} },
+};
+plugin.register(api);
+callbacks.gateway_start();
+await new Promise(resolve => setImmediate(resolve));
+const readResult = await callbacks.before_tool_call(
+  { toolName: "read", params: { path: "notes.md" }, runId: "r1", toolCallId: "c1" },
+  {},
+);
+if (readResult !== undefined) process.exit(1);
+const writeResult = await callbacks.before_tool_call(
+  { toolName: "shell_exec", params: { command: "echo safe" }, runId: "r2", toolCallId: "c2" },
+  {},
+);
+if (writeResult !== undefined) process.exit(2);
+callbacks.gateway_stop();
+'''
+    completed = subprocess.run(
+        ["node", "--input-type=module", "-e", script, str(plugin_path)],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert completed.returncode == 0, completed.stderr or completed.stdout
+
+
+@pytest.mark.skipif(shutil.which("node") is None, reason="需要 Node.js 验证生成插件运行时行为")
+def test_generated_openclaw_plugin_bounds_long_approval_description_at_runtime(tmp_path):
+    plugin_path = tmp_path / "openclaw-guard-plugin.mjs"
+    plugin_path.write_text(_plugin_source(guard_url="http://guard.test", auth_token="token"), encoding="utf-8")
+    script = r'''
+const plugin = (await import(process.argv[1])).default;
+const callbacks = {};
+globalThis.fetch = async (url) => ({
+  ok: true,
+  text: async () => JSON.stringify(url.includes("/api/health") ? { ok: true, product: "openclaw-guard" } : url.includes("before-tool-call") ? {
+    action: "require_approval",
+    title: "T".repeat(300),
+    message: "M".repeat(1000),
+    action_record: { action_id: "approval-1" },
+  } : {}),
+});
+const api = {
+  pluginConfig: { guardUrl: "http://guard.test", authToken: "token" },
+  on(name, handler) { callbacks[name] = handler; },
+  registerGatewayMethod() {},
+  logger: { info() {}, warn() {} },
+};
+plugin.register(api);
+callbacks.gateway_start();
+await new Promise(resolve => setImmediate(resolve));
+const result = await callbacks.before_tool_call(
+  { toolName: "shell_exec", params: {}, runId: "run-1", toolCallId: "call-1" },
+  {},
+);
+if (result.requireApproval.title.length > 80) process.exit(1);
+if (result.requireApproval.description.length > 512) process.exit(2);
+if (!result.requireApproval.description.endsWith("…")) process.exit(3);
+globalThis.fetch = async (url) => url.endsWith("/api/health")
+  ? { ok: true, text: async () => JSON.stringify({ ok: true, product: "openclaw-guard" }) }
+  : { ok: true, text: async () => JSON.stringify({ action: "block", blockReason: "E".repeat(1000) }) };
+const blocked = await callbacks.before_tool_call(
+  { toolName: "shell_exec", params: {}, runId: "run-2", toolCallId: "call-2" },
+  {},
+);
+if (!blocked || blocked.block !== true) process.exit(4);
+if (blocked.blockReason.length > 512) process.exit(5);
+if (!blocked.blockReason.endsWith("…")) process.exit(6);
+callbacks.gateway_stop();
+'''
+    completed = subprocess.run(
+        ["node", "--input-type=module", "-e", script, str(plugin_path)],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert completed.returncode == 0, completed.stderr or completed.stdout
+
+
+def test_persistent_allow_always_resolution_is_recorded_for_eligible_action(services):
+    result = services.handle_before_tool_call({
+        "toolName": "custom_exec",
+        "params": {"command": "echo safe", "cwd": str(services.context.paths.project_dir)},
+        "runId": "h6-run",
+        "toolCallId": "h6-tool",
+        "sessionId": "h6-session",
+        "agentId": "agent-h6",
+        "_hook_auth_verified": True,
+    })
+    action_id = result["action_record"]["action_id"]
+    payload, status = api.resolve_hook_approval(
+        services, {"actionId": action_id, "decision": "allow-always"}
+    )
+    assert status == 200
+    assert payload["accepted"] is True
+    assert payload["decision_state"] == "allowed"
+    trust_path = services.context.paths.runtime_dir / "approval-trust.json"
+    assert trust_path.exists()
+    trust = json.loads(trust_path.read_text(encoding="utf-8"))
+    assert len(trust["items"]) == 1
+    assert trust["items"][0]["expires_at"]
+
+
+def _document_read_event(metadata):
+    trace = AuthorizationTrace(
+        trace_id="least-privilege-review",
+        principal=PrincipalRef(id="agent-review", type="agent", trust="verified"),
+        operation=OperationRef(family="document.read", tool_id="feishu.docs.read"),
+        resource=ResourceRef(type="document", ids=["doc-1"], scope="workspace"),
+        coverage=CoverageResult(status="complete"),
+        data=DataRef(classification="internal", quantity=1),
+        context=ContextRef(recipient_zone="internal", purpose="meeting_summary"),
+    )
+    return BehaviorEvent(
+        event_id="least-privilege-review",
+        timestamp="2026-01-01T00:00:00Z",
+        action_type="unknown",
+        process_name="openclaw",
+        pid=None,
+        user="openclaw",
+        raw_payload={},
+        metadata={"authorization_trace": trace.model_dump(), **metadata},
+    )
+
+
+def test_excessive_permission_dimensions_raise_policy_to_openclaw_approval():
+    requested = {
+        "family": "document.read",
+        "resource_type": "document",
+        "resource_ids": ["doc-1"],
+        "scope": "workspace",
+        "classification": "secret",
+        "field_scope": ["title", "body"],
+        "purpose": "export",
+        "ttl_seconds": 600,
+    }
+    required = {
+        **requested,
+        "classification": "internal",
+        "field_scope": ["title"],
+        "purpose": "meeting_summary",
+        "ttl_seconds": 300,
+    }
+
+    decision = AuthorizationPolicyEngine(Path("policies/permissions")).evaluate(
+        _document_read_event({"requested_permissions": [requested], "required_trace": [required]})
+    )
+
+    assert decision.excessive_permissions
+    assert decision.effect == "openclaw_approval"
+
+
+def test_unknown_required_scope_is_an_explicit_approval_gap():
+    permission = {
+        "family": "document.read",
+        "resource_type": "document",
+        "resource_ids": ["doc-1"],
+        "scope": "external",
+    }
+    decision = AuthorizationPolicyEngine(Path("policies/permissions")).evaluate(
+        _document_read_event({"requested_permissions": [permission], "required_trace": [{**permission, "scope": "unknown"}]})
+    )
+
+    assert decision.excessive_permissions == [PermissionRef.model_validate(permission)]
+    assert decision.effect == "openclaw_approval"
+
+
+def test_invalid_delegated_grant_is_not_used_and_routes_to_explicit_approval_gap():
+    permission = {
+        "family": "document.read",
+        "resource_type": "document",
+        "resource_ids": ["doc-1"],
+        "scope": "workspace",
+        "grant_mode": "delegated",
+    }
+    event = _document_read_event({
+        "current_permissions": [{
+            "family": "document.read",
+            "scope": "workspace",
+            "principal_id": "agent-review",
+            "owner_id": "user-owner",
+            "delegates": ["agent-review"],
+            "permissions": [permission],
+            "constraints": {"grant_mode": "delegated"},
+        }],
+        "requested_permissions": [permission],
+        "required_trace": [permission],
+    })
+
+    decision = AuthorizationPolicyEngine(Path("policies/permissions")).evaluate(event)
+
+    assert not decision.effective_permissions
+    assert decision.grant_validation_gaps
+    assert decision.effect == "openclaw_approval"
+
+
+def test_valid_delegated_grant_is_scoped_and_ttl_bounded():
+    permission = {
+        "family": "document.read",
+        "resource_type": "document",
+        "resource_ids": ["doc-1"],
+        "scope": "workspace",
+        "grant_mode": "delegated",
+        "ttl_seconds": 300,
+    }
+    event = _document_read_event({
+        "current_permissions": [{
+            "family": "document.read",
+            "scope": "workspace",
+            "principal_id": "agent-review",
+            "owner_id": "user-owner",
+            "delegated_by": "user-owner",
+            "delegates": ["agent-review"],
+            "permissions": [permission],
+            "constraints": {"grant_mode": "delegated", "scope": "workspace"},
+            "expires_at": "2999-01-01T00:00:00+00:00",
+        }],
+        "requested_permissions": [permission],
+        "required_trace": [permission],
+    })
+
+    decision = AuthorizationPolicyEngine(Path("policies/permissions")).evaluate(event)
+
+    assert not decision.grant_validation_gaps
+    assert decision.effective_permissions

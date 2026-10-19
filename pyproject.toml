@@ -1,0 +1,39 @@
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "openclaw-guard"
+version = "0.7.0.dev0"
+description = "RVguarder (龙虾卫士), a non-intrusive security protection system for OpenClaw."
+requires-python = ">=3.13"
+authors = [
+  { name = "Codex" }
+]
+readme = "README.md"
+license = { text = "Apache-2.0" }
+dependencies = [
+  "python-dotenv",
+  "requests",
+  "pydantic>=2.0",
+  "fastapi>=0.115.0",
+  "uvicorn[standard]>=0.30.0",
+]
+
+[project.scripts]
+openclaw-guard = "openclaw_guard.main:main"
+
+[project.optional-dependencies]
+web = []
+postgres = ["psycopg2-binary", "sqlalchemy[asyncio]>=2.0"]
+redis = ["redis>=5.0"]
+test = ["httpx"]
+
+[tool.setuptools.packages.find]
+include = ["openclaw_guard*"]
+
+[tool.setuptools.package-data]
+"openclaw_guard.rv" = ["rv_rules.json", "profiles/*.json"]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
