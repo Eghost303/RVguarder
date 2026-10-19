@@ -40,6 +40,7 @@ export default defineUserConfig({
             "/architecture/legacy-rule-migration-matrix.md",
             "/architecture/rv-engine-report.md",
             "/architecture/quality-assurance.md",
+            "/architecture/dsh-plugin-migration-feasibility-2026-10-19.md",
           ],
         },
       ],

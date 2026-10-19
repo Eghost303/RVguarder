@@ -29,7 +29,17 @@
 
 ## 🔜 下一步规划
 
-### P0（当前迭代优先）
+### DSH 插件（当前主线）
+
+> 已确定：跨步 RV 优先 · 纯 TS 原生 + Python 离线校验 · fail-closed 默认。
+> 调研依据与阶段出口见 [DSH 插件迁移调研与开发计划](../architecture/dsh-plugin-migration-feasibility-2026-10-19.md)。
+
+- [ ] **Phase 0：seam 实测** — `exec` 字段、`session/event` 顺序、`session-projection`、PTC 内层调用、Windows `partial` 边界、pre-execute p95
+- [ ] **Phase 1：跨步 RV MVP** — 纯 TS 插件、`tools/pre-execute`、session 窗口、DSL 子集、allow/deny/ask、fail-closed、哈希链 JSONL
+- [ ] **Phase 2：主体级证据** — 跨会话状态自持久化、审批 `reason`/`displayReason`、规则版本与回滚
+- [ ] **Phase 3：PMKB 与观测** — Authorization Trace、PMKB 单步规则、轨迹投影与离线回放
+
+### P0（OpenClaw 维护项）
 
 - [x] **会话级作用域**（已完成）：RV 引擎按 `session_id` 隔离，不同 Agent 会话使用独立的滑动窗口和 DSL 监视器状态（`rv/runtime_verification.py` `_session_windows`）
 - [x] **RV 引擎持久化**：主体/能力状态在 `runtime/rv-state.json` 恢复后再处理新 Hook，窗口状态仍按 session 隔离

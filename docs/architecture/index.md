@@ -16,6 +16,7 @@
 | 4 | [旧规则迁移矩阵](./legacy-rule-migration-matrix.md) | 47 条旧规则的迁移事实、删除门槛和分组计划 |
 | 5 | [RV 层技术报告](./rv-engine-report.md) | ToolCallIR、ChainRule DSL、窗口与主体证据状态 |
 | 6 | [质量保障方案](./quality-assurance.md) | 测试分层、合约门禁、性能和回归策略 |
+| 7 | [DSH 插件迁移调研与开发计划](./dsh-plugin-migration-feasibility-2026-10-19.md) | DeepSeek Harness 的可行性、扩展点映射与阶段计划 |
 
 ## 当前架构要点
 
@@ -43,4 +44,5 @@ OpenClaw before_tool_call
 
 - [语义理解与 PMKB](../semantic/method.md)
 - [路线图](../ops/roadmap.md)
+- [DSH 插件开发计划](./dsh-plugin-migration-feasibility-2026-10-19.md)
 - [安全能力与边界](../rvguarder-security-capabilities-and-boundaries.md)
