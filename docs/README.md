@@ -2,22 +2,22 @@
 home: true
 title: RVguarder
 heroText: RVguarder
-tagline: Non-intrusive runtime security protection for OpenClaw
+tagline: Non-intrusive runtime security plugin for OpenClaw and DSH
 actions:
   - text: 快速开始
     link: /deployment/local.html
     type: primary
-  - text: 运行时 Hook 拦截
-    link: /features/runtime-hook.html
+  - text: DSH 插件计划
+    link: /architecture/dsh-plugin-migration-feasibility-2026-10-19.html
     type: secondary
 
 features:
-  - title: 🛡️ 原生审批拦截
-    details: 基于 OpenClaw 官方 `api.on("before_tool_call")` API，工具执行前挂起 agent，通过 `requireApproval` 实现物理拦截。
+  - title: 🛡️ 双宿主原生门禁
+    details: OpenClaw 通过官方 `api.on("before_tool_call")` 接入；DSH 通过 `tools/pre-execute` 与 `ctx.tools.guard()` 接入，两种宿主都不修改源码。
   - title: 🔄 审批结果同步
     details: OpenClaw 原生审批卡片是唯一 Hook 审批入口，Guard Dashboard 通过 `onResolution`、SSE 和增量查询及时同步结果。
   - title: ⚡ 后端静默透传
-    details: 后端传输不可达时所有 Agent 的工具调用（含写入与执行）由 OpenClaw 自身规则继续处理，Guard 防护暂停；后端恢复后自动启用。
+    details: OpenClaw 侧后端传输不可达时所有 Agent 的工具调用（含写入与执行）由 OpenClaw 自身规则继续处理，Guard 防护暂停；后端恢复后自动启用。DSH 侧默认 fail-closed，可显式配置 fail-open。
   - title: 🧠 语义理解增强
     details: DeepSeek LLM 驱动的语义分析引擎，理解自然语言约束而非简单关键词匹配。7 维度 50+ 标签，双模式运行（LLM / 本地规则）。
   - title: 🧩 权限知识库 PMKB
@@ -32,8 +32,8 @@ features:
 <div class="custom-card-grid">
   <div class="custom-card">
     <h3>🎯 适合谁用</h3>
-    <p>高安全终端、内网环境、AI 实训场景，以及希望在不侵入 OpenClaw 的前提下增加安全管控的团队与个人。</p>
-    <p><em>For teams who want OpenClaw safety without touching a single line of its source.</em></p>
+    <p>高安全终端、内网环境、AI 实训场景，以及希望在不侵入 OpenClaw / DSH 的前提下增加安全管控的团队与个人。</p>
+    <p><em>For teams who want OpenClaw or DSH safety without touching a single line of host source.</em></p>
   </div>
   <div class="custom-card">
     <h3>🧱 架构概览</h3>
@@ -42,8 +42,8 @@ features:
   </div>
   <div class="custom-card">
     <h3>📦 当前状态</h3>
-    <p>v0.7.0-dev — PMKB 权限模型、最小权限与跨 session RV 已落地，Hook 仍由 OpenClaw 单一审批并通过 SSE 同步。PMKB 1.2.0 native rules 立即参与运行时决策；迁移记录只用于 provenance/replay。</p>
-    <p><em>v0.7.0-dev — PMKB authorization modeling, least privilege, and cross-session RV are implemented. OpenClaw remains the single Hook approval owner with SSE synchronization.</em></p>
+    <p>v0.7.0-dev — PMKB 权限模型、最小权限与跨 session RV 已落地，Hook 仍由 OpenClaw 单一审批并通过 SSE 同步。PMKB 1.2.0 native rules 立即参与运行时决策；迁移记录只用于 provenance/replay。DSH 0.1.0 测试候选已打包，Windows 与 WSL 原生宿主均完成加载与握手。</p>
+    <p><em>v0.7.0-dev — PMKB authorization modeling, least privilege, and cross-session RV are implemented. The DSH 0.1.0 test candidate is packaged and verified on both Windows and WSL hosts.</em></p>
   </div>
 </div>
 
@@ -59,6 +59,7 @@ features:
 | [架构总览](./architecture/overview.md) | 分层设计与代码映射 |
 | [权限知识库与 RV 运行时架构](./architecture/permission-kb-runtime-architecture.md) | PMKB、语义命中、权限建模与跨 session RV |
 | [安全能力与边界](./rvguarder-security-capabilities-and-boundaries.md) | 可防护攻击、已知漏防与部署边界 |
+| [DSH 迁移与开发计划](./architecture/dsh-plugin-migration-feasibility-2026-10-19.md) | 扩展点映射、能力矩阵、阶段计划与验收标准 |
 | [HTTP 接口清单](./api/http.md) | 后端 API 文档 |
 | [语义理解方案](./semantic/method.md) | 语义理解架构设计 |
 | [运维 FAQ](./ops/faq.md) | 常见问题 |

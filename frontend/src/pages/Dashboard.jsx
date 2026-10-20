@@ -61,7 +61,8 @@ function HeroCard() {
   const summary = useStore((s) => s.summary);
   const chat = summary.chat || {};
   const target = summary.target || {};
-  const connected = (chat.connection_state || 'disconnected') === 'connected';
+  const dsh = summary.host?.kind === 'dsh';
+  const connected = dsh ? !!summary.hook?.active : (chat.connection_state || 'disconnected') === 'connected';
   const openClawUrl = (target.web_urls && target.web_urls.length) ? target.web_urls[0] : 'http://localhost:8000';
 
   return (
@@ -72,8 +73,8 @@ function HeroCard() {
           <strong>{t(connected ? 'connected' : 'disconnected')}</strong>
         </div>
         <div class="hero-action">
-          <p>{t('openOpenClaw')}</p>
-          <a href={openClawUrl} target="_blank" class="btn primary hero-btn" rel="noreferrer">立即前往</a>
+          <p>{dsh ? '请在 DSH 原生窗口进行工具审批' : t('openOpenClaw')}</p>
+          {!dsh && <a href={openClawUrl} target="_blank" class="btn primary hero-btn" rel="noreferrer">立即前往</a>}
         </div>
       </div>
       {connected && (

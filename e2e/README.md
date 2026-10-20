@@ -28,5 +28,5 @@ env -u HTTP_PROXY -u HTTPS_PROXY -u ALL_PROXY -u http_proxy -u https_proxy -u al
 
 ## 说明
 
-- 测试会在启动时自动创建临时 `projectDir` 与最小 `openclaw.json`，并用 `python -m openclaw_guard.main run` 拉起服务（端口随机）。
+- 测试会在启动时自动创建临时 `projectDir` 与最小 `openclaw.json`，并用 `python -m clawRVguarder.main run` 拉起服务（端口随机）。
 - 结束测试时会自动关闭服务并清理临时目录。

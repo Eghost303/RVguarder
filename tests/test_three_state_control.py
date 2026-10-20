@@ -7,19 +7,19 @@ import time
 from pathlib import Path
 from typing import get_args
 
-from openclaw_guard.integrations.hook_runtime import ensure_runtime_hook_plugin
-from openclaw_guard.integrations.tool_hook_bridge import (
+from clawRVguarder.integrations.hook_runtime import ensure_runtime_hook_plugin
+from clawRVguarder.integrations.tool_hook_bridge import (
     OPENCLAW_NATIVE_TOOL_PROFILES,
     build_hook_event,
 )
-from openclaw_guard.engine.semantic_enhancer import SemanticEnhancer
-from openclaw_guard.models import DecisionAction, DetectionDecision
-from openclaw_guard.policy.models import PolicyDecision
-from openclaw_guard.policy.engine import AuthorizationPolicyEngine
-from openclaw_guard.rv.runtime_verification import RuntimeVerificationEngine
-from openclaw_guard.rv.rv_dsl import ChainRule, MonitorSpec, Ruleset, StepRequirement
-from openclaw_guard.services import build_services
-from openclaw_guard.utils import utc_now_iso
+from clawRVguarder.engine.semantic_enhancer import SemanticEnhancer
+from clawRVguarder.models import DecisionAction, DetectionDecision
+from clawRVguarder.policy.models import PolicyDecision
+from clawRVguarder.policy.engine import AuthorizationPolicyEngine
+from clawRVguarder.rv.runtime_verification import RuntimeVerificationEngine
+from clawRVguarder.rv.rv_dsl import ChainRule, MonitorSpec, Ruleset, StepRequirement
+from clawRVguarder.services import build_services
+from clawRVguarder.utils import utc_now_iso
 
 
 def test_unmapped_tool_keeps_unknown_action_type() -> None:

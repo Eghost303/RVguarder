@@ -1,5 +1,19 @@
 # v0.7.0-dev 工程统一与文档清查
 
+## 2026-10-20 — DSH 插件 0.1.0 适配
+
+- 新增 `dshRVguarder/`：DSH 0.2.1-rc.2 的 TypeScript 薄插件（`tools/pre-execute`、单调 `guard()`、完成 outbox）与 `clawRVguarder/hosts/dsh/` 共享 Python 核心。
+- 发行产物输出到 `dist/dsh-rvguarder-0.1.0/`：插件 tgz、Python wheel、`INSTALL.md`、测试 profile 生成器与 SHA-256 清单。
+- 已在 Windows 与 WSL 原生 DSH 上验证加载与握手；SDK 管线单测 12/12，WSL 侧 358.9ms。
+- 新增 WSL 原生部署说明与 9.6 验收状态；DSH 默认 fail-closed，可显式配置 fail-open。
+
+## 2026-10-20 — Python 主包目录迁移
+
+- 将 `openclaw_guard/` 重命名为 `clawRVguarder/`，同步 Python 导入、CLI、构建资源、测试和文档引用。
+- 保留发行名和 `openclaw-guard` 命令、数据库/缓存名称及 OpenClaw Hook 协议标识；已有 editable 安装需重新执行 `python -m pip install -e .`。
+- 新增 `docs/dev/project-memory.md`，作为后续开发的架构与状态记忆入口。
+
+
 **日期**：2026-09-09
 **当前口径**：FastAPI 单入口、PMKB `1.2.0`、三态 RV、OpenClaw 原生审批唯一入口
 

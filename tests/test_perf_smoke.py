@@ -11,7 +11,7 @@
 import time
 import unittest
 
-from openclaw_guard.rv.runtime_verification import RuntimeVerificationEngine
+from clawRVguarder.rv.runtime_verification import RuntimeVerificationEngine
 
 # 宽松冒烟阈值（平均/次，毫秒）
 RV_ENGINE_MAX_MS = 50.0

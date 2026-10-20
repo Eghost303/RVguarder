@@ -58,21 +58,21 @@ OpenClaw before_tool_call
 
 | 层 | 实现 |
 | --- | --- |
-| 事件与语义输入 | `openclaw_guard/engine/pipeline.py`、`engine/semantic_enhancer.py`、`integrations/tool_hook_bridge.py` |
-| Trace 编译 | `openclaw_guard/policy/trace.py` |
-| PMKB 加载与 schema 校验 | `openclaw_guard/policy/catalog.py`（`PolicyBundle`）、`policy/models.py` |
-| 规则匹配与风险评分 | `openclaw_guard/policy/evaluator.py` |
-| 最小权限闭包/差分 | `openclaw_guard/policy/permission_diff.py` |
-| 组合风险图 | `openclaw_guard/policy/risk_graph.py` |
-| 统一权限处置 | `openclaw_guard/policy/engine.py` |
-| PMKB 权限自动机编译 | `openclaw_guard/policy/rv_compiler.py` |
-| session / principal RV | `openclaw_guard/rv/runtime_verification.py`、`openclaw_guard/spec/session_state.py` |
-| OpenClaw 审批和同步 | `openclaw_guard/integrations/hook_runtime.py`、`services.py` |
+| 事件与语义输入 | `clawRVguarder/engine/pipeline.py`、`engine/semantic_enhancer.py`、`integrations/tool_hook_bridge.py` |
+| Trace 编译 | `clawRVguarder/policy/trace.py` |
+| PMKB 加载与 schema 校验 | `clawRVguarder/policy/catalog.py`（`PolicyBundle`）、`policy/models.py` |
+| 规则匹配与风险评分 | `clawRVguarder/policy/evaluator.py` |
+| 最小权限闭包/差分 | `clawRVguarder/policy/permission_diff.py` |
+| 组合风险图 | `clawRVguarder/policy/risk_graph.py` |
+| 统一权限处置 | `clawRVguarder/policy/engine.py` |
+| PMKB 权限自动机编译 | `clawRVguarder/policy/rv_compiler.py` |
+| session / principal RV | `clawRVguarder/rv/runtime_verification.py`、`clawRVguarder/spec/session_state.py` |
+| OpenClaw 审批和同步 | `clawRVguarder/integrations/hook_runtime.py`、`services.py` |
 
 ## 3. PMKB 知识库结构
 
 源码运行时读取 `policies/permissions/`；打包构建时由 `setup.py` 将其复制到
-`openclaw_guard/policy/data/permissions/`，仓库内只保留单一源。
+`clawRVguarder/policy/data/permissions/`，仓库内只保留单一源。
 
 | 文件 | 当前数量 | 作用 |
 | --- | ---: | --- |

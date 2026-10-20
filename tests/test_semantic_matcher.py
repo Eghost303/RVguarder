@@ -6,15 +6,15 @@ from unittest.mock import patch
 import pytest
 from pydantic import ValidationError
 
-from openclaw_guard.engine.semantic_enhancer import SemanticEnhancer
-from openclaw_guard.engine.semantic_models import (
+from clawRVguarder.engine.semantic_enhancer import SemanticEnhancer
+from clawRVguarder.engine.semantic_models import (
     FactEvidence,
     OperationCandidate,
     SemanticMatchIR,
     build_sanitized_llm_input,
     parse_semantic_match_response,
 )
-from openclaw_guard.models import BehaviorEvent
+from clawRVguarder.models import BehaviorEvent
 
 
 def _event(**overrides: object) -> BehaviorEvent:

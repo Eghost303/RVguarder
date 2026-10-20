@@ -11,7 +11,7 @@ import shutil
 import subprocess
 import tempfile
 
-from openclaw_guard.integrations.hook_runtime import _plugin_source
+from clawRVguarder.integrations.hook_runtime import _plugin_source
 
 
 NODE_CHECK = r'''

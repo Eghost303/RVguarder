@@ -1,7 +1,7 @@
 # RV 层（运行时验证）技术报告
 
 > 版本：v1.1 | 初稿日期：2026-08-11 | 当前复核：2026-09-15
-> 范围：`openclaw_guard/rv/`（运行时验证）+ `openclaw_guard/spec/`（规约生成与校验）两个子包
+> 范围：`clawRVguarder/rv/`（运行时验证）+ `clawRVguarder/spec/`（规约生成与校验）两个子包
 > 关联文档：[RV 权限自动机架构](./rv-permission-automata.md)（现行合同）、[路线图](../ops/roadmap.md)（当前推进）。
 
 > **当前实现更新（2026-09-15）**：本报告保留 RV 引擎的机制细节；早期的 DetectionEngine/双轨描述仅是历史快照。生产 RV 已收敛为 ChainRule DSL 生成路径，手写 FSM 与 `transitions` 已移除。PMKB、Authorization Trace、危险权限组合和主体跨 session 状态的现行交互以[权限知识库与 RV 运行时架构结果](./permission-kb-runtime-architecture.md)为准。
@@ -32,7 +32,7 @@
 RV 层在本次重构中从 `engine/` 拆分为两个子包，与在线检测（`engine/`）解耦：
 
 ```
-openclaw_guard/
+clawRVguarder/
 ├── engine/                # 在线安全决策（第一道防线：单步检测 + 编排）
 └── rv/                    # 运行时验证（第二道防线：跨步链式判定）
     ├── runtime_verification.py   # RV 主引擎 + WindowManager 滑动窗口
@@ -296,4 +296,4 @@ Git 历史中保留，不可通过配置重新启用。
 
 ---
 
-*本报告基于对 `openclaw_guard/rv/` 与 `openclaw_guard/spec/` 全部源码、`rv_rules.json`、相关测试与升级计划文档的完整阅读与分析。*
+*本报告基于对 `clawRVguarder/rv/` 与 `clawRVguarder/spec/` 全部源码、`rv_rules.json`、相关测试与升级计划文档的完整阅读与分析。*

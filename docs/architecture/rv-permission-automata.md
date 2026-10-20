@@ -54,7 +54,7 @@ flowchart LR
 
 ## 3. PMKB 到自动机的编译合同
 
-`openclaw_guard/policy/rv_compiler.py` 中的 `PermissionAutomatonCompiler` 读取已校验、冻结的 `PolicyBundle`，生成 `Ruleset` 和 `MonitorSpec`。每个监视器保存 `source="pmkb"` 与 `source_ids`，因此审计记录能稳定回链到知识库规则或关系 ID。
+`clawRVguarder/policy/rv_compiler.py` 中的 `PermissionAutomatonCompiler` 读取已校验、冻结的 `PolicyBundle`，生成 `Ruleset` 和 `MonitorSpec`。每个监视器保存 `source="pmkb"` 与 `source_ids`，因此审计记录能稳定回链到知识库规则或关系 ID。
 
 ```mermaid
 flowchart TD

@@ -11,10 +11,10 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from openclaw_guard.main import main
-from openclaw_guard import api
-from openclaw_guard.integrations.discovery import _extract_available_models
-from openclaw_guard.integrations.openclaw_adapter import (
+from clawRVguarder.main import main
+from clawRVguarder import api
+from clawRVguarder.integrations.discovery import _extract_available_models
+from clawRVguarder.integrations.openclaw_adapter import (
     ChatMessage,
     ChatStartResult,
     OpenClawRelayError,
@@ -23,10 +23,10 @@ from openclaw_guard.integrations.openclaw_adapter import (
     resolve_session_key,
     switch_model,
 )
-from openclaw_guard.manager import build_manager
-from openclaw_guard.ui import build_ui
-from openclaw_guard.web import _error_message
-from openclaw_guard.web.app import launch_web
+from clawRVguarder.manager import build_manager
+from clawRVguarder.ui import build_ui
+from clawRVguarder.web import _error_message
+from clawRVguarder.web.app import launch_web
 
 
 class WebCliTests(unittest.TestCase):
@@ -86,7 +86,7 @@ class WebCliTests(unittest.TestCase):
             config_path.write_text(json.dumps({"models": {"providers": {}}}), encoding="utf-8")
             argv = ["run", "--project-dir", str(project), "--config-path", str(config_path), "--once", "--no-browser"]
             # 真实 load_dotenv 会把仓库 .env 的密钥写进同进程 os.environ，污染后续测试。
-            with patch("openclaw_guard.main.load_dotenv"), patch("sys.stdout.write") as write_mock:
+            with patch("clawRVguarder.main.load_dotenv"), patch("sys.stdout.write") as write_mock:
                 exit_code = main(argv)
             self.assertEqual(exit_code, 0)
             self.assertTrue(write_mock.called)
@@ -98,7 +98,7 @@ class WebCliTests(unittest.TestCase):
             config_path = project / "openclaw.json"
             config_path.write_text(json.dumps({"models": {"providers": {}}}), encoding="utf-8")
             argv = ["run", "--project-dir", str(project), "--config-path", str(config_path), "--once", "--no-browser"]
-            with patch("openclaw_guard.main.load_dotenv"), patch("sys.stdout.write") as write_mock:
+            with patch("clawRVguarder.main.load_dotenv"), patch("sys.stdout.write") as write_mock:
                 exit_code = main(argv)
             self.assertEqual(exit_code, 0)
             output = "".join(call.args[0] for call in write_mock.call_args_list)
@@ -112,7 +112,7 @@ class WebCliTests(unittest.TestCase):
             config_path = project / "openclaw.json"
             config_path.write_text(json.dumps({"models": {"providers": {}}}), encoding="utf-8")
             manager = build_manager(project, config_path=config_path)
-            payload = manager.create_chat_action("请删除 /Users/dynooob/secret.txt")
+            payload = manager.create_chat_action("请删除 /Users/alice/secret.txt")
             self.assertEqual(payload["status"], "pending_approval")
             self.assertTrue(manager.conversation_summary()["pending_requests"])
             self.assertTrue(payload.get("messages"))
@@ -126,7 +126,7 @@ class WebCliTests(unittest.TestCase):
             config_path = project / "openclaw.json"
             config_path.write_text(json.dumps({"models": {"providers": {}}}), encoding="utf-8")
             manager = build_manager(project, config_path=config_path)
-            action = manager.create_chat_action("请删除 /Users/dynooob/secret.txt")
+            action = manager.create_chat_action("请删除 /Users/alice/secret.txt")
             with patch.object(manager, "execution_guard_status", return_value={"ready": False, "mode": "runtime-hook", "reason": "hook_inactive", "hook": {}}):
                 payload = manager.approve_action(action["action_id"])
             self.assertEqual(payload["action"]["status"], "blocked")
@@ -140,7 +140,7 @@ class WebCliTests(unittest.TestCase):
             config_path = project / "openclaw.json"
             config_path.write_text(json.dumps({"models": {"providers": {}}}), encoding="utf-8")
             manager = build_manager(project, config_path=config_path)
-            action = manager.create_chat_action("请删除 /Users/dynooob/secret.txt")
+            action = manager.create_chat_action("请删除 /Users/alice/secret.txt")
             self.assertEqual(action["status"], "pending_approval")
             with patch.object(manager, "execution_guard_status", return_value={"ready": False, "mode": "runtime-hook", "reason": "hook_inactive", "hook": {"active": False}}):
                 approved = manager.approve_action(action["action_id"])
@@ -177,8 +177,8 @@ class WebCliTests(unittest.TestCase):
             config_path = project / "openclaw.json"
             config_path.write_text(json.dumps({"models": {"providers": {}}}), encoding="utf-8")
             manager = build_manager(project, config_path=config_path)
-            with patch("openclaw_guard.manager.inspect_guard_plugin", return_value={"ok": True, "found": False, "status": "not_installed"}), patch(
-                "openclaw_guard.manager.get_guard_hook_status",
+            with patch("clawRVguarder.manager.inspect_guard_plugin", return_value={"ok": True, "found": False, "status": "not_installed"}), patch(
+                "clawRVguarder.manager.get_guard_hook_status",
                 side_effect=OpenClawRelayError("gateway_unreachable", "gateway closed (1006 abnormal closure)"),
             ):
                 status = manager.hook_status()
@@ -194,7 +194,7 @@ class WebCliTests(unittest.TestCase):
             manager = build_manager(project, config_path=config_path)
             manager.runtime_hook["plugin_valid"] = False
             manager.runtime_hook["plugin_validation_error"] = "syntax error"
-            with patch("openclaw_guard.manager.inspect_guard_plugin", return_value={"ok": False, "error_code": "plugin_probe_failed"}):
+            with patch("clawRVguarder.manager.inspect_guard_plugin", return_value={"ok": False, "error_code": "plugin_probe_failed"}):
                 status = manager.hook_status()
             self.assertEqual(status["state"], "plugin_invalid")
             self.assertEqual(status["error_code"], "plugin_load_failed")
@@ -207,8 +207,8 @@ class WebCliTests(unittest.TestCase):
             config_path.write_text(json.dumps({"models": {"providers": {}}}), encoding="utf-8")
             manager = build_manager(project, config_path=config_path)
             manager._log("hook_before_tool_call", action_id="abc123", tool_name="read", decision="ask")
-            with patch("openclaw_guard.manager.inspect_guard_plugin", return_value={"ok": True, "found": True, "status": "loaded", "hook_count": 2, "gateway_methods": ["openclaw_guard.hook_status"]}), patch(
-                "openclaw_guard.manager.get_guard_hook_status",
+            with patch("clawRVguarder.manager.inspect_guard_plugin", return_value={"ok": True, "found": True, "status": "loaded", "hook_count": 2, "gateway_methods": ["openclaw_guard.hook_status"]}), patch(
+                "clawRVguarder.manager.get_guard_hook_status",
                 side_effect=OpenClawRelayError("gateway_unreachable", "gateway closed (1006 abnormal closure)"),
             ):
                 status = manager.hook_status()
@@ -226,7 +226,7 @@ class WebCliTests(unittest.TestCase):
             manager = build_manager(project, config_path=config_path)
             payload = {
                 "toolName": "shell",
-                "params": {"command": "rm /Users/dynooob/secret.txt"},
+                "params": {"command": "rm /Users/alice/secret.txt"},
                 "runId": "run-hook-1",
                 "toolCallId": "tool-call-1",
                 "sessionKey": "agent:main:main",
@@ -265,7 +265,7 @@ class WebCliTests(unittest.TestCase):
             manager = build_manager(project, config_path=config_path)
             payload = {
                 "toolName": "shell",
-                "params": {"command": "rm /Users/dynooob/secret.txt"},
+                "params": {"command": "rm /Users/alice/secret.txt"},
                 "runId": "run-hook-2",
                 "toolCallId": "tool-call-2",
                 "sessionKey": "agent:main:main",
@@ -361,7 +361,7 @@ class WebCliTests(unittest.TestCase):
                     "action_type": "file_write",
                     "process_name": "openclaw",
                     "user": "operator",
-                    "target_paths": ["/Users/dynooob/Documents/notes.txt"],
+                    "target_paths": ["/Users/alice/Documents/notes.txt"],
                     "raw_user_intent": "写入一份说明文档",
                 },
                 "写入一份说明文档",
@@ -379,13 +379,13 @@ class WebCliTests(unittest.TestCase):
             config_path.write_text(json.dumps({"models": {"providers": {"openai": {"models": ["gpt-4.1"]}}}}), encoding="utf-8")
             manager = build_manager(project, config_path=config_path)
             with patch(
-                "openclaw_guard.manager.start_chat_message",
+                "clawRVguarder.manager.start_chat_message",
                 return_value=ChatStartResult(ok=True, session_key="main", run_id="run-1", status="started"),
             ), patch(
-                "openclaw_guard.manager.wait_for_run",
+                "clawRVguarder.manager.wait_for_run",
                 return_value={"status": "completed"},
             ), patch(
-                "openclaw_guard.manager.get_chat_history",
+                "clawRVguarder.manager.get_chat_history",
                 side_effect=[
                     [],
                     [ChatMessage(role="user", text="你好"), ChatMessage(role="assistant", text="你好，我已经收到。")],
@@ -408,13 +408,13 @@ class WebCliTests(unittest.TestCase):
             manager = build_manager(project, config_path=config_path)
             action = manager.create_chat_action("你好")
             with patch(
-                "openclaw_guard.manager.start_chat_message",
+                "clawRVguarder.manager.start_chat_message",
                 return_value=ChatStartResult(ok=True, session_key="main", run_id="run-2", status="started"),
             ), patch(
-                "openclaw_guard.manager.wait_for_run",
+                "clawRVguarder.manager.wait_for_run",
                 return_value={"status": "completed"},
             ), patch(
-                "openclaw_guard.manager.get_chat_history",
+                "clawRVguarder.manager.get_chat_history",
                 side_effect=[
                     [],
                     [ChatMessage(role="user", text="你好"), ChatMessage(role="assistant", text="已收到")],
@@ -440,13 +440,13 @@ class WebCliTests(unittest.TestCase):
             if action["status"] == "pending_approval":
                 action = manager.action_service.approve(action["action_id"])["action"]
             with patch(
-                "openclaw_guard.manager.start_chat_message",
+                "clawRVguarder.manager.start_chat_message",
                 return_value=ChatStartResult(ok=True, session_key="main", run_id="run-3", status="started"),
             ), patch(
-                "openclaw_guard.manager.wait_for_run",
+                "clawRVguarder.manager.wait_for_run",
                 return_value={"status": "error", "error": "429 余额不足或无可用资源包,请充值。"},
             ), patch(
-                "openclaw_guard.manager.get_chat_history",
+                "clawRVguarder.manager.get_chat_history",
                 side_effect=[[], []],
             ):
                 manager.start_chat_action(action["action_id"])
@@ -464,7 +464,7 @@ class WebCliTests(unittest.TestCase):
             config_path.write_text(json.dumps({"models": {"providers": {}}}), encoding="utf-8")
             manager = build_manager(project, config_path=config_path)
             with patch(
-                "openclaw_guard.manager.get_chat_status",
+                "clawRVguarder.manager.get_chat_status",
                 return_value=RelayStatus(
                     available=True,
                     connected=True,
@@ -495,11 +495,11 @@ class WebCliTests(unittest.TestCase):
             config_path = Path(tmp) / "openclaw.json"
             config_path.write_text("{}", encoding="utf-8")
             manager = build_manager(Path(tmp), config_path=config_path)
-            with patch("openclaw_guard.integrations.openclaw_adapter.resolve_session_key", return_value="main"), patch(
-                "openclaw_guard.integrations.openclaw_adapter.get_current_session_model",
+            with patch("clawRVguarder.integrations.openclaw_adapter.resolve_session_key", return_value="main"), patch(
+                "clawRVguarder.integrations.openclaw_adapter.get_current_session_model",
                 return_value={"key": "main", "provider": "zai", "model": "glm-4.6", "value": "zai/glm-4.6"},
             ), patch(
-                "openclaw_guard.integrations.openclaw_adapter._gateway_call",
+                "clawRVguarder.integrations.openclaw_adapter._gateway_call",
                 return_value={"ok": True, "resolved": {"modelProvider": "zai", "model": "glm-4.6"}},
             ) as gateway_call:
                 result = switch_model(manager.context.target, "zai/glm-4.6")
@@ -519,7 +519,7 @@ class WebCliTests(unittest.TestCase):
                     {"key": "agent:main:main", "modelProvider": "zai", "model": "glm-5"},
                 ]
             }
-            with patch("openclaw_guard.integrations.openclaw_adapter._gateway_call", return_value=payload):
+            with patch("clawRVguarder.integrations.openclaw_adapter._gateway_call", return_value=payload):
                 key = resolve_session_key(manager.context.target)
             self.assertEqual(key, "main")
 
@@ -547,7 +547,7 @@ class WebCliTests(unittest.TestCase):
             config_path = project / "openclaw.json"
             config_path.write_text("{}", encoding="utf-8")
             manager = build_manager(project, config_path=config_path)
-            with patch("openclaw_guard.manager.reset_chat_session", return_value={"ok": True}):
+            with patch("clawRVguarder.manager.reset_chat_session", return_value={"ok": True}):
                 payload = manager.new_chat()
             self.assertTrue(payload["ok"])
             self.assertEqual(len(payload["messages"]), 1)
@@ -565,11 +565,11 @@ class WebCliTests(unittest.TestCase):
                     "action_type": "file_delete",
                     "process_name": "openclaw",
                     "user": "tester",
-                    "target_paths": ["/Users/dynooob/Documents/tmp.txt"],
-                    "raw_user_intent": "删除 /Users/dynooob/Documents/tmp.txt",
+                    "target_paths": ["/Users/alice/Documents/tmp.txt"],
+                    "raw_user_intent": "删除 /Users/alice/Documents/tmp.txt",
                     "metadata": {"outside_workspace": True},
                 },
-                "删除 /Users/dynooob/Documents/tmp.txt",
+                "删除 /Users/alice/Documents/tmp.txt",
                 auto_execute=False,
             )
             approved = manager.approve_action(payload["action_id"])

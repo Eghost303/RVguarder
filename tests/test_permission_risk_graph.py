@@ -1,7 +1,7 @@
 from dataclasses import replace
 
-from openclaw_guard.policy.catalog import PolicyBundle
-from openclaw_guard.policy.models import (
+from clawRVguarder.policy.catalog import PolicyBundle
+from clawRVguarder.policy.models import (
     AuthorizationTrace,
     ContextRef,
     CoverageResult,
@@ -11,7 +11,7 @@ from openclaw_guard.policy.models import (
     PrincipalRef,
     ResourceRef,
 )
-from openclaw_guard.policy.risk_graph import RiskGraph
+from clawRVguarder.policy.risk_graph import RiskGraph
 
 
 ROOT = "policies/permissions"

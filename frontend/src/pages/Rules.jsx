@@ -1,3 +1,5 @@
+import { useEffect, useState } from 'preact/hooks';
+import { api } from '../api';
 import { useStore } from '../store';
 import { t } from '../i18n';
 import { RuleCard } from '../components/RuleCard';
@@ -7,12 +9,23 @@ export function Rules() {
   const rulesSearch = useStore((s) => s.rulesSearch);
   const setRulesSearch = useStore((s) => s.setRulesSearch);
 
+  const dsh = useStore((s) => s.summary.host?.kind === 'dsh');
+  const [nativeRules, setNativeRules] = useState(null);
+  useEffect(() => {
+    if (!dsh) return;
+    let active = true;
+    api('/api/dsh/policy').then((data) => {
+      if (active) setNativeRules(data.rules.map((r) => ({ruleId: r.id, title: r.id, desc: r.source || '', at: [String(r.match?.operation || 'policy')], sv: r.effect === 'block' ? 'critical' : 'medium', dc: r.effect, grp: 'PMKB ' + data.version})));
+    }).catch(() => {});
+    return () => { active = false; };
+  }, [dsh]);
+  const rules = dsh ? (nativeRules || []) : BUILTIN_RULES;
   const q = (rulesSearch || '').trim().toLowerCase();
   const filtered = q
-    ? BUILTIN_RULES.filter((r) =>
+    ? rules.filter((r) =>
         (r.ruleId + r.title + r.desc + r.at.join(' ')).toLowerCase().includes(q)
       )
-    : BUILTIN_RULES;
+    : rules;
 
   return (
     <div class="stack-view">

@@ -9,8 +9,8 @@
 
 import unittest
 
-from openclaw_guard.spec.nl2spec_generator import generate_ruleset
-from openclaw_guard.rv.rv_dsl import (
+from clawRVguarder.spec.nl2spec_generator import generate_ruleset
+from clawRVguarder.rv.rv_dsl import (
     ChainRule,
     MonitorSpec,
     Ruleset,
@@ -18,8 +18,8 @@ from openclaw_guard.rv.rv_dsl import (
     compile_monitors,
     load_ruleset,
 )
-from openclaw_guard.spec.spec_validator import SpecValidator, ValidationReport
-from openclaw_guard.spec.eval_traces import POSITIVE_TRACES, NEGATIVE_TRACES
+from clawRVguarder.spec.spec_validator import SpecValidator, ValidationReport
+from clawRVguarder.spec.eval_traces import POSITIVE_TRACES, NEGATIVE_TRACES
 
 
 class TestNl2SpecGenerator(unittest.TestCase):

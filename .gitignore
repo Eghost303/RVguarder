@@ -47,4 +47,4 @@ scripts/diagnose_m3_*.py
 scripts/review_m2_*.py
 tests/test_atlas_*.py
 tests/test_capability_experiment_*.py
-openclaw_guard/rv/profiles/atlas-*.json
+clawRVguarder/rv/profiles/atlas-*.json

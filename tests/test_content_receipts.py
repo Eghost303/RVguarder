@@ -9,8 +9,8 @@ from unittest.mock import patch
 import pytest
 from pydantic import ValidationError
 
-from openclaw_guard.spec.content_receipts import ContentReceiptError, ExecutedContentLedger, HostContentReceiptAuthority, content_version
-from openclaw_guard.spec.host_authorization import HostAuthorizationStore, TaskBinding
+from clawRVguarder.spec.content_receipts import ContentReceiptError, ExecutedContentLedger, HostContentReceiptAuthority, content_version
+from clawRVguarder.spec.host_authorization import HostAuthorizationStore, TaskBinding
 
 
 @pytest.fixture
@@ -23,7 +23,7 @@ def producer(tmp_path):
     store = HostAuthorizationStore(tmp_path / "host", agent_workspaces=[workspace])
     authority = HostContentReceiptAuthority(store, issuer="executor", tool_operations={"read": "file.read", "write": "file.write"})
     binding = TaskBinding("task", "hook:binding", "agent", "session", "run")
-    from openclaw_guard.spec.resource_evidence import HostResourceObserver
+    from clawRVguarder.spec.resource_evidence import HostResourceObserver
     store.issue(HostResourceObserver({"office": workspace}), "office", "source.txt", binding=binding,
                 operation="file.read", recipient="local-reader")
     version = content_version("office", "source.txt", source.read_bytes())
@@ -50,7 +50,7 @@ def test_success_receipt_records_actual_bytes_without_classification_or_new_call
 
 def test_previous_arm_records_are_invisible_after_disable_and_reenable(producer):
     """旧臂已完成事实不能在再次启用Auth的新臂中被查询或关联。"""
-    from openclaw_guard.engine import experiment_components as ec
+    from clawRVguarder.engine import experiment_components as ec
     authority, _, _, envelope, event, step = producer
     ledger = ExecutedContentLedger(authority)
     try:
@@ -104,7 +104,7 @@ def test_failed_or_unknown_effect_call_has_no_content_success(producer):
 def test_expiry_duplicate_and_conflicting_call(producer):
     """有效期严格；重复幂等，单调用的矛盾签名记录不能重复提交。"""
     authority, binding, version, envelope, event, step = producer
-    with patch("openclaw_guard.spec.content_receipts.time.time", return_value=envelope["payload"]["expires_at_ms"] / 1000):
+    with patch("clawRVguarder.spec.content_receipts.time.time", return_value=envelope["payload"]["expires_at_ms"] / 1000):
         with pytest.raises(ContentReceiptError):ExecutedContentLedger(authority).commit(envelope, event=event, step=step)
     ledger = ExecutedContentLedger(authority)
     ledger.commit(envelope, event=event, step=step)
@@ -161,7 +161,7 @@ def test_legally_signed_wrong_task_is_rejected_by_host_task_binding(producer):
     """即使签名合法，收据task与宿主唯一任务不符也不能入表。"""
     import hashlib
     import hmac
-    from openclaw_guard.spec.content_receipts import _canonical
+    from clawRVguarder.spec.content_receipts import _canonical
     authority, binding, version, envelope, event, step = producer
     wrong = deepcopy(envelope)
     wrong["payload"]["task_id"] = "wrong-host-task"
@@ -176,7 +176,7 @@ def test_legally_signed_wrong_task_is_rejected_by_host_task_binding(producer):
 
 def test_revoked_or_ambiguous_task_cannot_accept_old_valid_signature(producer):
     """任务撤销和宿主记录歧义使旧签名失效，不沿用旧任务关联。"""
-    from openclaw_guard.spec.resource_evidence import HostResourceObserver
+    from clawRVguarder.spec.resource_evidence import HostResourceObserver
     authority, binding, version, envelope, event, step = producer
     store = authority._store
     grant = store.query()[0]
@@ -256,12 +256,12 @@ def test_async_receipt_and_nested_parameters_are_frozen_at_submission(producer):
 
 def test_oversize_or_deep_json_is_rejected_before_serialization(producer):
     """巨型字符串或深结构不触发同步JSON序列化，失败仅丢可选证据。"""
-    from openclaw_guard.spec.content_receipts import _freeze_bounded_json
+    from clawRVguarder.spec.content_receipts import _freeze_bounded_json
     deep = {"child": None}
     for _ in range(40):
         deep = {"child": deep}
     for value in ({"body": "x" * 1000000}, deep, [None] * 10000):
-        with patch("openclaw_guard.spec.content_receipts._canonical", side_effect=AssertionError("should not serialize")):
+        with patch("clawRVguarder.spec.content_receipts._canonical", side_effect=AssertionError("should not serialize")):
             with pytest.raises(ContentReceiptError):
                 _freeze_bounded_json(value, 65536)
 
@@ -271,7 +271,7 @@ def test_inflight_verification_cannot_commit_after_component_switch_or_close(pro
     """核验中切臂/关闭，旧臂不能提交；即使开关恢复相同也不复用旧代际。"""
     import threading
     import time
-    from openclaw_guard.engine import experiment_components as ec
+    from clawRVguarder.engine import experiment_components as ec
     authority, binding, version, envelope, event, step = producer
     event.event_id = "old-arm-call"
     started, release = threading.Event(), threading.Event()

@@ -7,8 +7,8 @@ from copy import deepcopy
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
-from openclaw_guard import api
-from openclaw_guard.services import build_services
+from clawRVguarder import api
+from clawRVguarder.services import build_services
 
 
 class ApprovalSyncTests(unittest.TestCase):

@@ -4,7 +4,7 @@
 
 ## 服务模式
 
-- 默认且唯一使用 FastAPI + uvicorn（`openclaw_guard/web/` 包）
+- 默认且唯一使用 FastAPI + uvicorn（`clawRVguarder/web/` 包）
 - 旧版 stdlib HTTP 实现已移出生产包；依赖缺失时不会静默回退，必须安装 FastAPI Web extra
 
 ## 配置入口（影响行为）

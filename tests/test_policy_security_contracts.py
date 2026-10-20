@@ -5,10 +5,10 @@ import subprocess
 
 import pytest
 
-from openclaw_guard.models import BehaviorEvent
-from openclaw_guard.policy.catalog import PolicyBundle
-from openclaw_guard.policy.engine import AuthorizationPolicyEngine
-from openclaw_guard.policy.models import (
+from clawRVguarder.models import BehaviorEvent
+from clawRVguarder.policy.catalog import PolicyBundle
+from clawRVguarder.policy.engine import AuthorizationPolicyEngine
+from clawRVguarder.policy.models import (
     AuthorizationTrace,
     ContextRef,
     CoverageResult,
@@ -18,8 +18,8 @@ from openclaw_guard.policy.models import (
     PrincipalRef,
     ResourceRef,
 )
-from openclaw_guard.integrations.hook_runtime import DEFAULT_DECISION_TIMEOUT_MS, _plugin_source
-from openclaw_guard import api
+from clawRVguarder.integrations.hook_runtime import DEFAULT_DECISION_TIMEOUT_MS, _plugin_source
+from clawRVguarder import api
 
 
 @pytest.fixture
@@ -28,7 +28,7 @@ def services(tmp_path):
     project.mkdir()
     config_path = project / "openclaw.json"
     config_path.write_text(json.dumps({"models": {"providers": {}}}), encoding="utf-8")
-    from openclaw_guard.services import build_services
+    from clawRVguarder.services import build_services
     return build_services(project, config_path=config_path)
 
 

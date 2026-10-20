@@ -9,17 +9,17 @@ from unittest.mock import Mock
 
 import pytest
 
-from openclaw_guard.engine.experiment_components import ExperimentComponents, using
-from openclaw_guard.engine.pipeline import _annotate_event_context, _apply_rv_if_available
-from openclaw_guard.models import DetectionDecision
-from openclaw_guard.utils import utc_now_iso
-from openclaw_guard.integrations.host_authorization_bridge import HostAuthorizationBridge
-from openclaw_guard.integrations.tool_hook_bridge import build_hook_event
-from openclaw_guard.policy.catalog import PolicyBundle
-from openclaw_guard.policy.trace import TraceCompiler
-from openclaw_guard.rv.tool_events import build_tool_call_step
-from openclaw_guard.spec.host_authorization import HostAuthorizationError, HostAuthorizationStore, TaskBinding
-from openclaw_guard.spec.resource_evidence import HostResourceObserver
+from clawRVguarder.engine.experiment_components import ExperimentComponents, using
+from clawRVguarder.engine.pipeline import _annotate_event_context, _apply_rv_if_available
+from clawRVguarder.models import DetectionDecision
+from clawRVguarder.utils import utc_now_iso
+from clawRVguarder.integrations.host_authorization_bridge import HostAuthorizationBridge
+from clawRVguarder.integrations.tool_hook_bridge import build_hook_event
+from clawRVguarder.policy.catalog import PolicyBundle
+from clawRVguarder.policy.trace import TraceCompiler
+from clawRVguarder.rv.tool_events import build_tool_call_step
+from clawRVguarder.spec.host_authorization import HostAuthorizationError, HostAuthorizationStore, TaskBinding
+from clawRVguarder.spec.resource_evidence import HostResourceObserver
 
 
 @pytest.fixture
@@ -216,7 +216,7 @@ def test_disabled_submit_and_closed_queue_do_not_observe(configured):
 def test_cli_requires_explicit_host_reference_configuration():
     """宿主观察只能由run显式配置，默认不读私有存储。"""
     from pathlib import Path
-    from openclaw_guard.main import build_parser
+    from clawRVguarder.main import build_parser
     assert build_parser().parse_args(["run"]).host_authorization_config is None
     args = build_parser().parse_args(["run", "--host-authorization-config", "/host/config.json"])
     assert args.host_authorization_config == Path("/host/config.json")
@@ -225,7 +225,7 @@ def test_cli_requires_explicit_host_reference_configuration():
 @pytest.mark.parametrize("transition", ["disable", "disable_then_enable", "close"])
 def test_inflight_reference_cannot_publish_into_new_arm(configured, transition):
     """参考观察已开始时切臂或关闭，不能发布旧臂正向授权诊断。"""
-    from openclaw_guard.engine import experiment_components as ec
+    from clawRVguarder.engine import experiment_components as ec
     bridge = configured[2]
     started, release = threading.Event(), threading.Event()
     def slow_project(event, step):

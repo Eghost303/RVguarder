@@ -1,5 +1,5 @@
 """相对cwd以受控工作区解析，不能依赖Guard进程宿主cwd或越界放行。"""
-from openclaw_guard.engine.pipeline import _classify_scope
+from clawRVguarder.engine.pipeline import _classify_scope
 
 
 def test_relative_cwd_uses_trusted_workspace_not_host_process(tmp_path, monkeypatch):

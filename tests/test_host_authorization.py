@@ -7,9 +7,9 @@ from unittest.mock import patch
 
 import pytest
 
-from openclaw_guard.main import main
-from openclaw_guard.spec.host_authorization import HostAuthorizationError, HostAuthorizationStore, TaskBinding
-from openclaw_guard.spec.resource_evidence import HostResourceObserver
+from clawRVguarder.main import main
+from clawRVguarder.spec.host_authorization import HostAuthorizationError, HostAuthorizationStore, TaskBinding
+from clawRVguarder.spec.resource_evidence import HostResourceObserver
 
 
 @pytest.fixture
@@ -72,7 +72,7 @@ def test_namespace_change_is_not_authorized(host):
 def test_expiry_and_persistent_idempotent_revocation(host):
     """过期拒绝匹配；重建存储实例后撤销仍生效。"""
     grant = host[4]
-    with patch("openclaw_guard.spec.host_authorization.time.time", return_value=grant["expires_at"]):
+    with patch("clawRVguarder.spec.host_authorization.time.time", return_value=grant["expires_at"]):
         assert _match(host) is None
     assert host[2].revoke(grant["id"])
     assert host[2].revoke(grant["id"])
@@ -144,7 +144,7 @@ def test_cli_issue_query_and_revoke_do_not_construct_manager(tmp_path, capsys):
     workspace.mkdir()
     (workspace / "summary").write_text("public")
     prefix = ["authorization", "--state-dir", str(tmp_path / "host"), "--agent-workspace", str(workspace)]
-    with patch("openclaw_guard.main.build_manager", side_effect=AssertionError("manager must not be built")):
+    with patch("clawRVguarder.main.build_manager", side_effect=AssertionError("manager must not be built")):
         assert main(prefix + ["issue", "--namespace", "office", "--resource-root", str(workspace),
                               "--resource", "summary", "--task-id", "t", "--principal-id", "p",
                               "--agent-id", "a", "--session-id", "s", "--operation", "network.egress",
@@ -182,7 +182,7 @@ def test_explicit_host_run_binding_does_not_reuse_another_run(host):
 
 def test_stale_or_forged_resource_description_cannot_match_changed_content(host):
     """拒绝外部/陈旧描述，实际匹配重新读取宿主内容。"""
-    from openclaw_guard.spec.resource_evidence import ResourceDescriptor
+    from clawRVguarder.spec.resource_evidence import ResourceDescriptor
     stale = ResourceDescriptor(**host[4]["resource"])
     (host[0] / "summary.txt").write_text("changed private content")
     assert _match(host) is None

@@ -57,13 +57,14 @@ export const useStore = create((set, get) => ({
         ? JSON.stringify({
             actions: summary.actions,
             sync: summary.sync || {},
+            host: summary.host, semantic: summary.semantic, hook: summary.hook,
             skills: summary.skills || {},
             channels: summary.channels || {},
             preferences: summary.preferences || {},
           })
         : '0';
       return h !== s._summaryHash || s.loading
-        ? { summary, loading: false, _summaryHash: h }
+        ? { summary: { ...s.summary, ...summary }, loading: false, _summaryHash: h }
         : {};
     }),
 

@@ -2,11 +2,11 @@ from datetime import datetime, timezone, timedelta
 from dataclasses import replace
 from pathlib import Path
 
-from openclaw_guard.models import BehaviorEvent
-from openclaw_guard.policy.catalog import PolicyBundle
-from openclaw_guard.policy.engine import AuthorizationPolicyEngine
-from openclaw_guard.policy.models import CapabilityGrant, PermissionRef
-from openclaw_guard.policy.permission_diff import PermissionClosure, PermissionDiff
+from clawRVguarder.models import BehaviorEvent
+from clawRVguarder.policy.catalog import PolicyBundle
+from clawRVguarder.policy.engine import AuthorizationPolicyEngine
+from clawRVguarder.policy.models import CapabilityGrant, PermissionRef
+from clawRVguarder.policy.permission_diff import PermissionClosure, PermissionDiff
 import pytest
 
 

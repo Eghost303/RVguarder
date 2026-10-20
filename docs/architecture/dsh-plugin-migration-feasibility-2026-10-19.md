@@ -4,6 +4,8 @@
 > 关联文档：[RVguarder 安全能力与防护边界总报告](../rvguarder-security-capabilities-and-boundaries.md)、[RV 权限自动机架构](./rv-permission-automata.md)、[RV vs 主流 Agent 安全工具对比](../comparison/rvguard-vs-agent-security-tools.md)
 > 目的：在正式开发 DSH 插件之前，确认「轨迹上用自动机监视规则违反」这套机制在 DeepSeek Harness（下称 DSH）上是否仍然成立、价值落点在哪里、有哪些硬约束。
 
+> **2026-10-20 范围更新**：用户要求首个完整 DSH 版本同时迁移 RV、PMKB、基线扫描、Dashboard、LLM 语义增强与审计。第 9 节为当前实施计划，替代 2026-10-19 的 RV 优先、纯 TS 方案。第 0–8 节保留原调研背景，其中外部产品信息与历史性能数据仍须在锁定的 DSH 版本上复核。
+
 ## 0. 结论摘要
 
 **判定：有条件可行。机制在 DSH 上仍然有用，但价值重心发生迁移，且必须重新设计失败策略与状态持久化。**
@@ -191,24 +193,24 @@ DSH 仓库根目录 [SAFETY.zh.md](https://github.com/deepseek-ai/deepseek-harne
 
 ## 7. 风险、未决问题与迁移前置验证清单
 
-### 7.1 未决问题
+### 7.1 当前决策与待验证项（2026-10-20 更新）
 
-1. **迁移范围**：是完整迁移（PMKB + RV + 审计 + 基线扫描 + 面板），还是先迁移 RV 跨步引擎（最小可用迁移）？本报告建议后者优先，理由是差异化集中在跨步部分。
-2. **技术路线**：纯 TS 重写 vs TS 薄插件 + Python 后端复用。前者与宿主同进程、无 IPC 与部署负担，但需在 TS 中重建 DSL 编译与规则数据；后者保留已通过 1105 项回归与实验验证的引擎，但引入后端可用性、fail-open 与跨进程状态一致性问题，并受「DSH 托管 Python 为 3.12.14、本项目要求 3.13+」这一版本约束。
-3. **失败策略默认值**：fail-open（沿用 OpenClaw 行为，故障期无防护）vs fail-closed（对齐 DSH 官方 seam，故障期阻断一切工具调用）。二者对可用性影响相反，需用户/部署方决策。
-4. **是否与既有安全插件共存或冲突**：`dsh-permission-rules`、`dsh-auto-mode` 等同样在 `tools/pre-execute` 上注册；需确认多插件决策合并语义（谁先否决、`ask` 如何叠加）与是否会产生重复审批。
-5. **Windows 下的实际防护完整性**：`partial` 强制执行对「沙箱是否真的拦住越界写入」的影响需实测。
+1. **迁移范围已确定**：RV、PMKB、基线扫描、Dashboard、LLM 语义增强和审计一并进入首个完整版本；阶段划分表示依赖顺序，不表示将某项推迟到后续发布。
+2. **技术路线调整建议**：DSH TypeScript 适配插件 + Python 共享核心服务 + 现有 Preact Dashboard。纯 TS 全量重写暂不作为首期实施路线；Python 3.13+ 的分发、启动、认证、延迟与故障恢复须通过 Phase 0 实测后形成架构决策记录。
+3. **失败策略保留**：DSH 默认 fail-closed、可显式配置 fail-open；现有 OpenClaw 仍严格 fail-open。需区分核心决策服务不可用与可选 LLM 不可用，详见第 9 节。
+4. **插件共存待验证**：确认其他安全插件与自动审批组合后的门禁顺序、硬拒绝不可降级及避免重复审批。
+5. **平台能力待验证**：以锁定版本实测 native/PTC、子 Agent、取消/并发和 Windows partial 边界；对未支持的工具或扫描项输出明确状态，不能算通过。
 
 ### 7.2 迁移前必做的实测项（建议按序）
 
-1. 用最小插件在 `tools/pre-execute` 打印 `exec` 全字段，确认工具名、参数、callId、agent、会话标识的可得性与形状；
+1. 用最小插件在 `tools/pre-execute` 检查 `exec` 字段结构，确认工具名、参数、callId、agent、会话标识的可得性与形状；调试输出仅保留字段名、类型和脱敏样例；
 2. 验证 `ask` 决策在 Web 客户端审批卡片中的 `reason`/`displayReason` 呈现，以及 `deny` 后模型可见的失败文案；
 3. 验证 `session/event` 与 `session-projection` 在工具调用前后的事件顺序，确认「成功历史」可在下一次调用前稳定读到；
 4. 验证 PTC 模式下内层工具调用确实经过 pre-execute；
 5. 实测 Windows 沙箱的 `partial` 边界，记录可绕过与不可绕过的写入场景；
 6. 测量 pre-execute 监听的平均与 p95 增量延迟，建立 DSH 侧性能基线；
 7. 与其他同类插件同时启用，观察决策合并与审批重复情况；
-8. 若选择复用 Python 后端，确认可自带或指定 Python 3.13+ 解释器（DSH 托管运行时实测为 3.12.14），并核对 3.12/3.13 的语法与依赖差异。
+8. 按全量迁移建议路线，验证自带或指定 Python 3.13+ 解释器、服务生命周期和本地认证；历史调研中的 DSH 托管 Python 3.12.14 不能假定满足本项目要求。
 
 ---
 
@@ -233,65 +235,129 @@ DSH 仓库根目录 [SAFETY.zh.md](https://github.com/deepseek-ai/deepseek-harne
 
 ---
 
-## 9. 开发决策与实施计划（2026-10-19 确认）
+## 9. 全功能 DSH 迁移实施计划（2026-10-20 修订）
 
-### 9.1 已确定的三项决策
+### 9.1 目标、范围与技术路线
 
-| 决策 | 选择 | 理由 |
-| --- | --- | --- |
-| 首期范围 | **跨步 RV 优先** | DSH 沙箱已覆盖越界写入与危险文件操作；跨步链式规则与网络外发是结构性空白，差异化最集中 |
-| 技术路线 | **纯 TS 原生 + Python 离线校验** | 与 DSH 同进程、零 IPC，避免后端可用性与 fail-open 边界；Python 引擎保留为规则编译、回放与对照参考 |
-| 失败策略 | **fail-closed 默认，可配置 fail-open** | 对齐 DSH 官方 seam；避免插件作为唯一守卫时出现无防护窗口 |
+**首个完整版本交付：DSH 工具执行前门禁 + PMKB + 跨步/跨会话 RV + LLM/本地双模语义增强 + DSH 基线扫描 + Dashboard + 全链路审计 + 可安装发布包。**
 
-首期明确不迁入：PMKB 单步规则、基线扫描、Dashboard、LLM 语义增强。这些留在 Phase 3 及以后。
+用户已明确全量范围。为控制重写成本与语义漂移，新的**实施建议**是 TypeScript 薄适配插件调用 Python 共享核心服务，复用 Preact 工作台。该建议取代原来的纯 TS 优先实施计划，具体通信与部署方式须由 Phase 0 实测后定稿。
 
-### 9.2 插件形态（规划）
+首期测试候选已完成打包：发行目录 `dist/dsh-rvguarder-0.1.0/`（`manifest.json` 四项 SHA-256 全部匹配），插件包 `dsh-rvguarder-0.1.0.tgz`（12.3 kB，哈希 `e57ba4aa…`）、Python wheel `openclaw_guard-0.7.0.dev0-py3-none-any.whl`（352 kB）、`INSTALL.md` 与 `create-test-profile.mjs` 均校验一致；临时副本 `/tmp/dsh-rvguarder-0.1.0.tgz`、`/tmp/rvguarder-dsh-release-20261020/` 与发行包同哈希。实际验证及剩余门禁见[验证记录](../../dshRVguarder/docs/validation-2026-10-20.md)。
 
-```
-dsh-plugin/
-├── package.json
-├── tsconfig.json
-├── src/
-│   ├── index.ts          # 插件入口、激活与配置读取
-│   ├── pre-execute.ts    # tools/pre-execute：allow / deny / ask
-│   ├── projection.ts     # session-projection 注册与窗口折叠
-│   ├── rv/
-│   │   ├── dsl.ts        # ChainRule DSL 解析与匹配
-│   │   ├── state.ts      # 会话窗口、状态版本与 TTL
-│   │   └── rules.ts      # 规则加载、校验与版本
-│   ├── audit.ts          # 本地哈希链 JSONL
-│   └── config.ts         # failMode / rulesPath / windowSize / ttl
-└── test/
+```text
+DSH 原生工具 / PTC 内层工具 / 子 Agent（覆盖范围需逐项验证）
+  → TypeScript 适配插件：身份、参数、工作目录、调用关联、审批、结果观测
+  → 经认证的本地传输（Phase 0 选择回环 HTTP 或受限 IPC）
+  → Python 共享核心：语义增强 → ToolCallIR / Trace → PMKB → RV → 决策
+  → DSH 原生审批与执行
+  → 完成事件 → 去重提交成功证据 / 审计 / SSE → Dashboard
+
+DSH 资产发现 → DSH 基线扫描 → JSON / HTML / PDF 报告 → Dashboard
 ```
 
-规则数据复用 `openclaw_guard/rv/rv_rules.json` 的结构与语义；构建期复制到插件包并做哈希一致性校验，避免 TS 与 Python 两套规则漂移。
+| 部分 | 复用与适配方式 |
+| --- | --- |
+| PMKB | 复用 `policy/` 与 `policies/permissions/` 单一源；新增 DSH operation、参数、身份和资源映射，对缺口增加版本化规则与回归向量 |
+| RV | 复用 Python DSL、窗口、主体级状态、规约校验；新增 DSH 事件与成功结果适配 |
+| LLM 增强 | 复用 SemanticEnhancer 与受限事实模型；适配 DSH 工具上下文、提示词和配置；保持本地模式 |
+| 基线扫描 | 提取通用 OS/账户/端口/文件检查；OpenClaw 与 DSH 各自提供发现器、配置解析和宿主专用检查 |
+| Dashboard | 复用 Preact 页面、API 与 SSE；增加宿主/实例筛选、DSH 连接和审批状态、规则证据及扫描结果 |
+| 审计与持久化 | 复用 SQLite/JSONL 哈希链与现有存储抽象；增加宿主、实例、调用、规则版本关联及迁移兼容性 |
+| DSH 插件 | 新增 TS 包，负责 SDK 接入、门禁、原生审批、结果观测、连接与生命周期，不复制 Python 策略引擎 |
 
-### 9.3 阶段计划
+### 9.2 工作包与接口约束
 
-| 阶段 | 内容 | 出口条件 |
+**A. 共享核心与宿主边界**
+
+- 从 GuardServices 中分离宿主发现、Hook 安装、Gateway 探测、审批回调和扫描配置；定义 HostAdapter 与宿主能力描述，保留现有 OpenClaw 兼容管理器。
+- DSH 服务初始化不得调用 OpenClaw 插件生成/配置注入；构造当前 GuardServices 会立即触发 Hook 写盘，必须先解除这一副作用。
+- 复用 `clawRVguarder/` 实现，首期不再改名 Python 主包；独立 `dshRVguarder/` 工程骨架已创建；建议后续新增 `hosts/base.py`、`hosts/openclaw/`、`hosts/dsh/`。宿主适配代码布局在实施时按现有模块边界细化。
+- 定义带版本的请求/响应协议：host、instance、principal、agent、session、run/turn、call、parent-call、原始/归一化工具、已解析参数、cwd、时间、策略版本与完成状态；身份来自宿主可信上下文，参数中的自报身份不能替代。
+- 调用关联使用宿主/实例/会话/调用组合键，ID 按不透明值处理；同时记录判定与完成，拒绝重复提交、冲突完成或过期回复。
+
+**B. PMKB + RV + 语义增强完整决策**
+
+- 建立 DSH 原生工具、MCP、PTC、子 Agent、命令执行的能力与字段映射表；可表达的工具映射到 canonical operation，未知/缺失特征保持显式 unknown，不按名称近似自动放行。
+- 复用最小权限闭包/差分、RiskGraph、单步硬约束、会话 RV 与主体跨会话证据；补齐 DSH 工具正反例与命令复合效果边界。
+- LLM 仅提供经 schema 校验的受限语义事实，不能签发授权或降低 PMKB/RV 硬拒绝；凭据只保存在宿主受控配置，模型输入按现有隐私边界裁剪。
+- 支持 local/LLM 双模、超时、限额与带版本缓存。LLM 不可用或输出无效时退回本地分析，缺少必要证据时 ask/deny，不能推断为允许。
+- 前置仅评估候选调用；确认成功后才提交历史。重试、取消、超时、结果缺失、并发和重启后的未完成调用须有显式状态。
+- 宿主签发授权、资源版本、内容来源和执行证据能力一并纳入适配检查；无法获得可信证据时输出不支持/证据不足，不以模型描述代替。
+
+**C. 审批与故障策略**
+
+- Python 内部效果转换为 DSH allow/ask/deny，统一输出规则 ID、风险、资源、缺失特征、权限差分与规则版本；DSH 原生审批为唯一审批入口，Dashboard 只读同步。
+- 核心服务不可达、协议错误、策略加载失败或关键状态损坏：DSH 默认拒绝，可由受控配置显式选择 fail-open，并记录降级状态；OpenClaw 的现有 fail-open 不变。
+- 基线扫描失败、Dashboard 离线等非决策组件故障不应直接阻断全部工具；LLM 故障按 B 的本地回退处理。
+- 设计审批等待期间的取消、权限变化、资源变化与规则更新处理；需要时重新校验，但不得自动重跑已执行工具或制造重复审批。
+- 验证多插件合并顺序；硬拒绝不得被后续 allow 或自动审批翻回，具体使用 waterfall 与 monotonic guard 的分工由 Phase 0 核验。
+
+**D. DSH 基线扫描与 Dashboard**
+
+- DSH 扫描覆盖：版本/profile 与配置发现、敏感配置权限、插件来源/信任、沙箱与审批配置、工作区、运行账户、监听地址/端口/认证、依赖与日志；仅对实际可见和支持的能力下结论。
+- 去除 OpenClaw 专用目录、gateway、端口和配置键假设；扫描项声明宿主、平台、证据、状态与修复建议。unsupported/unknown 不得计为 pass。
+- 保留 JSON/HTML/PDF 导出并验证目标平台渲染依赖；扫描在决策热路径外执行，不自动修改宿主配置。
+- Dashboard 同期提供连接与实例状态、动作/审批只读同步、Trace 与 RV、PMKB/规则证据、基线扫描/报告、语义模式/降级、审计查询导出。
+- API/SSE 按宿主实例过滤，支持断线重连、快照补偿和事件去重；敏感配置脱敏。先以独立本地工作台交付，DSH 内嵌入口仅在官方能力实测可行时采用。
+
+**E. 服务分发、存储与安装包**
+
+- 验证独立 Python 3.13+ 解释器或配套安装包，不依赖 DSH 托管 Python 的版本假设；明确在线安装与离线安装的前置条件。
+- 确定插件启动服务、连接外部托管服务两种模式的支持范围；至少完成一种可重复部署的主路径。实现就绪探测、协议版本握手、端口冲突、异常退出与受控重启，卸载只终止本实例拥有的进程。
+- 本地通道认证、实例隔离、配置与密钥权限、Dashboard 访问控制纳入设计；认证凭据不随公开插件包分发。
+- 宿主/实例数据隔离并保留 OpenClaw 旧记录兼容性；验证原子状态保存、重启恢复、schema 版本、规则回滚和哈希链完整性。
+- 分发包包含匹配版本的 TS 插件、Python 服务、UI、PMKB、RV 数据与安装说明；规则仍保留单一源，构建时记录版本/哈希。
+
+### 9.3 阶段顺序与出口
+
+以下为同一完整版本内的实施里程碑，所有阶段通过后才能称为全功能 DSH 适配完成。
+
+| 阶段 | 工作内容 | 出口条件 |
 | --- | --- | --- |
-| **Phase 0：seam 实测** | `exec` 全字段、`session/event` 顺序、`session-projection` 可用性、PTC 内层调用、Windows `partial` 边界、pre-execute p95 | 第 7.2 节 8 项全部有实测结论，形成 DSH 性能与行为基线 |
-| **Phase 1：跨步 RV MVP** | 纯 TS 插件、`tools/pre-execute`、session 窗口、DSL 子集、allow/deny/ask、fail-closed、哈希链 JSONL | 单会话内链式规则可阻断；插件异常时按配置 fail-closed；单测与回放夹具通过 |
-| **Phase 2：主体级证据** | 跨会话状态自持久化、审批 `reason`/`displayReason` 证据、规则版本与回滚 | 跨会话链式规则可复现；状态重启可恢复；审批卡片能看到关键证据 |
-| **Phase 3：PMKB 与观测** | Authorization Trace、PMKB 单步规则、轨迹投影、Python 离线回放 | 单步与跨步证据可合并解释；离线回放与 TS 运行时结论一致 |
+| **Phase 0：宿主与部署实测** | 锁版本、最小插件、字段/事件顺序、native/PTC/子 Agent、审批/取消/共存、Python 3.13+ 与传输、Dashboard 可达性、平台边界及性能基线 | 形成能力矩阵与架构决策记录；明确支持平台、字段缺口、传输与服务生命周期；无阻塞性接口缺口 |
+| **Phase 1：共享核心与完整决策链** | HostAdapter、解除 OpenClaw 初始化副作用、协议/认证、DSH 工具映射、PMKB + RV + LLM/本地双模、原生审批和审计 | 真实 DSH 调用跑通前置决策→审批→执行结果→成功历史；PMKB 和 LLM 已接入；故障与取消符合约定 |
+| **Phase 2：状态、基线与工作台** | 跨会话证据、去重/并发/重启恢复、DSH 基线、报告、Dashboard API/SSE/全部核心页面与配置 | 面板可观测真实 DSH 事件，扫描结果有宿主证据，跨会话风险和状态恢复可复现，LLM 降级可见 |
+| **Phase 3：全功能发布验收** | 安装/升级/卸载、依赖与资源打包、平台矩阵、离线回放、浏览器 E2E、多插件/故障注入、性能及 OpenClaw 回归 | 六类能力逐项通过；无 OpenClaw 行为回退；干净环境按文档安装运行，兼容性和限制可审查 |
 
-### 9.4 验收标准
+Phase 1 的共享协议确定后，基线扫描与 Dashboard 可独立推进；跨会话证据须在 Phase 1 确定可信身份来源后完善。并行工作是实施依赖建议，不代表已分配代理或已开始实现。
 
-1. `tools/pre-execute` 能稳定读到工具名、冻结参数、`callId`、agent 与会话标识；
-2. 同一 session 内的跨步规则在目标调用前触发，且不会因插件重启丢状态（Phase 2）；
-3. 监听器异常、规则加载失败或状态不可读时，默认拒绝并给出可诊断原因；
-4. 不改写 `exec.arguments`；阻断必须通过 `deny` 或 `ctx.tools.guard()`；
-5. 与 `dsh-permission-rules`、`dsh-auto-mode` 等插件共存时不产生重复审批或决策翻转；
-6. pre-execute 平均与 p95 增量延迟有独立基线，并写入文档；
-7. Windows `partial` 强制执行边界在报告中标注为残余风险。
+### 9.4 发布验收矩阵
 
-### 9.5 主要风险
+| 能力 | 必须通过的证据 |
+| --- | --- |
+| PMKB | 既有 123 个 bundle vectors 与新增 DSH 向量通过；明确测试 allow/ask/deny、unknown、缺失身份、越权差分和危险组合；不适用项单列而非计为通过 |
+| RV/证据 | 正反例、目标调用前阻断、失败不提交、重放不重复、并发、session 隔离、主体跨 session、撤销/过期、资源版本与重启恢复 |
+| LLM | 本地与真实受控 LLM 两模式测试；超时、无效输出、注入样例与缓存失效；敏感字段不泄露、硬拒绝不降级 |
+| 基线 | DSH 配置/沙箱/审批/插件等检查有实际证据；unknown/unsupported 单列；JSON/HTML/PDF 可导出 |
+| Dashboard | 连接、动作、审批只读、Trace/RV、规则/PMKB、扫描、语义模式、审计页面和 SSE 重连；浏览器 E2E 通过 |
+| 打包与运维 | 干净环境安装、Python 版本、资源完整性、服务就绪/退出/恢复、配置认证、升级回滚/卸载与数据保留策略 |
+| 兼容与性能 | OpenClaw 既有回归仍通过；锁定 DSH 版本上覆盖 native/PTC 与声明支持的子 Agent/平台；记录端到端平均、p95、超时率及并发吞吐，本地与 LLM 路径分别测量，阈值由 Phase 0 数据确定 |
 
-- 多插件在 `tools/pre-execute` 上的合并语义未实测，可能出现 `ask` 叠加或重复弹窗；
-- Windows ACL 受限令牌后端为 `partial`，不能宣称与 Linux 等价的隔离强度；
-- DSH 为实验性预览软件，seam 可能随版本变化，需要锁定运行时版本并保留兼容性测试；
-- 纯 TS 重写 DSL 存在语义漂移风险，必须以 Python 引擎的离线回放结果作为对照基线。
+### 9.5 风险与控制
+
+- **Python 服务引入部署与可用性成本**：Phase 0 先验证解释器、生命周期、认证与延迟；未通过前不宣称可安装交付。
+- **全量范围扩大宿主耦合面**：先建立宿主边界与协议，复用既有引擎；不在本次迁移中同时进行全语言重写。
+- **故障策略混用**：按 host/instance 显式配置；DSH fail-closed 与 OpenClaw fail-open 分别回归；LLM/扫描/面板与核心门禁故障分开处理。
+- **LLM 与本地性能差异**：分别建立预算，扫描不进入热路径；缓存绑定事件、策略、模型/提示词版本，不能缓存并复用过期授权。
+- **事件可见性与可信身份缺口**：native/PTC/子 Agent 逐项验证；未知映射、缺失可信证据不伪造支持。
+- **窗口并发与跨进程一致性**：调用去重、明确排序/提交边界；丢失结果标为未确认，不把未知当成功；完成与状态提交须可恢复。
+- **DSH API/Windows 边界变化**：固定版本与平台能力矩阵，保留回归和升级检查；partial 能力如实呈现。
+
+### 9.6 当前验收状态（2026-10-20）
+
+| 项目 | 状态 | 证据 |
+| --- | --- | --- |
+| Windows 宿主 | 已跑通 | web profile 启动、真实工具门禁、审批与完成回写；见[验证记录](../../dshRVguarder/docs/validation-2026-10-20.md) |
+| WSL 原生宿主 | 已跑通 | `dsh@0.2.1-rc.2` 全局安装于 `~/.npm-global/bin/dsh`；自定义 profile 启动成功，后端记录 2 次 `session_started`，插件状态目录生成 |
+| TS 构建与单测 | 通过 | `tsc --noEmit` 无错误；对 WSL SDK 运行 `12/12` 通过，耗时 `358.9ms`（原先链接 `/mnt/c` 时 `3022ms`） |
+| 打包与安装 | 通过 | `dsh plugin add` 装入测试 profile（+25 包，`600ms`）；发行包四项 SHA-256 全部匹配 |
+| Python 后端 | 通过 | WSL `Python 3.13.13` 可导入并监听；FastAPI 依赖就绪 |
+| 每次调用延迟 | 未达标 | Windows 实测平均 `218ms`、p95 `234.6ms`；瓶颈为桥接往返，`ready()` 每次重复握手。WSL 侧工具调用基线尚未测量 |
+| PTC / 子 Agent / Windows ACL | 未覆盖 | 仍需按 9.4 逐项补证 |
+
+已知启动约束：DSH 会拒绝加载工作目录 `.env` 中的启动器变量（本仓库含 `DEEPSEEK_BASE_URL`），须从中立目录或无 `.env` 的工程子目录启动。
 
 ---
 
-*本报告同时作为 DSH 插件开发的决策与阶段计划入口；Phase 0 实测完成后更新第 6、7、9 节。*
+*当前范围依据 2026-10-20 用户要求修订。该节是开发计划，不代表功能已经实现；Phase 0 完成后更新架构决策和验收阈值。*

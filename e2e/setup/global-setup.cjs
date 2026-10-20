@@ -46,7 +46,7 @@ module.exports = async () => {
   const args = [
     "-u",
     "-m",
-    "openclaw_guard.main",
+    "clawRVguarder.main",
     "run",
     "--project-dir",
     projectDir,

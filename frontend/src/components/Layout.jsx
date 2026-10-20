@@ -3,6 +3,7 @@ import { useStore } from '../store';
 import { t } from '../i18n';
 import { fetchSummary, rvToggle, apiErrorMessage } from '../api';
 import { Toast } from './Toast';
+import { HostPanel } from './HostPanel';
 
 /** 根据当前路径判断 nav 按钮是否 active */
 function useIsActive(view, currentPath) {
@@ -13,6 +14,7 @@ function useIsActive(view, currentPath) {
 }
 
 export function Layout({ children, currentPath }) {
+  const hostKind = useStore((s) => s.summary.host?.kind);
   const rvMode = useStore((s) => s.rvMode);
   const setRvMode = useStore((s) => s.setRvMode);
   const theme = useStore((s) => s.theme);
@@ -53,7 +55,7 @@ export function Layout({ children, currentPath }) {
       <aside class="sidebar">
         <div class="brand">
           <h1>{t('appName')}</h1>
-          <p>{t('appSub')}</p>
+          <p>{hostKind === 'dsh' ? 'DSH Agent 安全插件' : t('appSub')}</p>
         </div>
         <nav class="nav">
           {navItems.map(([view, icon, label]) => (
@@ -89,7 +91,7 @@ export function Layout({ children, currentPath }) {
             {t('refresh')}
           </button>
         </div>
-        <div class="content">{children}</div>
+        <div class="content"><HostPanel />{children}</div>
       </main>
       <Toast />
     </div>

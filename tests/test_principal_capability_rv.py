@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-import openclaw_guard.spec.session_state as session_state_module
+import clawRVguarder.spec.session_state as session_state_module
 
-from openclaw_guard.policy.models import (
+from clawRVguarder.policy.models import (
     AuthorizationTrace,
     ContextRef,
     CoverageResult,
@@ -14,8 +14,8 @@ from openclaw_guard.policy.models import (
     PrincipalRef,
     ResourceRef,
 )
-from openclaw_guard.rv.runtime_verification import RuntimeVerificationEngine
-from openclaw_guard.spec.session_state import PrincipalSecurityState
+from clawRVguarder.rv.runtime_verification import RuntimeVerificationEngine
+from clawRVguarder.spec.session_state import PrincipalSecurityState
 
 
 def allow_policy() -> PolicyDecision:
@@ -122,7 +122,7 @@ def test_snapshot_ttl_survives_a_monotonic_clock_restart(monkeypatch):
 
 def test_injected_relation_bundle_survives_principal_state_restart():
     from dataclasses import replace
-    from openclaw_guard.policy.catalog import PolicyBundle, default_policy_root
+    from clawRVguarder.policy.catalog import PolicyBundle, default_policy_root
     bundle = replace(PolicyBundle.load(default_policy_root()), relations=())
     engine = RuntimeVerificationEngine(permission_bundle=bundle)
     state = engine.state_for_principal("u1", "agent1", ("grant1",))
@@ -137,7 +137,7 @@ def test_injected_relation_bundle_survives_principal_state_restart():
 
 def test_reconfigure_permission_bundle_discards_previous_authority():
     from dataclasses import replace
-    from openclaw_guard.policy.catalog import PolicyBundle, default_policy_root
+    from clawRVguarder.policy.catalog import PolicyBundle, default_policy_root
     bundle = PolicyBundle.load(default_policy_root())
     engine = RuntimeVerificationEngine(permission_bundle=bundle)
     old = engine.state_for_principal("u1", "agent1", ("grant1",))

@@ -6,7 +6,7 @@ from dataclasses import FrozenInstanceError
 
 import pytest
 
-from openclaw_guard.policy.catalog import PolicyBundle, PolicyBundleError
+from clawRVguarder.policy.catalog import PolicyBundle, PolicyBundleError
 
 
 ROOT = Path("policies/permissions")

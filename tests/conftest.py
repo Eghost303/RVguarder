@@ -1,6 +1,6 @@
 """测试进程的环境隔离护栏。
 
-``openclaw_guard.main.main()`` 会执行 ``load_dotenv(override=False)``，把本地
+``clawRVguarder.main.main()`` 会执行 ``load_dotenv(override=False)``，把本地
 ``.env`` 中的配置写入 ``os.environ``。任何在测试中真实调用该入口的用例都会污染
 同进程的后续测试。这里在每个测试结束后还原环境变量，保证测试保持封闭、可重复。
 """

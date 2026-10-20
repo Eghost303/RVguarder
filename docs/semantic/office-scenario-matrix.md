@@ -285,7 +285,7 @@
 
 ## 七、场景到 RV 规则的映射
 
-> **代码示例边界：** 7.1 的 `BaseMonitor` / `Machine` 代码是 2026-07 场景设计阶段的不可执行伪代码，仅用于表达需求和规则意图。当前生产实现不加载这些类，也不依赖 `transitions`；请以 `openclaw_guard/rv/rv_rules.json` 的 ChainRule DSL 和[当前架构说明](../architecture/permission-kb-runtime-architecture.md)为准。
+> **代码示例边界：** 7.1 的 `BaseMonitor` / `Machine` 代码是 2026-07 场景设计阶段的不可执行伪代码，仅用于表达需求和规则意图。当前生产实现不加载这些类，也不依赖 `transitions`；请以 `clawRVguarder/rv/rv_rules.json` 的 ChainRule DSL 和[当前架构说明](../architecture/permission-kb-runtime-architecture.md)为准。
 
 ### 7.1 P0 场景具体化
 
@@ -442,7 +442,7 @@ class BatchFileMonitor(BaseMonitor):
 |:---|:---|
 | [method.md](./method.md) | §12.2 场景列表从 5 个扩展至至少 20+ 个 |
 | [`policies/permissions/rules/p0-office.json`](../../policies/permissions/rules/p0-office.json) | 当前办公操作、范围与效果的 PMKB 规则；历史检测实现已归档 |
-| [semantic_enhancer.py](../../openclaw_guard/engine/semantic_enhancer.py) | 新增 `channel_broadcast` / `database_query` / `batch_file_upload` 场景识别 |
+| [semantic_enhancer.py](../../clawRVguarder/engine/semantic_enhancer.py) | 新增 `channel_broadcast` / `database_query` / `batch_file_upload` 场景识别 |
 | [rv-engine-report.md](../architecture/rv-engine-report.md) | BroadcastMonitor / DataExportMonitor / BatchFileMonitor 已落地（6 监视器 + 规约 DSL） |
 
 ### 8.2 新增语义标签（13个）

@@ -9,12 +9,12 @@ from types import SimpleNamespace
 import pytest
 from pydantic import ValidationError
 
-from openclaw_guard.engine import experiment_components as ec
-from openclaw_guard.engine.pipeline import _apply_rv_if_available
-from openclaw_guard.rv.rv_dsl import Ruleset, compile_monitors
-from openclaw_guard.rv.runtime_verification import RuntimeVerificationEngine, WindowManager
-from openclaw_guard.spec.authorization_facts import VerifiedCallAuthorization
-from openclaw_guard.spec.content_receipts import _canonical, content_version
+from clawRVguarder.engine import experiment_components as ec
+from clawRVguarder.engine.pipeline import _apply_rv_if_available
+from clawRVguarder.rv.rv_dsl import Ruleset, compile_monitors
+from clawRVguarder.rv.runtime_verification import RuntimeVerificationEngine, WindowManager
+from clawRVguarder.spec.authorization_facts import VerifiedCallAuthorization
+from clawRVguarder.spec.content_receipts import _canonical, content_version
 
 
 @pytest.fixture

@@ -1,8 +1,8 @@
 import pytest
 
-from openclaw_guard.models import DetectionDecision
+from clawRVguarder.models import DetectionDecision
 from pydantic import ValidationError
-from openclaw_guard.policy.models import (
+from clawRVguarder.policy.models import (
     AuthorizationTrace,
     CoverageResult,
     OperationRef,

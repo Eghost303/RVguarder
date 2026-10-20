@@ -8,8 +8,8 @@ from unittest.mock import patch
 
 import pytest
 
-from openclaw_guard.integrations.plugin_package import build_plugin_package
-from openclaw_guard.main import main
+from clawRVguarder.integrations.plugin_package import build_plugin_package
+from clawRVguarder.main import main
 
 
 def test_candidate_archive_is_reproducible_and_has_no_embedded_token(tmp_path: Path):
@@ -42,8 +42,8 @@ def test_cli_package_does_not_initialize_manager(tmp_path: Path, capsys):
     """构建命令不创建运行状态或访问OpenClaw安装。"""
     # ``main`` 会调用 ``load_dotenv``；在测试进程里放行它会把仓库 .env 的
     # 真实密钥永久注入 os.environ，污染后续测试并触发真实网络调用。
-    with patch('openclaw_guard.main.load_dotenv'), patch(
-        'openclaw_guard.main.build_manager', side_effect=AssertionError('manager should not start')
+    with patch('clawRVguarder.main.load_dotenv'), patch(
+        'clawRVguarder.main.build_manager', side_effect=AssertionError('manager should not start')
     ):
         assert main(['build-plugin','--output',str(tmp_path/'package')])==0
     assert json.loads(capsys.readouterr().out)['status']=='test-candidate'

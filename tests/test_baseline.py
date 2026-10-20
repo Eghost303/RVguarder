@@ -6,7 +6,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from openclaw_guard.manager import build_manager
+from clawRVguarder.manager import build_manager
 
 
 class BaselineTests(unittest.TestCase):

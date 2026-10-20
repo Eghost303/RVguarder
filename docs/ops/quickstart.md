@@ -18,7 +18,7 @@ RVguarder 需要 OpenClaw Hook 插件与持续运行的本地 Python 后端。�
 
 | 文件 | 用途 |
 | --- | --- |
-| `openclaw_guard-0.7.0.dev0-py3-none-any.whl` | 本地后端、工作台及规则；推荐部署入口 |
+| `clawRVguarder-0.7.0.dev0-py3-none-any.whl` | 本地后端、工作台及规则；推荐部署入口 |
 | `openclaw-guard-hook.tgz` | 通过 OpenClaw 插件管理器安装 Hook |
 | `guard.config.example.json` | 插件配置参考 |
 | `SHA256SUMS` | 构建目录的文件摘要 |
@@ -30,7 +30,7 @@ GitHub 下载的附件位于同一目录，而校验清单保留构建时的 `ba
 
 ```bash
 mkdir -p backend plugin
-mv openclaw_guard-0.7.0.dev0-py3-none-any.whl backend/
+mv clawRVguarder-0.7.0.dev0-py3-none-any.whl backend/
 mv guard.config.example.json plugin/
 sha256sum --ignore-missing -c SHA256SUMS
 ```
@@ -45,7 +45,7 @@ sha256sum --ignore-missing -c SHA256SUMS
 cp "$HOME/.openclaw/openclaw.json" "$HOME/.openclaw/openclaw.json.before-rvguard"
 python3.13 -m venv .venv
 source .venv/bin/activate
-python -m pip install ./backend/openclaw_guard-0.7.0.dev0-py3-none-any.whl
+python -m pip install ./backend/clawRVguarder-0.7.0.dev0-py3-none-any.whl
 openclaw-guard install-hook --project-dir "$HOME/rvguarder-data" --config-path "$HOME/.openclaw/openclaw.json"
 openclaw-guard run --project-dir "$HOME/rvguarder-data" --config-path "$HOME/.openclaw/openclaw.json" --no-browser
 ```

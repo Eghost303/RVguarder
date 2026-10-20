@@ -4,10 +4,10 @@ from __future__ import annotations
 
 import json
 
-from openclaw_guard.integrations.tool_hook_bridge import build_hook_event
-from openclaw_guard.models import DetectionDecision
-from openclaw_guard.policy.catalog import PolicyBundle
-from openclaw_guard.policy.models import (
+from clawRVguarder.integrations.tool_hook_bridge import build_hook_event
+from clawRVguarder.models import DetectionDecision
+from clawRVguarder.policy.catalog import PolicyBundle
+from clawRVguarder.policy.models import (
     AuthorizationTrace,
     CoverageResult,
     DataRef,
@@ -16,9 +16,9 @@ from openclaw_guard.policy.models import (
     PrincipalRef,
     ResourceRef,
 )
-from openclaw_guard.policy.trace import TraceCompiler
-from openclaw_guard.services import GuardServices, build_services
-from openclaw_guard.utils import utc_now_iso
+from clawRVguarder.policy.trace import TraceCompiler
+from clawRVguarder.services import GuardServices, build_services
+from clawRVguarder.utils import utc_now_iso
 
 
 def _hook_payload(tool_name: str, *, session_id: str, agent_id: str = "agent-real") -> dict[str, object]:

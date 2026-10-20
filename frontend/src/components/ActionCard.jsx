@@ -86,7 +86,7 @@ export function ActionCard({ item }) {
         </div>
       )}
       {item.source === 'hook_bridge' && (
-        <div class="sync-hint">请在 OpenClaw 审批中心处理 · 同步状态：{esc(item.sync_state || 'local_only')}</div>
+        <div class="sync-hint">{item.event?.metadata?.host === 'dsh' ? '请在 DSH 原生审批处理' : '请在 OpenClaw 审批中心处理'} · 同步状态：{esc(item.sync_state || 'local_only')}</div>
       )}
       {rvMode && rvResult?.verdict && (
         <div class={'rv-badge ' + esc(rvResult.verdict)}>

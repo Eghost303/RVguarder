@@ -13,7 +13,7 @@ from __future__ import annotations
 import threading
 import unittest
 
-from openclaw_guard.utils import LazyProxy
+from clawRVguarder.utils import LazyProxy
 
 
 class LazyProxyBasicTests(unittest.TestCase):

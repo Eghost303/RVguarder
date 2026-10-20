@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import unittest
 
-from openclaw_guard.rv.runtime_verification import RuntimeVerificationEngine, WindowManager
-from openclaw_guard.rv.rv_dsl import (
+from clawRVguarder.rv.runtime_verification import RuntimeVerificationEngine, WindowManager
+from clawRVguarder.rv.rv_dsl import (
     ChainRule,
     MonitorSpec,
     Ruleset,

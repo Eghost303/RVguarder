@@ -6,12 +6,12 @@ import unittest
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
-from openclaw_guard.manager import build_manager
-from openclaw_guard.models import BehaviorEvent
-from openclaw_guard.engine.semantic_enhancer import SemanticEnhancer
-from openclaw_guard.integrations.tool_hook_bridge import build_hook_event
-from openclaw_guard.policy.engine import AuthorizationPolicyEngine
-from openclaw_guard.utils import utc_now_iso
+from clawRVguarder.manager import build_manager
+from clawRVguarder.models import BehaviorEvent
+from clawRVguarder.engine.semantic_enhancer import SemanticEnhancer
+from clawRVguarder.integrations.tool_hook_bridge import build_hook_event
+from clawRVguarder.policy.engine import AuthorizationPolicyEngine
+from clawRVguarder.utils import utc_now_iso
 
 
 class SemanticEnhancerTests(unittest.TestCase):

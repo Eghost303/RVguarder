@@ -17,14 +17,14 @@ import json
 import sys
 from pathlib import Path
 
-# 确保 openclaw_guard 在路径中
+# 确保 clawRVguarder 在路径中
 _SCRIPT_DIR = Path(__file__).resolve().parent
 _PROJECT_ROOT = _SCRIPT_DIR.parent
 if str(_PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(_PROJECT_ROOT))
 
-from openclaw_guard.rv.trace_abstractor import abstract_trace
-from openclaw_guard.rv.baseline_learner import BaselineLearner
+from clawRVguarder.rv.trace_abstractor import abstract_trace
+from clawRVguarder.rv.baseline_learner import BaselineLearner
 
 
 def load_audit_traces(path: str | Path) -> list[list[dict]]:

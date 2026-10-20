@@ -7,7 +7,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from unittest.mock import patch
 
-from openclaw_guard.storage.db_store import SQLALCHEMY_AVAILABLE, get_db_store, reset_db_store
+from clawRVguarder.storage.db_store import SQLALCHEMY_AVAILABLE, get_db_store, reset_db_store
 
 
 class SQLAlchemyStoreDependencyTests(unittest.TestCase):
@@ -15,13 +15,13 @@ class SQLAlchemyStoreDependencyTests(unittest.TestCase):
         reset_db_store()
 
     def test_missing_sqlalchemy_dep_raises_readable_error(self) -> None:
-        with patch("openclaw_guard.storage.db_store.SQLALCHEMY_AVAILABLE", False):
+        with patch("clawRVguarder.storage.db_store.SQLALCHEMY_AVAILABLE", False):
             with self.assertRaises(ImportError) as ctx:
                 get_db_store("sqlite:///output/audit/audit.db", mode="sqlalchemy")
         self.assertIn("sqlalchemy", str(ctx.exception).lower())
 
     def test_missing_sqlalchemy_dep_does_not_break_native_default(self) -> None:
-        with patch("openclaw_guard.storage.db_store.SQLALCHEMY_AVAILABLE", False):
+        with patch("clawRVguarder.storage.db_store.SQLALCHEMY_AVAILABLE", False):
             store = get_db_store("sqlite:///output/audit/audit.db")
         self.assertEqual(store.__class__.__name__, "SQLiteStore")
 
@@ -61,7 +61,7 @@ class SQLAlchemyStoreSQLiteTests(unittest.TestCase):
 
             t0 = datetime(2020, 1, 1, 0, 0, 0, tzinfo=timezone.utc)
             with patch(
-                "openclaw_guard.storage.db_store.datetime",
+                "clawRVguarder.storage.db_store.datetime",
                 now=patch.DEFAULT,
             ) as dt:
                 dt.now.side_effect = [t0, t0 + timedelta(seconds=1), t0 + timedelta(seconds=2)]
@@ -86,7 +86,7 @@ class SQLAlchemyStoreSQLiteTests(unittest.TestCase):
             store = get_db_store(f"sqlite:///{db_path}", mode="sqlalchemy")
 
             with patch(
-                "openclaw_guard.storage.db_store.datetime",
+                "clawRVguarder.storage.db_store.datetime",
                 now=patch.DEFAULT,
             ) as dt:
                 t0 = datetime(2020, 1, 1, 0, 0, 0, tzinfo=timezone.utc)
@@ -117,7 +117,7 @@ class SQLAlchemyStoreSQLiteTests(unittest.TestCase):
 
             t0 = datetime(2020, 1, 1, 0, 0, 0, tzinfo=timezone.utc)
             with patch(
-                "openclaw_guard.storage.db_store.datetime",
+                "clawRVguarder.storage.db_store.datetime",
                 now=patch.DEFAULT,
             ) as dt:
                 dt.now.side_effect = [t0, t0 + timedelta(seconds=1)]
@@ -139,7 +139,7 @@ class SQLAlchemyStoreSQLiteTests(unittest.TestCase):
 
             t0 = datetime(2020, 1, 1, 0, 0, 0, tzinfo=timezone.utc)
             with patch(
-                "openclaw_guard.storage.db_store.datetime",
+                "clawRVguarder.storage.db_store.datetime",
                 now=patch.DEFAULT,
             ) as dt:
                 dt.now.side_effect = [t0, t0 + timedelta(seconds=1)]

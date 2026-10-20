@@ -12,7 +12,7 @@ export function HookStatus() {
   } else if (st === 'loaded_waiting_restart') {
     badge = <span class="badge warn">⏳ 已配置，需重启 Gateway</span>;
   } else if (st === 'runtime_unreachable') {
-    badge = <span class="badge warn">⚠️ OpenClaw Gateway 未连接</span>;
+    badge = <span class="badge warn">⚠️ {summary.host?.kind === 'dsh' ? 'DSH 插件未连接' : 'OpenClaw Gateway 未连接'}</span>;
   } else if (st === 'plugin_invalid') {
     badge = <span class="badge danger">❌ 插件文件异常</span>;
   } else {

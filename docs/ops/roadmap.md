@@ -31,13 +31,18 @@
 
 ### DSH 插件（当前主线）
 
-> 已确定：跨步 RV 优先 · 纯 TS 原生 + Python 离线校验 · fail-closed 默认。
-> 调研依据与阶段出口见 [DSH 插件迁移调研与开发计划](../architecture/dsh-plugin-migration-feasibility-2026-10-19.md)。
+工程目录：[`dshRVguarder/`](../../dshRVguarder/README.md)，0.1.0 测试候选已打包至 `dist/dsh-rvguarder-0.1.0/`，Windows 与 WSL 原生 DSH 均完成加载与握手；实际验证及剩余门禁见[验证记录](../../dshRVguarder/docs/validation-2026-10-20.md)。
 
-- [ ] **Phase 0：seam 实测** — `exec` 字段、`session/event` 顺序、`session-projection`、PTC 内层调用、Windows `partial` 边界、pre-execute p95
-- [ ] **Phase 1：跨步 RV MVP** — 纯 TS 插件、`tools/pre-execute`、session 窗口、DSL 子集、allow/deny/ask、fail-closed、哈希链 JSONL
-- [ ] **Phase 2：主体级证据** — 跨会话状态自持久化、审批 `reason`/`displayReason`、规则版本与回滚
-- [ ] **Phase 3：PMKB 与观测** — Authorization Trace、PMKB 单步规则、轨迹投影与离线回放
+> 2026-10-20 范围修订：RV、PMKB、基线扫描、Dashboard、LLM 增强与审计一并进入首个完整 DSH 版本。
+> 实施建议调整为 **TypeScript 宿主适配 + Python 共享核心 + Preact 工作台**；Phase 0 验证部署与接口后定稿。DSH 默认 fail-closed，可配置 fail-open；OpenClaw 继续 fail-open。
+> 完整工作包、验收矩阵与风险见 [DSH 全功能迁移计划](../architecture/dsh-plugin-migration-feasibility-2026-10-19.md)。
+
+- [ ] **Phase 0：宿主与部署实测** — 版本锁定、工具字段/身份、native/PTC/子 Agent、审批/取消/共存、事件顺序、Python 3.13+、本地传输/服务生命周期、Dashboard 与平台/性能基线
+- [ ] **Phase 1：共享核心与完整决策链** — HostAdapter、隔离 OpenClaw 初始化副作用、认证协议、DSH 工具映射、PMKB + RV + LLM/本地双模、DSH 原生审批、完成回写与审计
+- [ ] **Phase 2：状态、基线与工作台** — 跨会话证据、去重/并发/恢复、DSH 专用扫描、JSON/HTML/PDF、Dashboard 核心页面/API/SSE/模式配置
+- [ ] **Phase 3：全功能发布验收** — TS/Python/UI/规则配套发布、安装升级卸载、多平台与故障注入、回放/E2E、性能和 OpenClaw 回归
+
+各阶段是同一版本的依赖顺序，不是裁剪功能；上述能力全部验收后才视为完整迁移交付。纯 TS 全量重写不列为首期实施路线。
 
 ### P0（OpenClaw 维护项）
 

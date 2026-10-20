@@ -2,8 +2,8 @@
 
 from unittest.mock import patch
 
-from openclaw_guard.rv.runtime_verification import RuntimeVerificationEngine, WindowManager
-from openclaw_guard.rv.rv_dsl import ChainRule, MonitorSpec, Ruleset, StepRequirement
+from clawRVguarder.rv.runtime_verification import RuntimeVerificationEngine, WindowManager
+from clawRVguarder.rv.rv_dsl import ChainRule, MonitorSpec, Ruleset, StepRequirement
 
 
 def test_window_manager_preserves_order_and_bound():
@@ -27,7 +27,7 @@ def test_window_manager_matches_ordered_sequence_and_counts():
 
 def test_window_manager_ttl_expiry_and_serialization():
     window = WindowManager(max_size=5, ttl_seconds=1)
-    with patch("openclaw_guard.rv.runtime_verification._time.time") as clock:
+    with patch("clawRVguarder.rv.runtime_verification._time.time") as clock:
         clock.return_value = 1000.0
         window.push({"event": "old", "props": ["old"]})
         clock.return_value = 1005.0
@@ -224,7 +224,7 @@ def test_rv_prefix_replay_cannot_use_future_window_event():
 
 
 def test_parameterized_monitor_does_not_cross_bind_history():
-    from openclaw_guard.rv.rv_dsl import compile_monitors
+    from clawRVguarder.rv.rv_dsl import compile_monitors
 
     ruleset = Ruleset(monitors=[MonitorSpec(
         name="PerPathMonitor", bind_vars=["paths"], quantifier="forall", rules=[

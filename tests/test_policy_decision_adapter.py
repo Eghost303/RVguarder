@@ -6,9 +6,9 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from openclaw_guard.engine.behavior import BehaviorCollectorManager
-from openclaw_guard.manager import build_manager
-from openclaw_guard.policy.engine import AuthorizationPolicyEngine
+from clawRVguarder.engine.behavior import BehaviorCollectorManager
+from clawRVguarder.manager import build_manager
+from clawRVguarder.policy.engine import AuthorizationPolicyEngine
 
 
 class PolicyDecisionAdapterTests(unittest.TestCase):
@@ -39,10 +39,10 @@ class PolicyDecisionAdapterTests(unittest.TestCase):
                         "action_type": "file_delete",
                         "process_name": "openclaw",
                         "user": "tester",
-                        "target_paths": ["/Users/dynooob/secret.txt"],
-                        "raw_user_intent": "删除 /Users/dynooob/secret.txt",
+                        "target_paths": ["/Users/alice/secret.txt"],
+                        "raw_user_intent": "删除 /Users/alice/secret.txt",
                         "metadata": {"outside_workspace": True},
                     },
-                    "删除 /Users/dynooob/secret.txt",
+                    "删除 /Users/alice/secret.txt",
                 )
             self.assertEqual(payload["status"], "pending_approval")

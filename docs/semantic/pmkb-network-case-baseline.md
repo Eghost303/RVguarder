@@ -12,7 +12,7 @@ policies/permissions/*.json
 ```
 
 源码运行时读取 `policies/permissions/`；打包构建时由 `setup.py` 复制到
-`openclaw_guard/policy/data/permissions/`，仓库内只保留单一源。
+`clawRVguarder/policy/data/permissions/`，仓库内只保留单一源。
 
 ## 基础操作与默认处置
 

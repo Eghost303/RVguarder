@@ -6,9 +6,9 @@ import json
 
 import pytest
 
-from openclaw_guard.models import BehaviorEvent, DetectionDecision
-from openclaw_guard.services import build_services
-from openclaw_guard.utils import utc_now_iso
+from clawRVguarder.models import BehaviorEvent, DetectionDecision
+from clawRVguarder.services import build_services
+from clawRVguarder.utils import utc_now_iso
 
 
 @pytest.fixture

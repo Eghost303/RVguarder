@@ -3,11 +3,11 @@ from pathlib import Path
 
 import pytest
 
-from openclaw_guard.engine.command_safety import analyze_command
-from openclaw_guard.integrations.tool_hook_bridge import build_hook_event
-from openclaw_guard.policy.catalog import PolicyBundle
-from openclaw_guard.policy.trace import TraceCompiler
-from openclaw_guard.services import build_services
+from clawRVguarder.engine.command_safety import analyze_command
+from clawRVguarder.integrations.tool_hook_bridge import build_hook_event
+from clawRVguarder.policy.catalog import PolicyBundle
+from clawRVguarder.policy.trace import TraceCompiler
+from clawRVguarder.services import build_services
 
 
 RISKY_COMMANDS = [

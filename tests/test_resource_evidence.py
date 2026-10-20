@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from openclaw_guard.spec.resource_evidence import HostResourceObserver, ResourceEvidenceError
+from clawRVguarder.spec.resource_evidence import HostResourceObserver, ResourceEvidenceError
 
 
 def test_same_filename_changed_content_has_different_version(tmp_path):

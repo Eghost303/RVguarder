@@ -17,7 +17,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import MagicMock, PropertyMock, patch
 
-from openclaw_guard.engine.pipeline import (
+from clawRVguarder.engine.pipeline import (
     _annotate_event_context,
     _apply_rv_if_available,
     _ensure_pipeline_timings,
@@ -26,13 +26,13 @@ from openclaw_guard.engine.pipeline import (
     handle_before_tool_call_pipeline,
     ingest_event_pipeline,
 )
-from openclaw_guard.integrations.tool_hook_bridge import build_hook_event, build_hook_source_message
-from openclaw_guard.models import BehaviorEvent, DetectionDecision
-from openclaw_guard.services import build_services
+from clawRVguarder.integrations.tool_hook_bridge import build_hook_event, build_hook_source_message
+from clawRVguarder.models import BehaviorEvent, DetectionDecision
+from clawRVguarder.services import build_services
 
 
 def test_user_explanation_is_bounded_for_openclaw_approval_payloads() -> None:
-    from openclaw_guard.utils import utc_now_iso
+    from clawRVguarder.utils import utc_now_iso
 
     event = BehaviorEvent(
         event_id="long-explanation",
@@ -53,7 +53,7 @@ def test_user_explanation_is_bounded_for_openclaw_approval_payloads() -> None:
         reason="long target",
     )
 
-    from openclaw_guard.engine.pipeline import _user_explanation
+    from clawRVguarder.engine.pipeline import _user_explanation
 
     _title, message = _user_explanation(event, decision)
     assert len(message) <= 512
@@ -61,7 +61,7 @@ def test_user_explanation_is_bounded_for_openclaw_approval_payloads() -> None:
 
 
 def test_native_tool_user_summary_uses_openclaw_operation_language() -> None:
-    from openclaw_guard.utils import utc_now_iso
+    from clawRVguarder.utils import utc_now_iso
 
     event = build_hook_event(
         {
@@ -80,7 +80,7 @@ def test_native_tool_user_summary_uses_openclaw_operation_language() -> None:
         reason="summary test",
     )
 
-    from openclaw_guard.engine.pipeline import _user_summary
+    from clawRVguarder.engine.pipeline import _user_summary
 
     assert _user_summary(event, decision)["operation"] == "搜索记忆"
 
@@ -171,7 +171,7 @@ class ApplyRvIfAvailableTests(unittest.TestCase):
 
     def _make_decision(self, action: str = "ask", reason: str = "test") -> DetectionDecision:
         """构建用于测试的 DetectionDecision 实例。"""
-        from openclaw_guard.utils import utc_now_iso
+        from clawRVguarder.utils import utc_now_iso
         return DetectionDecision(
             event_id="evt-test",
             timestamp=utc_now_iso(),

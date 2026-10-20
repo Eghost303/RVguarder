@@ -2,9 +2,9 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from openclaw_guard.policy.catalog import PolicyBundle
-from openclaw_guard.policy.evaluator import PolicyEvaluator
-from openclaw_guard.policy.models import (
+from clawRVguarder.policy.catalog import PolicyBundle
+from clawRVguarder.policy.evaluator import PolicyEvaluator
+from clawRVguarder.policy.models import (
     AuthorizationTrace,
     ContextRef,
     CoverageResult,

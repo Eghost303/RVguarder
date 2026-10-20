@@ -12,16 +12,16 @@ from pathlib import Path
 
 import pytest
 
-from openclaw_guard.engine import experiment_components as ec
-from openclaw_guard.engine.experiment_components import (
+from clawRVguarder.engine import experiment_components as ec
+from clawRVguarder.engine.experiment_components import (
     COMPONENT_NAMES,
     ExperimentComponents,
 )
-from openclaw_guard.engine.semantic_enhancer import SemanticEnhancer
-from openclaw_guard.integrations.tool_hook_bridge import build_hook_event
-from openclaw_guard.models import BehaviorEvent, DetectionDecision
-from openclaw_guard.services import build_services
-from openclaw_guard.utils import utc_now_iso
+from clawRVguarder.engine.semantic_enhancer import SemanticEnhancer
+from clawRVguarder.integrations.tool_hook_bridge import build_hook_event
+from clawRVguarder.models import BehaviorEvent, DetectionDecision
+from clawRVguarder.services import build_services
+from clawRVguarder.utils import utc_now_iso
 
 
 @pytest.fixture(autouse=True)
@@ -219,7 +219,7 @@ def test_approval_trust_disabled_does_not_reuse_fingerprint(monkeypatch) -> None
             ),
         )
 
-        import openclaw_guard.engine.pipeline as pipeline
+        import clawRVguarder.engine.pipeline as pipeline
 
         monkeypatch.setattr(
             pipeline,

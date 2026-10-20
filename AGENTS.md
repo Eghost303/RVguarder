@@ -2,6 +2,10 @@
 
 > OpenClaw Agent 插件：执行前审批、PMKB 授权建模与运行时验证 | v0.7.0-dev（PMKB 1.2.0）
 
+## 开发记忆
+
+后续开发先阅读 [项目开发记忆](docs/dev/project-memory.md)，其中记录当前架构、DSH 规划与包名迁移兼容约定。
+
 ## 项目定位
 
 RVguarder 通过 OpenClaw Plugin SDK 的钩子系统，在不修改 OpenClaw 源码的前提下，为 AI Agent 增加：
@@ -29,7 +33,7 @@ RVguarder 通过 OpenClaw Plugin SDK 的钩子系统，在不修改 OpenClaw 源
 ## 目录结构
 
 ```
-openclaw_guard/          # Python 后端主包
+clawRVguarder/          # Python 后端主包
 ├── main.py              # CLI 入口（argparse，子命令：run/install-hook/uninstall-hook/baseline/export-audit/doctor）
 ├── manager.py           # [兼容层] OpenclawGuardManager 子类化 GuardServices，保留旧导入路径与 patch 锚点
 ├── services.py          # GuardServices 容器 — 核心编排 + 组件懒加载 + 流水线委托（阶段三产物）
@@ -79,6 +83,8 @@ openclaw_guard/          # Python 后端主包
 │   └── audit_store.py   # AuditStore — SHA-256 哈希链，DB + JSONL 双写
 └── collectors/          # 运行时采集器（预留）
 
+dshRVguarder/            # DSH0.2.1-rc.2插件测试候选
+
 frontend/                # SPA 前端（Vite + Preact）
 ├── src/main.jsx          # Preact 入口
 ├── src/App.jsx           # 根组件 + preact-router (5 路由)
@@ -107,33 +113,33 @@ pip install -e .
 cd frontend && npm install && npm run build
 
 # 启动 Guard 工作台（FastAPI，http://127.0.0.1:8780）
-python -m openclaw_guard.main run
+python -m clawRVguarder.main run
 
 # 仅输出摘要后退出（--once）
-python -m openclaw_guard.main run --once
+python -m clawRVguarder.main run --once
 
 # 自定义端口
-python -m openclaw_guard.main run --port 8888
+python -m clawRVguarder.main run --port 8888
 ```
 
 ### 维护命令
 
 ```bash
 # 安装 Hook 插件到 OpenClaw 配置
-python -m openclaw_guard.main install-hook
+python -m clawRVguarder.main install-hook
 
 # 卸载 Hook 插件
-python -m openclaw_guard.main uninstall-hook
+python -m clawRVguarder.main uninstall-hook
 
 # 运行基线扫描
-python -m openclaw_guard.main baseline
+python -m clawRVguarder.main baseline
 
 # 导出审计数据
-python -m openclaw_guard.main export-audit --output audit.csv
+python -m clawRVguarder.main export-audit --output audit.csv
 
 # 健康检查
-python -m openclaw_guard.main doctor
-python -m openclaw_guard.main doctor --json
+python -m clawRVguarder.main doctor
+python -m clawRVguarder.main doctor --json
 ```
 
 ### 测试
@@ -151,6 +157,13 @@ cd e2e && npm install && npm run install:browsers && npm test
 ```
 
 ## 架构约定
+
+### DSH 适配工程
+
+- 独立目录统一命名 `dshRVguarder/`，npm 包名 `dsh-rvguarder`；当前为0.1.0测试候选；SDK桥接、共享核心、扫描和工作台已实现，剩余验收见dshRVguarder/docs/validation-2026-10-20.md。
+- 首个完整版本含 PMKB、RV、LLM 增强、基线扫描、Dashboard 与审计；建议 TS 适配 + Python 共享核心 + Preact，Phase 0 实测后定稿。
+- DSH 已实现默认fail-closed；显式fail-open不绕过协议冲突或历史恢复锁定；下文 OpenClaw 的 fail-open 约定仅适用于现有 OpenClaw 集成。
+- DSH 初始化不得调用 OpenClaw Hook 安装；SDK/Node 版本、协议与服务生命周期须先实测。
 
 ### 决策流水线（PMKB + RV）
 
@@ -208,4 +221,4 @@ cd e2e && npm install && npm run install:browsers && npm test
 
 ---
 
-*AGENTS.md 最后更新: 2026-09-30 · 后端错误严格 fail-open 策略*
+*AGENTS.md 最后更新: 2026-10-20 · 主包目录迁移与开发记忆入口*

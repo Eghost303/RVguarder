@@ -4,11 +4,11 @@ from __future__ import annotations
 import hashlib
 import time
 
-from openclaw_guard.engine import experiment_components as ec
-from openclaw_guard.rv.runtime_verification import RuntimeVerificationEngine
-from openclaw_guard.rv.rv_dsl import Ruleset
-from openclaw_guard.spec.content_receipts import _canonical
-from openclaw_guard.spec.history_facts import VerifiedCrossSessionHistory
+from clawRVguarder.engine import experiment_components as ec
+from clawRVguarder.rv.runtime_verification import RuntimeVerificationEngine
+from clawRVguarder.rv.rv_dsl import Ruleset
+from clawRVguarder.spec.content_receipts import _canonical
+from clawRVguarder.spec.history_facts import VerifiedCrossSessionHistory
 
 
 def fixture(checker_factory, tmp_path, request):
@@ -16,9 +16,9 @@ def fixture(checker_factory, tmp_path, request):
     step = {"event_model": "tool-call-v1", "event": "tool_call", "step_id": "run:send", "tool_name": "office_network_post",
         "operation_family": "network.egress", "effects": ["egress"], "props": [], "arguments": {"url": "https://outside.test"},
         "context": {"principal": {"id": "principal"}, "agent_id": "agent", "session_id": "session"}, "provenance": {"run_id": "run"}}
-    from openclaw_guard.spec.host_authorization import HostAuthorizationStore, TaskBinding
-    from openclaw_guard.spec.task_history import HostTaskHistory, HostHistoryLease
-    from openclaw_guard.spec.content_receipts import content_version
+    from clawRVguarder.spec.host_authorization import HostAuthorizationStore, TaskBinding
+    from clawRVguarder.spec.task_history import HostTaskHistory, HostHistoryLease
+    from clawRVguarder.spec.content_receipts import content_version
     workspace = tmp_path / "workspace"
     workspace.mkdir()
     store = HostAuthorizationStore(tmp_path / "private", agent_workspaces=[workspace])
@@ -80,7 +80,7 @@ def test_revocation_between_fact_lookup_and_rule_match_cannot_commit_block(tmp_p
         captured.append(fact)
         return lambda *_: fact
     engine, step = fixture(checker_factory, tmp_path, request)
-    from openclaw_guard.rv import rv_dsl
+    from clawRVguarder.rv import rv_dsl
     original = rv_dsl._matches_requirement
     def match(*args, **kwargs):
         captured[0].lease.release()

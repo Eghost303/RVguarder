@@ -2,8 +2,8 @@ from pathlib import Path
 
 import json
 
-from openclaw_guard.config import AppContext, GuardSettings, OpenClawTarget, default_paths
-from openclaw_guard.integrations.hook_runtime import (
+from clawRVguarder.config import AppContext, GuardSettings, OpenClawTarget, default_paths
+from clawRVguarder.integrations.hook_runtime import (
     _ensure_plugin_config,
     ensure_runtime_hook_plugin,
     register_runtime_hook_in_config,

@@ -37,7 +37,7 @@ export function Settings() {
           <h3>精确命令授权</h3>
           <span class="badge info">默认 30 天</span>
         </div>
-        <p class="trust-intro">OpenClaw 中选择“始终允许”后，Guard 只会复用完全相同的工具、参数、工作目录和 agent/principal。</p>
+        <p class="trust-intro">{useStore.getState().summary.host?.kind === 'dsh' ? 'DSH 仅使用原生一次性审批，不复用 OpenClaw 的持久授权。' : 'OpenClaw 中选择“始终允许”后，Guard 只会复用完全相同的工具、参数、工作目录和 agent/principal。'}</p>
         {trust.length ? (
           <div class="trust-list">
             {trust.map((item) => (

@@ -41,7 +41,7 @@
 
 ```bash
 # 单元测试
-pytest tests/ -v --cov=openclaw_guard --cov-report=term-missing
+pytest tests/ -v --cov=clawRVguarder --cov-report=term-missing
 
 # API/Hook 集成测试（FastAPI TestClient/HTTPX）
 pytest tests/test_web_cli.py tests/test_approval_sync.py tests/test_three_state_control.py -v
@@ -50,11 +50,11 @@ pytest tests/test_web_cli.py tests/test_approval_sync.py tests/test_three_state_
 cd e2e && npx playwright test
 
 # 类型检查
-mypy openclaw_guard/ --strict
+mypy clawRVguarder/ --strict
 
 # 代码格式/质量
-ruff check openclaw_guard/
-ruff format --check openclaw_guard/
+ruff check clawRVguarder/
+ruff format --check clawRVguarder/
 ```
 
 ### 2.3 当前测试目录结构
@@ -180,7 +180,7 @@ async def services():
 @pytest.fixture
 async def client(services):
     """FastAPI TestClient"""
-    from openclaw_guard.web import create_app
+    from clawRVguarder.web import create_app
     app = create_app(services)
     async with AsyncClient(app=app, base_url="http://test") as ac:
         yield ac
@@ -210,10 +210,10 @@ FastAPI；如需重放旧行为，请使用 Git 历史中的快照，不要把�
 
 ```bash
 # 旧系统端口 8780
-python -m openclaw_guard.main run --port 8780
+python -m clawRVguarder.main run --port 8780
 
 # 新系统端口 8781
-python -m openclaw_guard.main run --port 8781
+python -m clawRVguarder.main run --port 8781
 
 # 对比脚本
 for endpoint in health actions audit rv baseline; do
@@ -363,10 +363,10 @@ jobs:
         with:
           python-version: "3.13"
       - run: pip install -e ".[test]"
-      - run: ruff check openclaw_guard/
-      - run: ruff format --check openclaw_guard/
-      - run: mypy openclaw_guard/ --strict
-      - run: pytest tests/ -v --cov=openclaw_guard --cov-fail-under=75
+      - run: ruff check clawRVguarder/
+      - run: ruff format --check clawRVguarder/
+      - run: mypy clawRVguarder/ --strict
+      - run: pytest tests/ -v --cov=clawRVguarder --cov-fail-under=75
 ```
 
 ---

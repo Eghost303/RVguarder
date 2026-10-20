@@ -7,8 +7,8 @@ from unittest.mock import Mock
 
 import pytest
 
-from openclaw_guard.engine import experiment_components as ec
-from openclaw_guard.spec.cross_history import BoundedHistoryRecorder
+from clawRVguarder.engine import experiment_components as ec
+from clawRVguarder.spec.cross_history import BoundedHistoryRecorder
 
 
 @pytest.mark.parametrize('retirement', ['disable', 'close'])

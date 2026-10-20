@@ -1,17 +1,18 @@
 # RVguarder
 
-> **OpenClaw Agent 插件**：在工具执行前加入权限审批、PMKB 授权建模与运行时验证。
+> **Agent 安全插件**：为 OpenClaw 与 DSH（DeepSeek Harness）提供工具执行前审批、PMKB 授权建模与运行时验证。
 
 [![License](https://img.shields.io/badge/License-Apache%202.0-2563EB.svg)](LICENSE)
 ![Python](https://img.shields.io/badge/Python-3.13%2B-3776AB?logo=python&logoColor=white)
-![OpenClaw](https://img.shields.io/badge/OpenClaw-Plugin%20SDK-111827)
-![Hook](https://img.shields.io/badge/Hook-before__tool__call-0F766E)
+![Hosts](https://img.shields.io/badge/Hosts-OpenClaw%20%2F%20DSH-111827)
+![DSH](https://img.shields.io/badge/DSH-0.2.1--rc.2-2563EB)
 ![PMKB](https://img.shields.io/badge/PMKB-1.2.0-2563EB)
 ![RV](https://img.shields.io/badge/RV-ChainRule%20DSL-7C3AED)
 ![Status](https://img.shields.io/badge/Status-v0.7.0--dev-0F766E)
 
-RVguarder 是一个运行在 [OpenClaw](https://openclaw.ai/) 之上的 Agent 插件。它不修改 OpenClaw
-源码，而是通过官方 Plugin SDK 的 `before_tool_call` 钩子，在 Agent 真正调用工具之前完成：
+RVguarder 同时适配 OpenClaw 与 DSH 两个宿主：OpenClaw 侧通过官方 Plugin SDK 的
+`before_tool_call` 钩子接入，DSH 侧通过 `tools/pre-execute` 与 `ctx.tools.guard()` 接入，
+共享同一套 Python 决策内核。两种接入都不修改宿主源码，在 Agent 真正调用工具之前完成：
 
 - **权限判定** — 把工具调用归一化为 Authorization Trace，由 PMKB 给出可解释的授权结果
 - **执行前审批** — 高风险操作返回 `requireApproval`，Agent 挂起并交给 OpenClaw 原生审批卡片
@@ -32,11 +33,12 @@ RVguarder 选择插件路径：
 
 | 原则 | 含义 |
 | --- | --- |
-| **非侵入** | 不改 OpenClaw 源码，插件由 Guard 自动生成并注入 |
-| **单一审批入口** | OpenClaw 原生审批卡片是唯一决策源，Dashboard 只读同步 |
+| **非侵入** | 不改宿主源码；OpenClaw 插件由 Guard 生成并注入，DSH 以独立 npm 包加载 |
+| **双宿主同核** | OpenClaw 与 DSH 共用 PMKB、RV 与审计内核，不维护两套策略 |
+| **单一审批入口** | OpenClaw / DSH 原生审批是唯一决策源，Dashboard 只读同步 |
 | **证据驱动** | 每次决策携带 `match_status`、`missing_features`、`requested_delta` 等证据 |
 | **可取证** | 审批、执行、阻断和审计结果全部落盘并可导出 |
-| **故障透传** | 后端不可达时所有工具调用透传，Guard 不阻塞 Agent 运行 |
+| **故障策略可配** | OpenClaw 后端不可达时透传；DSH 默认 fail-closed，可显式配置 fail-open |
 
 ---
 
@@ -45,6 +47,7 @@ RVguarder 选择插件路径：
 | 能力 | 说明 |
 | --- | --- |
 | **原生钩子拦截** | `api.on("before_tool_call")` 官方 API，在工具执行前挂起 Agent |
+| **DSH 原生门禁** | `tools/pre-execute` 返回 `allow` / `ask` / `deny`，配合 `ctx.tools.guard()` 单调拒绝与默认 fail-closed |
 | **`requireApproval` 挂起** | 返回 `BeforeToolCallResult`，Agent 线程真正等待审批结果 |
 | **审批结果同步** | OpenClaw 原生审批卡片唯一决策，Guard Dashboard 通过 SSE 只读同步 |
 | **PMKB 权限建模** | PMKB 1.2.0：48 个 canonical operations、79 条原生规则、76 条 Trace、9 个危险组合、123 个回归向量 |
@@ -69,6 +72,17 @@ OpenClaw 准备调用工具
   → requireApproval：Agent 挂起，OpenClaw 弹出原生审批卡片
   → onResolution 回调 → Guard SSE 只读同步
   → 工具继续或终止 → after_tool_call 回写审计
+```
+
+DSH 侧走同一内核，但使用宿主原生 seam：
+
+```
+DSH 准备调用工具
+  → tools/pre-execute（TypeScript 插件）
+  → 认证回环 HTTP → Python 共享核心（PMKB + RV + 审计）
+  → allow | ask | deny
+  → DSH 原生审批 / 执行
+  → tools/execute 与 tools/result → 完成回写与审计
 ```
 
 ```
@@ -124,6 +138,8 @@ npm run build
 cd ..
 ```
 
+Python 主包现为 `clawRVguarder`。更新已有开发环境后，请重新执行 `python -m pip install -e .`；模块启动使用 `python -m clawRVguarder.main run`，命令行仍使用 `openclaw-guard`。
+
 ### 启动
 
 ```bash
@@ -150,6 +166,21 @@ export DEEPSEEK_API_KEY=...
 ```
 
 未配置时使用本地规则模式，延迟更低，功能保持可用。
+
+### DSH 插件
+
+DSH 侧固定支持 **DSH 0.2.1-rc.2**、Node 24 与 Python 3.13+，工程位于 `dshRVguarder/`。
+发行包输出到 `dist/dsh-rvguarder-0.1.0/`（插件 tgz、Python wheel、安装说明与 SHA-256 清单）。
+
+```bash
+cd dshRVguarder
+npm ci --ignore-scripts --legacy-peer-deps
+node scripts/link-sdk.mjs '<DSH 安装根目录>'
+npm run check && npm test
+npm pack
+```
+
+共享服务、隔离 profile、WSL 原生部署与启动目录约束见 [DSH 部署说明](dshRVguarder/docs/deployment.md)。
 
 ---
 
@@ -211,7 +242,8 @@ ChainRule DSL 监视器触发：
 ## 项目结构
 
 ```
-openclaw_guard/        Python 后端与 CLI（FastAPI、PMKB、RV、审计、OpenClaw 集成）
+clawRVguarder/        Python 后端与 CLI（FastAPI、PMKB、RV、审计、OpenClaw 集成）
+dshRVguarder/         DSH0.2.1-rc.2适配插件测试候选（部署/验证见子目录）
 frontend/              Preact 工作台（Vite 构建，产物输出 runtime/ui/）
 policies/permissions/  PMKB 单一源（schema、operations、rules、traces、relations、vectors）
 tests/                 后端测试与文档/发布契约
@@ -244,8 +276,9 @@ npm run docs:dev     # 文档站本地预览
 
 RVguarder 是策略与审批层，不是系统级沙箱：
 
-- 只覆盖通过 OpenClaw Plugin SDK 发起的工具调用
-- 后端不可达、返回 4xx/5xx 或响应不可解析时，工具调用透传；只有 Guard 明确返回 `block` 才阻断
+- 只覆盖通过宿主公开 seam 发起的工具调用（OpenClaw `before_tool_call` / DSH `tools/pre-execute`）
+- OpenClaw 侧后端不可达、返回 4xx/5xx 或响应不可解析时，工具调用透传；只有 Guard 明确返回 `block` 才阻断
+- DSH 侧默认 fail-closed：核心服务不可达、协议异常或历史未确认时拒绝执行；只有显式 `failMode: open` 才透传服务故障
 - 默认 PMKB 针对个人办公场景，其他场景需要扩展策略包
 - 未知工具和越权参数保持 `unknown`，不会自动放行
 - 审批成本与策略精度需要按实际部署校准
@@ -266,6 +299,9 @@ RVguarder 是策略与审批层，不是系统级沙箱：
 | [RV 权限自动机](docs/architecture/rv-permission-automata.md) | DSL 合同、作用域与迁移 |
 | [HTTP API](docs/api/http.md) | 接口清单 |
 | [语义理解](docs/semantic/method.md) | SemanticEnhancer 与标签体系 |
+| [DSH 插件部署](dshRVguarder/docs/deployment.md) | DSH 共享服务、profile 与 WSL 原生部署 |
+| [DSH 验证记录](dshRVguarder/docs/validation-2026-10-20.md) | 已验证范围、性能基线与剩余门禁 |
+| [DSH 迁移与开发计划](docs/architecture/dsh-plugin-migration-feasibility-2026-10-19.md) | 扩展点映射、能力矩阵与阶段计划 |
 | [FAQ](docs/ops/faq.md) | 常见问题 |
 | [路线图](docs/ops/roadmap.md) | 开发计划 |
 

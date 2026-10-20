@@ -3,8 +3,8 @@ from pathlib import Path
 
 import pytest
 
-from openclaw_guard import ui
-from openclaw_guard.ui_assets import stage_ui_assets
+from clawRVguarder import ui
+from clawRVguarder.ui_assets import stage_ui_assets
 
 
 def frontend(source: Path) -> None:
@@ -15,7 +15,7 @@ def frontend(source: Path) -> None:
 
 
 def test_clean_installed_package_can_serve_its_bundled_assets(tmp_path, monkeypatch):
-    package = tmp_path / "site-packages/openclaw_guard"
+    package = tmp_path / "site-packages/clawRVguarder"
     frontend(package / "static_ui")
     monkeypatch.setattr(ui, "__file__", str(package / "ui.py"))
     target = tmp_path / "workspace/ui"

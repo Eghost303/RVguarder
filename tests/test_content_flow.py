@@ -7,10 +7,10 @@ from unittest.mock import patch
 
 import pytest
 
-from openclaw_guard.spec.content_flow import VerifiedContentFlow
-from openclaw_guard.spec.content_receipts import ContentReceiptError, ExecutedContentLedger, HostContentReceiptAuthority, content_version
-from openclaw_guard.spec.host_authorization import HostAuthorizationStore, TaskBinding
-from openclaw_guard.spec.resource_evidence import HostResourceObserver
+from clawRVguarder.spec.content_flow import VerifiedContentFlow
+from clawRVguarder.spec.content_receipts import ContentReceiptError, ExecutedContentLedger, HostContentReceiptAuthority, content_version
+from clawRVguarder.spec.host_authorization import HostAuthorizationStore, TaskBinding
+from clawRVguarder.spec.resource_evidence import HostResourceObserver
 
 
 @pytest.fixture
@@ -83,7 +83,7 @@ def test_revocation_and_receipt_expiry_remove_reusable_relations(flow):
     output = content_version("office", "out.txt", b"derived")
     commit("transform", source, output)
     expiry = ledger.snapshot()[0]["expires_at_ms"] / 1000
-    with patch("openclaw_guard.spec.content_flow.time.time", return_value=expiry):
+    with patch("clawRVguarder.spec.content_flow.time.time", return_value=expiry):
         assert graph.ancestors(output, binding=binding)["ancestors"] == []
     ledger.authority._store.revoke(grant["id"])
     assert graph.ancestors(output, binding=binding)["status"] == "untrusted_task"

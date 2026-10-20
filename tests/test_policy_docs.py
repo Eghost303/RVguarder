@@ -2,7 +2,7 @@ import json
 import re
 from pathlib import Path
 
-from openclaw_guard.policy.catalog import PolicyBundle
+from clawRVguarder.policy.catalog import PolicyBundle
 
 
 ROOT = Path(__file__).parents[1]

@@ -59,7 +59,7 @@ test.describe("RVguarder UI", () => {
       headers: { "x-openclaw-guard-token": getHookToken() },
       data: {
         toolName: "exec",
-        params: { command: "rm /Users/dynooob/test.txt" },
+        params: { command: "rm /Users/alice/test.txt" },
         runId: "e2e-run",
         toolCallId: "e2e-call",
         sessionKey: "e2e-session",

@@ -7,9 +7,9 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from openclaw_guard import api
-from openclaw_guard.services import build_services
-from openclaw_guard.storage.db_store import SQLALCHEMY_AVAILABLE
+from clawRVguarder import api
+from clawRVguarder.services import build_services
+from clawRVguarder.storage.db_store import SQLALCHEMY_AVAILABLE
 
 
 class StorageRvMatrixIntegrationTests(unittest.TestCase):

@@ -26,11 +26,11 @@ BehaviorEvent
 
 实现位置：
 
-- `openclaw_guard/engine/semantic_enhancer.py`：本地规则化分析、可选 LLM 分析和硬性工具名校验；
-- `openclaw_guard/policy/trace.py`：把 `rv_trace` 编译为 `AuthorizationTrace`；
-- `openclaw_guard/policy/evaluator.py`：覆盖状态、候选规则和单步效果；
-- `openclaw_guard/policy/engine.py`：合并权限闭包/差分、危险组合和最终策略证据；
-- `openclaw_guard/engine/pipeline.py`：在 Hook 热路径中编排上述步骤。
+- `clawRVguarder/engine/semantic_enhancer.py`：本地规则化分析、可选 LLM 分析和硬性工具名校验；
+- `clawRVguarder/policy/trace.py`：把 `rv_trace` 编译为 `AuthorizationTrace`；
+- `clawRVguarder/policy/evaluator.py`：覆盖状态、候选规则和单步效果；
+- `clawRVguarder/policy/engine.py`：合并权限闭包/差分、危险组合和最终策略证据；
+- `clawRVguarder/engine/pipeline.py`：在 Hook 热路径中编排上述步骤。
 
 ## 输出字段
 

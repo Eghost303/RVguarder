@@ -6,11 +6,11 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from openclaw_guard.engine.command_safety import analyze_command
-from openclaw_guard.engine.pipeline import _annotate_event_context
-from openclaw_guard.integrations.tool_hook_bridge import build_hook_event
-from openclaw_guard.services import build_services
-from openclaw_guard.api import health
+from clawRVguarder.engine.command_safety import analyze_command
+from clawRVguarder.engine.pipeline import _annotate_event_context
+from clawRVguarder.integrations.tool_hook_bridge import build_hook_event
+from clawRVguarder.services import build_services
+from clawRVguarder.api import health
 
 
 class DailyPolicyTests(unittest.TestCase):

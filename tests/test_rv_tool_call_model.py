@@ -3,17 +3,17 @@ from copy import deepcopy
 
 import pytest
 
-from openclaw_guard.integrations.tool_hook_bridge import build_hook_event
-from openclaw_guard.policy.catalog import PolicyBundle
-from openclaw_guard.policy.trace import TraceCompiler
-from openclaw_guard.rv.runtime_verification import RuntimeVerificationEngine
-from openclaw_guard.rv.rv_dsl import load_ruleset
-from openclaw_guard.rv.tool_events import (
+from clawRVguarder.integrations.tool_hook_bridge import build_hook_event
+from clawRVguarder.policy.catalog import PolicyBundle
+from clawRVguarder.policy.trace import TraceCompiler
+from clawRVguarder.rv.runtime_verification import RuntimeVerificationEngine
+from clawRVguarder.rv.rv_dsl import load_ruleset
+from clawRVguarder.rv.tool_events import (
     LEGACY_EFFECTS, OPERATION_EFFECTS, build_tool_call_step, migrate_rules_document,
 )
-from openclaw_guard.services import build_services
-from openclaw_guard.engine.semantic_enhancer import SemanticEnhancer
-from openclaw_guard.spec.nl2spec_generator import generate_ruleset
+from clawRVguarder.services import build_services
+from clawRVguarder.engine.semantic_enhancer import SemanticEnhancer
+from clawRVguarder.spec.nl2spec_generator import generate_ruleset
 
 
 def project(tool, params, labels=(), steps=(), call_id="call"):
@@ -219,7 +219,7 @@ def test_unregistered_subaction_of_known_tool_cannot_use_low_risk_message_allow(
 
 
 def test_public_hook_trace_scrubs_new_arguments_and_entities():
-    from openclaw_guard.engine.pipeline import _scrub_public_trace
+    from clawRVguarder.engine.pipeline import _scrub_public_trace
     value = {"arguments": {"body": "private-token"},
              "entities": [{"kind": "paths", "values": ["/private/secret.txt"]}],
              "resource": {"type": "path", "ids": ["/private/secret.txt"]}}
@@ -273,7 +273,7 @@ def test_normal_call_pair_has_no_added_hard_block_or_approval_request(tmp_path, 
 
 
 def test_non_hook_telemetry_does_not_claim_hook_provenance():
-    from openclaw_guard.models import BehaviorEvent
+    from clawRVguarder.models import BehaviorEvent
     event = BehaviorEvent(event_id="observed", timestamp="2026-10-04T00:00:00Z",
                           action_type="network_egress", process_name="openclaw", pid=None, user="tester",
                           metadata={"tool_name": "network.request"})

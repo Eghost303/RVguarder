@@ -20,11 +20,11 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
-from openclaw_guard.models import ControlledAction, DetectionDecision
-from openclaw_guard.services import GuardServices, build_services
-from openclaw_guard.integrations.openclaw_adapter import OpenClawRelayError
-from openclaw_guard.integrations.tool_hook_bridge import build_hook_event
-from openclaw_guard.utils import utc_now_iso
+from clawRVguarder.models import ControlledAction, DetectionDecision
+from clawRVguarder.services import GuardServices, build_services
+from clawRVguarder.integrations.openclaw_adapter import OpenClawRelayError
+from clawRVguarder.integrations.tool_hook_bridge import build_hook_event
+from clawRVguarder.utils import utc_now_iso
 
 
 class BuildServicesTests(unittest.TestCase):
@@ -48,12 +48,12 @@ class BuildServicesTests(unittest.TestCase):
             config_path.write_text(json.dumps({"models": {"providers": {}}}), encoding="utf-8")
             services = build_services(project, config_path=config_path)
 
-            from openclaw_guard.engine.behavior import BehaviorCollectorManager
-            from openclaw_guard.engine.control import GuardController
-            from openclaw_guard.engine.whitelist import WhitelistEngine
-            from openclaw_guard.policy.engine import AuthorizationPolicyEngine
-            from openclaw_guard.storage.audit_store import AuditStore
-            from openclaw_guard.core.action_service import ActionService
+            from clawRVguarder.engine.behavior import BehaviorCollectorManager
+            from clawRVguarder.engine.control import GuardController
+            from clawRVguarder.engine.whitelist import WhitelistEngine
+            from clawRVguarder.policy.engine import AuthorizationPolicyEngine
+            from clawRVguarder.storage.audit_store import AuditStore
+            from clawRVguarder.core.action_service import ActionService
 
             self.assertIsInstance(services.collectors, BehaviorCollectorManager)
             self.assertIsInstance(services.policy_engine, AuthorizationPolicyEngine)
@@ -340,8 +340,8 @@ class GuardServicesExportAuditTests(unittest.TestCase):
 class GuardServicesAdapterResolutionTests(unittest.TestCase):
     """验证 GuardServices 基类正确解析适配器函数。
 
-    与 OpenclawGuardManager 子类（解析自 openclaw_guard.manager）不同，
-    基类从 openclaw_guard.services 命名空间解析适配器。
+    与 OpenclawGuardManager 子类（解析自 clawRVguarder.manager）不同，
+    基类从 clawRVguarder.services 命名空间解析适配器。
     """
 
     def setUp(self) -> None:
@@ -356,14 +356,14 @@ class GuardServicesAdapterResolutionTests(unittest.TestCase):
         self.tmp.cleanup()
 
     def test_chat_status_uses_services_adapter(self) -> None:
-        with patch("openclaw_guard.services.get_chat_status") as mock_get:
+        with patch("clawRVguarder.services.get_chat_status") as mock_get:
             mock_get.return_value = MagicMock(connected=False, available_models=[])
             status = self.services.chat_status()
             mock_get.assert_called_once()
             self.assertFalse(status.connected)
 
     def test_new_chat_uses_services_adapter(self) -> None:
-        with patch("openclaw_guard.services.reset_chat_session") as mock_reset:
+        with patch("clawRVguarder.services.reset_chat_session") as mock_reset:
             mock_reset.return_value = {"ok": True}
             result = self.services.new_chat()
             mock_reset.assert_called_once()
@@ -371,15 +371,15 @@ class GuardServicesAdapterResolutionTests(unittest.TestCase):
             self.assertIn("messages", result)
 
     def test_chat_history_uses_services_adapter(self) -> None:
-        with patch("openclaw_guard.services.get_chat_history") as mock_hist:
+        with patch("clawRVguarder.services.get_chat_history") as mock_hist:
             mock_hist.return_value = []
             result = self.services.chat_history()
             mock_hist.assert_called_once()
             self.assertEqual(result, [])
 
     def test_hook_status_uses_services_adapter(self) -> None:
-        with patch("openclaw_guard.services.inspect_guard_plugin") as mock_inspect, patch(
-            "openclaw_guard.services.get_guard_hook_status"
+        with patch("clawRVguarder.services.inspect_guard_plugin") as mock_inspect, patch(
+            "clawRVguarder.services.get_guard_hook_status"
         ) as mock_hook:
             mock_inspect.return_value = {"ok": True, "found": False, "status": "not_installed"}
             mock_hook.side_effect = OpenClawRelayError("gateway_unreachable", "test")

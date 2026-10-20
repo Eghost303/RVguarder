@@ -7,9 +7,9 @@ from fastapi import Request
 from fastapi.testclient import TestClient
 import pytest
 
-from openclaw_guard.services import build_services
-from openclaw_guard.web.app import create_app
-from openclaw_guard.web.dependencies import require_hook_token
+from clawRVguarder.services import build_services
+from clawRVguarder.web.app import create_app
+from clawRVguarder.web.dependencies import require_hook_token
 
 
 @pytest.fixture
@@ -89,14 +89,14 @@ def test_after_http_route_overwrites_client_auth_assertions():
 
 def test_signed_content_receipt_enriches_success_without_new_tool_call(execution, tmp_path):
     """签名收据可补充既有成功调用的内容事实，但不增加事件或改分类。"""
-    from openclaw_guard.spec.content_receipts import ExecutedContentLedger, HostContentReceiptAuthority, content_version
-    from openclaw_guard.spec.host_authorization import HostAuthorizationStore, TaskBinding
+    from clawRVguarder.spec.content_receipts import ExecutedContentLedger, HostContentReceiptAuthority, content_version
+    from clawRVguarder.spec.host_authorization import HostAuthorizationStore, TaskBinding
     services, payload = execution
     store = HostAuthorizationStore(tmp_path / "private", agent_workspaces=[tmp_path / "workspace"])
     authority = HostContentReceiptAuthority(store, issuer="executor", tool_operations={"read": "file.read"})
     # 此局部fixture模拟受控执行器处理真实字节；不是OpenClaw/Docker验收。
     data = (tmp_path / "data.txt").read_bytes()
-    from openclaw_guard.spec.resource_evidence import HostResourceObserver
+    from clawRVguarder.spec.resource_evidence import HostResourceObserver
     binding = TaskBinding("host-task", "hook:binding", "agent", "task", "run")
     store.issue(HostResourceObserver({"office": tmp_path}), "office", "data.txt", binding=binding,
                 operation="file.read", recipient="local-reader")
@@ -126,7 +126,7 @@ def test_signed_content_receipt_enriches_success_without_new_tool_call(execution
 def test_failed_or_disabled_content_path_does_not_commit_receipts(execution, failed, disabled):
     """失败调用或Auth关闭时，不核验或提交任何签名内容关系。"""
     from unittest.mock import Mock
-    from openclaw_guard.engine.experiment_components import ExperimentComponents, using
+    from clawRVguarder.engine.experiment_components import ExperimentComponents, using
     services, payload = execution
     services.content_evidence_ledger = Mock()
     with using(ExperimentComponents(authorization=not disabled)):

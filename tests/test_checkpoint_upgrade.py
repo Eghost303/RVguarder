@@ -1,7 +1,7 @@
 import json
 
-from openclaw_guard.models import BehaviorEvent, DetectionDecision
-from openclaw_guard.engine.approval import build_approval_presentation, canonical_approval_fingerprint
+from clawRVguarder.models import BehaviorEvent, DetectionDecision
+from clawRVguarder.engine.approval import build_approval_presentation, canonical_approval_fingerprint
 
 
 def test_approval_presentation_prioritizes_intent_and_redacts_sensitive_parameters():
@@ -114,8 +114,8 @@ def test_approval_fingerprint_is_stable_for_key_order_and_changes_with_directory
 
 
 def test_allow_always_trust_is_scoped_to_the_exact_command_and_directory(tmp_path):
-    from openclaw_guard.services import build_services
-    from openclaw_guard.api import resolve_hook_approval
+    from clawRVguarder.services import build_services
+    from clawRVguarder.api import resolve_hook_approval
 
     project = tmp_path / "project"
     project.mkdir()
@@ -153,7 +153,7 @@ def test_allow_always_trust_is_scoped_to_the_exact_command_and_directory(tmp_pat
 
 
 def test_approval_trust_summary_and_revoke_are_available(tmp_path):
-    from openclaw_guard.services import build_services
+    from clawRVguarder.services import build_services
 
     project = tmp_path / "project"
     project.mkdir()
@@ -168,8 +168,8 @@ def test_approval_trust_summary_and_revoke_are_available(tmp_path):
 
 
 def test_destructive_command_cannot_be_persistently_allowed(tmp_path):
-    from openclaw_guard.services import build_services
-    from openclaw_guard.api import resolve_hook_approval
+    from clawRVguarder.services import build_services
+    from clawRVguarder.api import resolve_hook_approval
 
     project = tmp_path / "project"
     project.mkdir()
@@ -197,8 +197,8 @@ def test_destructive_command_cannot_be_persistently_allowed(tmp_path):
 
 
 def test_sensitive_relative_path_cannot_be_persistently_allowed(tmp_path):
-    from openclaw_guard.services import build_services
-    from openclaw_guard.api import resolve_hook_approval
+    from clawRVguarder.services import build_services
+    from clawRVguarder.api import resolve_hook_approval
 
     project = tmp_path / "project"
     project.mkdir()
@@ -224,7 +224,7 @@ def test_sensitive_relative_path_cannot_be_persistently_allowed(tmp_path):
 
 
 def test_symlink_to_sensitive_path_cannot_be_persistently_allowed(tmp_path):
-    from openclaw_guard.services import build_services
+    from clawRVguarder.services import build_services
 
     project = tmp_path / "project"
     project.mkdir()
@@ -246,7 +246,7 @@ def test_symlink_to_sensitive_path_cannot_be_persistently_allowed(tmp_path):
 
 
 def test_symlink_outside_working_directory_cannot_be_persistently_allowed(tmp_path):
-    from openclaw_guard.services import build_services
+    from clawRVguarder.services import build_services
 
     project = tmp_path / "project"
     project.mkdir()
@@ -269,7 +269,7 @@ def test_symlink_outside_working_directory_cannot_be_persistently_allowed(tmp_pa
 
 
 def test_anonymous_request_cannot_create_persistent_trust(tmp_path):
-    from openclaw_guard.services import build_services
+    from clawRVguarder.services import build_services
 
     project = tmp_path / "project"
     project.mkdir()
@@ -320,7 +320,7 @@ def test_approval_presentation_redacts_url_credentials_and_semantic_secrets():
     assert "SUPERSECRET" not in serialized
     assert "alice:pw" not in serialized
     assert "https://example.test" in serialized
-    from openclaw_guard.engine.pipeline import _approval_prompt_text
+    from clawRVguarder.engine.pipeline import _approval_prompt_text
     _, prompt = _approval_prompt_text(presentation, decision)
     assert "SUPERSECRET" not in prompt
     assert "alice:pw" not in prompt
@@ -383,7 +383,7 @@ def test_sensitive_globs_environment_variables_and_git_revision_targets_are_not_
         policy_decision={"effect": "openclaw_approval"},
     )
 
-    from openclaw_guard.engine.approval import _allow_always_eligibility
+    from clawRVguarder.engine.approval import _allow_always_eligibility
     for command in ("git show HEAD:.env", "git --git-dir=.git show HEAD", "cat .envrc", "cat .npmrc", "cat .netrc", "cat .env*", "grep --include='*.env' x .", 'cat "$TARGET"'):
         event.command = command
         assert _allow_always_eligibility(event, decision)[0] is False
@@ -418,7 +418,7 @@ def test_allow_always_requires_clean_rv_and_permission_risk_evidence():
         reason="需要确认",
         policy_decision={"effect": "openclaw_approval", "combo_violations": ["secret_egress"]},
     )
-    from openclaw_guard.engine.approval import _allow_always_eligibility
+    from clawRVguarder.engine.approval import _allow_always_eligibility
     assert _allow_always_eligibility(event, decision)[0] is False
     decision.policy_decision = {"effect": "openclaw_approval"}
     event.metadata["rv_result"] = {"verdict": "escalate"}
@@ -458,7 +458,7 @@ def test_command_preview_redacts_json_and_flag_credentials():
 
 
 def test_hook_response_does_not_echo_raw_payload_or_sensitive_targets(tmp_path):
-    from openclaw_guard.services import build_services
+    from clawRVguarder.services import build_services
 
     project = tmp_path / "project"
     project.mkdir()

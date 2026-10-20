@@ -1,5 +1,5 @@
-from openclaw_guard.integrations.tool_hook_bridge import build_hook_event
-from openclaw_guard.policy.engine import AuthorizationPolicyEngine
+from clawRVguarder.integrations.tool_hook_bridge import build_hook_event
+from clawRVguarder.policy.engine import AuthorizationPolicyEngine
 
 
 def test_openclaw_native_read_tools_are_auto_allowed_by_pmkb():

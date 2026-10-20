@@ -6,8 +6,8 @@ from unittest.mock import patch
 
 import pytest
 
-from openclaw_guard.engine.experiment_components import ExperimentComponents, using
-from openclaw_guard.services import build_services
+from clawRVguarder.engine.experiment_components import ExperimentComponents, using
+from clawRVguarder.services import build_services
 
 
 @pytest.mark.parametrize('mode,expected_action,expected_status,max_writes', [

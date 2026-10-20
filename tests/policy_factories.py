@@ -1,5 +1,5 @@
-from openclaw_guard.models import BehaviorEvent
-from openclaw_guard.policy.models import (
+from clawRVguarder.models import BehaviorEvent
+from clawRVguarder.policy.models import (
     AuthorizationTrace, CapabilityGrant, ContextRef, CoverageResult, DataRef,
     OperationRef, PermissionRef, PrincipalRef, ProvenanceRef, ResourceRef,
 )

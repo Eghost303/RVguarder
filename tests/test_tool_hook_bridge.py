@@ -1,9 +1,9 @@
 from __future__ import annotations
 
-from openclaw_guard.integrations.tool_hook_bridge import build_hook_event, build_hook_source_message
-from openclaw_guard.engine.semantic_enhancer import SemanticEnhancer
-from openclaw_guard.policy.catalog import PolicyBundle
-from openclaw_guard.policy.trace import TraceCompiler
+from clawRVguarder.integrations.tool_hook_bridge import build_hook_event, build_hook_source_message
+from clawRVguarder.engine.semantic_enhancer import SemanticEnhancer
+from clawRVguarder.policy.catalog import PolicyBundle
+from clawRVguarder.policy.trace import TraceCompiler
 
 
 def test_openclaw_native_tools_have_explicit_semantic_mapping():
@@ -39,7 +39,7 @@ def test_openclaw_native_tools_have_explicit_semantic_mapping():
 
 
 def test_openclaw_read_profiles_are_auto_allowed_by_pmkb():
-    from openclaw_guard.policy.engine import AuthorizationPolicyEngine
+    from clawRVguarder.policy.engine import AuthorizationPolicyEngine
 
     engine = AuthorizationPolicyEngine()
     for tool_name in (

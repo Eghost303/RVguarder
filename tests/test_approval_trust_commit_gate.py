@@ -3,9 +3,9 @@ import json
 
 import pytest
 
-from openclaw_guard import api
-from openclaw_guard.engine import experiment_components as ec
-from openclaw_guard.services import build_services
+from clawRVguarder import api
+from clawRVguarder.engine import experiment_components as ec
+from clawRVguarder.services import build_services
 
 
 @pytest.fixture(autouse=True)
@@ -26,7 +26,7 @@ def test_resolution_approves_this_call_without_disabled_persistent_trust(tmp_pat
     assert request['action'] == 'require_approval'
     # Isolate resolution of an already offered eligible native approval; command
     # eligibility itself is covered by the real readonly native probe and its tests.
-    import openclaw_guard.api._handlers as handlers
+    import clawRVguarder.api._handlers as handlers
     monkeypatch.setattr(handlers, 'build_approval_presentation', lambda *_: {
         'allow_always': {'eligible': True, 'fingerprint': 'fixture-fingerprint', 'scope': 'workspace'}})
     if mode == 'disabled':
@@ -48,7 +48,7 @@ def test_resolution_approves_this_call_without_disabled_persistent_trust(tmp_pat
 
 
 def test_failed_trust_write_does_not_create_reusable_memory_trust(tmp_path, monkeypatch):
-    from openclaw_guard.engine.approval import ApprovalTrustStore
+    from clawRVguarder.engine.approval import ApprovalTrustStore
     store = ApprovalTrustStore(tmp_path / 'trust.json')
     def fail_write(_payload):
         raise OSError('fixture disk failure')

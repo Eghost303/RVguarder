@@ -15,7 +15,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from openclaw_guard.manager import build_manager
+from clawRVguarder.manager import build_manager
 
 
 class TestRvApiIntegration(unittest.TestCase):
@@ -83,8 +83,8 @@ class TestRvApiIntegration(unittest.TestCase):
 
     def test_rv_engine_trace_preserves_after_action(self):
         # 模拟一个动作触发 RV
-        from openclaw_guard.models import BehaviorEvent
-        from openclaw_guard.utils import utc_now_iso
+        from clawRVguarder.models import BehaviorEvent
+        from clawRVguarder.utils import utc_now_iso
 
         event = BehaviorEvent(
             event_id="test-rv-001",
@@ -102,7 +102,7 @@ class TestRvApiIntegration(unittest.TestCase):
                 "rv_trace": [{"event": "file_delete", "props": ["file_delete", "high_value_path"]}],
             },
         )
-        from openclaw_guard.policy.engine import AuthorizationPolicyEngine
+        from clawRVguarder.policy.engine import AuthorizationPolicyEngine
 
         decision = AuthorizationPolicyEngine().decide(event)
         self.assertIn(decision.action, {"allow", "ask", "block"})
@@ -111,7 +111,7 @@ class TestRvApiIntegration(unittest.TestCase):
         self.assertIn("verdict", rv_result)
 
     def test_rv_toggle_api_handler_signature(self):
-        from openclaw_guard.api._handlers import rv_status, rv_toggle
+        from clawRVguarder.api._handlers import rv_status, rv_toggle
         # rv_status is a GET handler (no payload)
         result_status, code = rv_status(self.manager)
         self.assertEqual(code, 200)

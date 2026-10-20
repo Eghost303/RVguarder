@@ -4,8 +4,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from openclaw_guard.policy.catalog import PolicyBundle
-from openclaw_guard.policy.models import (
+from clawRVguarder.policy.catalog import PolicyBundle
+from clawRVguarder.policy.models import (
     AuthorizationTrace,
     ContextRef,
     CoverageResult,
@@ -15,8 +15,8 @@ from openclaw_guard.policy.models import (
     PrincipalRef,
     ResourceRef,
 )
-from openclaw_guard.policy.rv_compiler import PermissionAutomatonCompiler
-from openclaw_guard.rv.runtime_verification import RuntimeVerificationEngine
+from clawRVguarder.policy.rv_compiler import PermissionAutomatonCompiler
+from clawRVguarder.rv.runtime_verification import RuntimeVerificationEngine
 
 
 POLICY_ROOT = Path(__file__).parents[1] / "policies" / "permissions"

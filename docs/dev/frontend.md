@@ -127,7 +127,7 @@ openclaw-guard run
 
 ## Python 侧托管
 
-`openclaw_guard/ui.py` 是一个薄层：启动时确保 `runtime/ui/` 目录存在，并在运行目录缺少 UI 时把仓库内的构建产物复制过去（避免首次启动空白页面）。
+`clawRVguarder/ui.py` 是一个薄层：启动时确保 `runtime/ui/` 目录存在，并在运行目录缺少 UI 时把仓库内的构建产物复制过去（避免首次启动空白页面）。
 
 ```python
 def build_ui(target_dir: Path, summary=None) -> None:
@@ -137,4 +137,4 @@ def build_ui(target_dir: Path, summary=None) -> None:
     # 若运行目录缺少 UI，则从仓库内 runtime/ui 复制一份
 ```
 
-`openclaw_guard/web/routes/static.py`（FastAPI）负责托管 `runtime/ui/` 下的静态文件（`/`、`/assets/*`、前端路由的 SPA fallback）；FastAPI 是唯一 HTTP 入口。
+`clawRVguarder/web/routes/static.py`（FastAPI）负责托管 `runtime/ui/` 下的静态文件（`/`、`/assets/*`、前端路由的 SPA fallback）；FastAPI 是唯一 HTTP 入口。

@@ -10,9 +10,9 @@ from unittest.mock import patch
 
 import pytest
 
-from openclaw_guard.integrations.hook_runtime import _plugin_source, _write_plugin_bundle
-from openclaw_guard.config import OpenClawTarget
-from openclaw_guard.integrations.openclaw_adapter import OpenClawRelayError, get_guard_hook_status
+from clawRVguarder.integrations.hook_runtime import _plugin_source, _write_plugin_bundle
+from clawRVguarder.config import OpenClawTarget
+from clawRVguarder.integrations.openclaw_adapter import OpenClawRelayError, get_guard_hook_status
 
 
 def _run_generated_plugin(tmp_path: Path, script: str) -> None:
@@ -319,8 +319,8 @@ hooks.gateway_stop();
 def test_status_fallback_does_not_invent_fail_closed_setting() -> None:
     """Plugin-list fallback cannot know a live bridge's failure policy."""
     target = OpenClawTarget()
-    with patch("openclaw_guard.integrations.openclaw_adapter._gateway_call", side_effect=OpenClawRelayError("unreachable", "offline")), patch(
-        "openclaw_guard.integrations.openclaw_adapter.inspect_guard_plugin",
+    with patch("clawRVguarder.integrations.openclaw_adapter._gateway_call", side_effect=OpenClawRelayError("unreachable", "offline")), patch(
+        "clawRVguarder.integrations.openclaw_adapter.inspect_guard_plugin",
         return_value={"found": True, "status": "loaded"},
     ):
         status = get_guard_hook_status(target)

@@ -5,10 +5,10 @@ from dataclasses import replace
 
 import pytest
 
-from openclaw_guard.spec.content_receipts import ContentReceipt, ContentReceiptError, HostContentReceiptAuthority, content_version
-from openclaw_guard.spec.host_authorization import HostAuthorizationError, HostAuthorizationStore, TaskBinding
-from openclaw_guard.spec.resource_evidence import HostResourceObserver
-from openclaw_guard.spec.task_history import HostTaskHistory
+from clawRVguarder.spec.content_receipts import ContentReceipt, ContentReceiptError, HostContentReceiptAuthority, content_version
+from clawRVguarder.spec.host_authorization import HostAuthorizationError, HostAuthorizationStore, TaskBinding
+from clawRVguarder.spec.resource_evidence import HostResourceObserver
+from clawRVguarder.spec.task_history import HostTaskHistory
 
 
 @pytest.fixture
@@ -64,7 +64,7 @@ def test_revoked_link_is_not_restored_as_active(history):
 
 def test_expired_link_and_receipt_are_not_reused(history, monkeypatch):
     service, _, target, version, link, *_ = history
-    monkeypatch.setattr("openclaw_guard.spec.task_history.time.time", lambda: link["expires_at"] + 1)
+    monkeypatch.setattr("clawRVguarder.spec.task_history.time.time", lambda: link["expires_at"] + 1)
     assert not service.sensitive_history(target, version)
 
 
@@ -124,7 +124,7 @@ def test_successful_revocation_invalidates_the_prepared_read_lease(history):
     """撤销与短决策租约串行；撤销成功后纯内存事实不再活跃。"""
     import threading
     import time
-    from openclaw_guard.spec.task_history import HostHistoryLease
+    from clawRVguarder.spec.task_history import HostHistoryLease
     service, _, _, _, link, *_ = history
     lease = HostHistoryLease(service, [link["id"]], expires_at_ms=int(time.time() * 1000) + 1000)
     revoked = threading.Event()
@@ -145,8 +145,8 @@ def test_observed_read_access_never_establishes_consumed_byte_identity(history):
     """原生脱敏访问只能触发访问风险守卫，不能触发精确字节守卫。"""
     import hashlib
     import hmac
-    from openclaw_guard.spec.content_receipts import _canonical
-    from openclaw_guard.spec.read_access_receipts import NativeReadAccessReceipt
+    from clawRVguarder.spec.content_receipts import _canonical
+    from clawRVguarder.spec.read_access_receipts import NativeReadAccessReceipt
     service, _, target, version, _, _, receipt = history
     with service.store._connect() as db:
         db.execute('DELETE FROM content_history')
