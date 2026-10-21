@@ -22,10 +22,25 @@ class BridgeConflict(ValueError):
     """载荷重用、状态冲突或无法恢复的中断必须拒绝。"""
 
 
-class DshServices(GuardServices):
+from .observability import DshObservability
+
+
+class DshServices(DshObservability, GuardServices):
     """隔离一个 DSH 实例的数据；共享 PMKB、RV、语义、审计和 Dashboard API。"""
 
     def __init__(self, project_dir: Path, *, dsh_home: Path, profile: str, workspace: Path,
+                 instance_id: str = "dsh-local", semantic_mode: str = "auto") -> None:
+        """初始化失败时立即释放锁，避免半构造对象阻塞后续修复启动。"""
+        try:
+            self._initialize(project_dir, dsh_home=dsh_home, profile=profile, workspace=workspace,
+                             instance_id=instance_id, semantic_mode=semantic_mode)
+        except BaseException:
+            lease = getattr(self, "_lease", None)
+            if lease is not None:
+                lease.close()
+            raise
+
+    def _initialize(self, project_dir: Path, *, dsh_home: Path, profile: str, workspace: Path,
                  instance_id: str = "dsh-local", semantic_mode: str = "auto") -> None:
         self.instance_id = instance_id
         self.bridge_lock = threading.RLock()
@@ -39,6 +54,8 @@ class DshServices(GuardServices):
         paths = default_paths(project_dir)
         paths.ensure()
         paths.runtime_dir.chmod(0o700)
+        from .ownership import DirectoryLease
+        self._lease = DirectoryLease(paths.runtime_dir)
         self.semantic_settings_path = paths.runtime_dir / "dsh-settings.json"
         if semantic_mode == "auto" and self.semantic_settings_path.is_file():
             stored = json.loads(self.semantic_settings_path.read_text())
@@ -58,7 +75,11 @@ class DshServices(GuardServices):
         self.bridge_token = token_path.read_text().strip()
         if len(self.bridge_token) < 32:
             raise ValueError("invalid_dsh_token")
-        adapter = DshAdapter(instance_id, sha256_text(self.bridge_token)[:32], workspace, token_path)
+        mappings_path = paths.runtime_dir / "dsh-tool-mappings.json"
+        if mappings_path.is_symlink():
+            raise ValueError("tool_mappings_must_not_be_symlink")
+        mappings = json.loads(mappings_path.read_text()) if mappings_path.is_file() else None
+        adapter = DshAdapter(instance_id, sha256_text(self.bridge_token)[:32], workspace, token_path, mappings=mappings)
         target = OpenClawTarget(root=dsh_home, config_path=dsh_home / "profiles" / profile / "package.json",
                                 workspace_path=workspace, profile=profile)
         super().__init__(AppContext(paths, target, GuardSettings()), host_adapter=adapter)
@@ -71,12 +92,30 @@ class DshServices(GuardServices):
         self.journal = paths.runtime_dir / "dsh-calls.sqlite3"
         with self._journal() as db:
             db.execute("CREATE TABLE IF NOT EXISTS calls (id TEXT PRIMARY KEY, digest TEXT NOT NULL, response TEXT, state TEXT NOT NULL, completion TEXT)")
+            db.execute("CREATE TABLE IF NOT EXISTS metadata (key TEXT PRIMARY KEY, value TEXT NOT NULL)")
+            binding = json.dumps({"schema": 2, "protocol": PROTOCOL_VERSION, "instance": instance_id, "workspace": str(workspace), "profile": profile, "dsh_home": str(dsh_home.resolve())}, sort_keys=True)
+            prior = db.execute("SELECT value FROM metadata WHERE key='binding'").fetchone()
+            if prior and prior[0] != binding:
+                raise ValueError("dsh_state_binding_mismatch")
+            if not prior and db.execute("SELECT 1 FROM calls WHERE state != 'completed' LIMIT 1").fetchone():
+                raise ValueError("drain_legacy_calls_before_v2_upgrade")
+            db.execute("INSERT OR IGNORE INTO metadata VALUES ('binding', ?)", (binding,))
+            db.execute("CREATE TABLE IF NOT EXISTS degraded (id TEXT PRIMARY KEY, body TEXT NOT NULL)")
+            db.execute("CREATE TABLE IF NOT EXISTS probes (id INTEGER PRIMARY KEY CHECK(id=1), body TEXT NOT NULL, received REAL NOT NULL)")
+        from .evidence import DshEvidenceBridge
+        self.evidence = DshEvidenceBridge(self)
+        self.host_authorization_bridge = self.evidence
+        adapter.probe_provider = self.capabilities
         # 核心初始化已恢复已有 RV 快照；中断中的提交不能默认为成功或自动重跑。
         self.recovery_required = self._interrupted_calls()
         if self.rv_state_path.exists():
             snapshot = json.loads(self.rv_state_path.read_text(encoding="utf-8"))
             if not isinstance(snapshot, dict) or "session_windows" not in snapshot:
                 raise ValueError("invalid_dsh_rv_snapshot")
+
+    def close(self) -> None:
+        """释放实例所有权；调用者必须先停止 HTTP 服务及所有请求。"""
+        self._lease.close()
 
     def _journal(self) -> sqlite3.Connection:
         """每次操作使用独立 SQLite 连接，避免跨线程共享连接。"""
@@ -91,6 +130,7 @@ class DshServices(GuardServices):
         """认证握手后才声明有插件连入，不据配置存在推测在线。"""
         if sdk_version != "0.2.1-rc.2":
             raise BridgeConflict("unsupported_dsh_sdk_version")
+        self.evidence.sync_management_audit()
         self.sdk_version, self.last_seen = sdk_version, time.monotonic()
         self.hello_count += 1
         return {"ok": True, "protocol": PROTOCOL_VERSION, "instance_id": self.instance_id,
@@ -102,6 +142,7 @@ class DshServices(GuardServices):
         with self.bridge_lock:
             if self.recovery_required:
                 raise BridgeConflict("interrupted_commit_requires_reconciliation")
+            self.evidence.proposal(request)
             payload = self.host_adapter.payload(request)
             key = f"{payload['runId']}:{payload['toolCallId']}"
             digest = sha256_text(json.dumps(request, ensure_ascii=False, sort_keys=True))
@@ -118,6 +159,10 @@ class DshServices(GuardServices):
             try:
                 result = self.handle_before_tool_call(payload)
                 record = result["action_record"]
+                if request.get("proposal"):
+                    action = self._find_action(record["action_id"])
+                    action.event.metadata["dsh_content_history"] = self.evidence.history(request)
+                    self._replace_action(action)
                 kind = {"allow": "allow", "require_approval": "ask", "block": "deny"}[result["action"]]
                 message = str(result.get("message") or record.get("decision", {}).get("reason") or "DSH 工具安全检查")
                 message = message.replace("OpenClaw", "DSH")
@@ -126,7 +171,8 @@ class DshServices(GuardServices):
                             "kind": kind, "reason": message[:1024], "action_id": record["action_id"],
                             "policy_version": self.policy_engine.bundle.version,
                             "rule_ids": record.get("decision", {}).get("rule_ids", []),
-                            "issued_at": time.time(), "expires_at": time.time() + 300}
+                            "issued_at": time.time(), "expires_at": time.time() + 300,
+                            "evidence_binding": {"principal_id": f"dsh:{self.host_adapter.binding}", "task_id": self.evidence.task(request)}}
                 with self._journal() as db:
                     db.execute("UPDATE calls SET response=?,state='pending' WHERE id=?", (json.dumps(response), key))
             except BaseException:
@@ -135,12 +181,12 @@ class DshServices(GuardServices):
             self.last_seen = time.monotonic()
             return response
 
-    def bridge_result(self, request: dict[str, Any], *, succeeded: bool, dispatched: bool) -> dict[str, Any]:
+    def bridge_result(self, request: dict[str, Any], *, succeeded: bool, dispatched: bool, evidence: dict | None = None) -> dict[str, Any]:
         """幂等提交最终结果；仅实际 dispatch 且成功的工具扩充历史。"""
         with self.bridge_lock:
             payload = self.host_adapter.payload(request)
             key = f"{payload['runId']}:{payload['toolCallId']}"
-            completion = json.dumps({"succeeded": succeeded, "dispatched": dispatched}, sort_keys=True)
+            completion = json.dumps({"succeeded": succeeded, "dispatched": dispatched, "evidence": evidence}, sort_keys=True)
             with self._journal() as db:
                 row = db.execute("SELECT response,state,completion,digest FROM calls WHERE id=?", (key,)).fetchone()
                 if not row or row[3] != sha256_text(json.dumps(request, ensure_ascii=False, sort_keys=True)):
@@ -156,6 +202,7 @@ class DshServices(GuardServices):
                     raise BridgeConflict("dispatch_evidence_mismatch")
                 if succeeded and (not dispatched or response["kind"] == "deny"):
                     raise BridgeConflict("success_without_execution_permission")
+                receipt = self.evidence.verify_result(request, evidence, succeeded=succeeded, dispatched=dispatched)
                 db.execute("UPDATE calls SET state='completing' WHERE id=?", (key,))
             try:
                 action = self._find_action(response["action_id"])
@@ -171,6 +218,7 @@ class DshServices(GuardServices):
                                                       "error": None if succeeded else "dsh_tool_failed_or_cancelled"})
                 if not outcome.get("ok"):
                     raise BridgeConflict(str(outcome.get("error")))
+                self.evidence.commit(request, receipt)
                 with self._journal() as db:
                     db.execute("UPDATE calls SET state='completed',completion=? WHERE id=?", (completion, key))
             except BaseException:
@@ -195,6 +243,7 @@ class DshServices(GuardServices):
                 raise BridgeConflict("dispatch_context_mismatch")
             if json.loads(row[1])["expires_at"] < time.time():
                 raise BridgeConflict("decision_expired")
+            permit = self.evidence.authorize(request)
             # 审批等待期间可能有其他会话/调用提交成功历史；dispatch 前重新评估。
             from clawRVguarder.engine.pipeline import _annotate_event_context, _apply_rv_if_available
             event = self.host_adapter.build_event(payload, self.context)
@@ -219,8 +268,12 @@ class DshServices(GuardServices):
                 self.events.publish("action.resolved", {"action_id": action.action_id, "decision": "allow-once", "host": "dsh"})
                 self.audit_store.append("dsh_native_approval", {"action_id": action.action_id, "decision": "allow-once"})
             with self._journal() as db:
+                if permit:
+                    db.execute("INSERT INTO grant_uses VALUES (?,?)", (permit["grant_id"], action.event.metadata["hook_key"]))
                 db.execute("UPDATE calls SET state='dispatched' WHERE id=?", (action.event.metadata["hook_key"],))
-            return {"ok": True}
+            if permit:
+                self.audit_store.append("dsh_host_grant_consumed", {"grant_id": permit["grant_id"], "call_id": request["call_id"]})
+            return {"ok": True, "permit": permit}
 
     def hook_status(self) -> dict[str, Any]:
         """最近认证心跳判断桥接在线，恢复未确认状态单独报告。"""
@@ -239,6 +292,7 @@ class DshServices(GuardServices):
         """复用面板数据，明确宿主及语义模式。"""
         result = super().summary(compact=compact)
         result["host"] = {"kind": "dsh", "instance_id": self.instance_id, "profile": self.context.target.profile}
+        result["capabilities"] = self.capabilities()
         result["semantic"] = {"configured_mode": self.semantic_mode, "llm_enabled": self.semantic_enhancer._llm_enabled,
                               "fallback": "local", "model": self.semantic_enhancer.model,
                               "last_llm_status": next((a.event.metadata.get("semantic_audit", {}).get("llm_status") for a in reversed(self._load_actions()) if a.event.metadata.get("semantic_audit")), "not_run")}

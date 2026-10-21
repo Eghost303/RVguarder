@@ -1,60 +1,12 @@
-import { useEffect } from 'preact/hooks';
 import { useStore } from '../store';
 import { t, esc } from '../i18n';
-import { fetchSummary, fetchRvStatus, fetchAction, apiErrorMessage } from '../api';
+import { fetchSummary, clearActions, apiErrorMessage } from '../api';
 import { StatRow } from '../components/StatRow';
 import { ActionCard } from '../components/ActionCard';
 import { HookStatus } from '../components/HookStatus';
 import { TraceTimeline } from '../components/TraceTimeline';
 import { RvStatusPanel } from '../components/RvStatusPanel';
 import { InsightsCard } from '../components/Charts';
-
-/* ── Polling hook ── */
-function usePolling() {
-  const setSummary = useStore((s) => s.setSummary);
-  const setRvStatus = useStore((s) => s.setRvStatus);
-  const upsertAction = useStore((s) => s.upsertAction);
-  const showToast = useStore((s) => s.showToast);
-  const rvMode = useStore((s) => s.rvMode);
-
-  useEffect(() => {
-    let timer;
-    let source;
-    let disposed = false;
-    const poll = async () => {
-      try {
-        const s = await fetchSummary({ compact: true });
-        if (!disposed) setSummary(s);
-        if (rvMode) {
-          const rv = await fetchRvStatus();
-          if (!disposed) setRvStatus(rv);
-        }
-      } catch (error) {
-        if (!disposed) showToast(apiErrorMessage(error, t('error_default')));
-      }
-    };
-    poll();
-    if (typeof EventSource !== 'undefined') {
-      source = new EventSource('/api/events');
-      const handleEvent = async (event) => {
-        try {
-          const payload = JSON.parse(event.data);
-          if (payload.action_id) upsertAction(await fetchAction(payload.action_id));
-        } catch (_) { /* 回退轮询负责最终对账 */ }
-      };
-      ['action.created', 'action.resolved', 'action.updated', 'action.timeout', 'action.conflict'].forEach((name) => {
-        source.addEventListener(name, handleEvent);
-      });
-      source.onerror = () => { /* EventSource 自动重连 */ };
-    }
-    timer = setInterval(poll, 10000);
-    return () => {
-      disposed = true;
-      clearInterval(timer);
-      if (source) source.close();
-    };
-  }, [rvMode]);
-}
 
 /* ── Sub-components ── */
 function HeroCard() {
@@ -116,7 +68,7 @@ function RecentSection() {
   const handleClear = async () => {
     if (!confirm('确定要清空所有动作历史记录吗？')) return;
     try {
-      await fetch('/api/actions/clear', { method: 'POST' });
+      await clearActions();
       showToast('✅ 已清空历史记录');
       const s = await fetchSummary();
       setSummary(s);
@@ -129,7 +81,7 @@ function RecentSection() {
     <section class="card">
       <div class="card-head">
         <h3>{t('recentActions')}</h3>
-        {items.length > 0 && (
+        {summary.host?.kind !== 'dsh' && items.length > 0 && (
           <button class="btn-text danger" id="clear-actions" onClick={handleClear}>
             {t('clear')}
           </button>
@@ -151,7 +103,6 @@ export function Dashboard() {
   const rvMode = useStore((s) => s.rvMode);
   const items = (summary.actions || {}).items || [];
 
-  usePolling();
 
   if (loading && !items.length) {
     return (

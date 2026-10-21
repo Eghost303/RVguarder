@@ -23,7 +23,7 @@ Windows 本机安装根目录及 WSL 映射见 windows-environment.md。link-sdk
 构建配套发行目录（目录必须不存在）：
 
 ```bash
-python dshRVguarder/scripts/build-release.py --output dist/dsh-rvguarder-0.1.0
+python dshRVguarder/scripts/build-release.py --output dist/dsh-rvguarder-0.2.0-rc.1
 ```
 
 发行目录包含插件 tgz、Python wheel、安装说明和 SHA-256 清单；wheel 含公开 UI、PMKB、RV 规则。Python/Node 解释器及 Python 第三方依赖需预先安装，**发行目录不是自带全部依赖的离线安装器**。
@@ -40,7 +40,7 @@ python -m clawRVguarder.hosts.dsh.server \
   --profile web --instance-id dsh-dev --port 8781 --semantic-mode auto
 ```
 
-Windows 原生 Python 运行时请使用对应 Windows 路径。WSL 后端支持同机盘符路径到 `/mnt/<盘符>/` 的转换；UNC/远程路径尚未支持，不能按工作区内路径放行。
+v2 主路径为 WSL Python 后端，Windows 原生 Python 的私有授权存储尚未验收。WSL 后端支持同机盘符路径到 `/mnt/<盘符>/` 的转换；UNC/远程路径尚未支持，不能按工作区内路径放行。
 
 服务只绑定 `127.0.0.1`。Windows DSH 到 WSL localhost 的连通性受 WSL 网络配置影响，必须验证；不应为绕过网络问题把服务无认证地暴露到局域网。
 
@@ -59,7 +59,7 @@ node scripts/create-test-profile.mjs --profile rvguarder-dev --instance dsh-dev 
 然后通过该版本 DSH 的 profile 管理安装构建好的 tgz：
 
 ```powershell
-dsh.cmd plugin --profile rvguarder-dev add 'C:\path\to\dsh-rvguarder-0.1.0.tgz'
+dsh.cmd plugin --profile rvguarder-dev add 'C:\path\to\dsh-rvguarder-0.2.0-rc.1.tgz'
 ```
 
 创建脚本已写入启用条目。若自行配置，必须使用锁定版本的 `insert`/`id` patch DSL，不能把普通插件列表直接放到 patch 根：
@@ -126,7 +126,7 @@ python3.13 -m clawRVguarder.hosts.dsh.server \
 node scripts/create-test-profile.mjs --profile rvguarder-dev --instance dsh-dev \
   --token /home/yosoro126/.local/share/rvguarder/dsh-dev/runtime/dsh-token \
   --backend http://127.0.0.1:8781 --home /home/yosoro126/.dsh
-dsh plugin --profile rvguarder-dev add /tmp/dsh-rvguarder-0.1.0.tgz
+dsh plugin --profile rvguarder-dev add /tmp/dsh-rvguarder-0.2.0-rc.1.tgz
 
 # 6. 启动（必须避开含 .env 的目录）
 dsh --profile rvguarder-dev --port 8790
@@ -144,3 +144,11 @@ dsh --profile rvguarder-dev --port 8790
 DSH CLI 会读取启动目录的 .env，并拒绝把部分启动控制项放在 .env 中。本仓库的 .env 可触发该检查；应从实际工作区或中立目录启动 DSH，启动控制变量由受控环境显式提供，不能为通过探针而改写用户 .env。
 
 显式 failMode: open 仅对尚未取得裁决的连接/服务不可用透传；协议冲突、未确认历史、无可信上下文和已经取得的拒绝不透传。已取得裁决后 dispatch 同步失败仍拒绝执行。
+
+## v2 协议升级
+
+插件0.2.0-rc.1与配套wheel使用dsh-guard-v2。升级前使用旧版排空全部pending/dispatch及完成队列，停止本实例并备份完整project-dir/stateDir，之后同时升级插件和后端。旧协议或残留旧队列拒绝混用；不得删除未确认历史来绕过。若回滚，恢复升级前的配套包与数据备份，不能让旧后端直接写入新版状态。
+
+可选本地受控工具、精确MCP映射、探针、离线检查/核对命令及完整限制见[修复记录](repair-2026-10-21.md)。插件config可增加evidenceKeyFile，指向后端runtime/authorization/content-signing.key的受控Windows可读路径。该文件不等于桥接token，不能输出或公开分发。受控外发默认禁用；启用须配置双端精确HTTPS白名单和每次调用的宿主授权，详见修复记录。
+
+插件owner.lock遇到已退出PID时不会自动竞争接管。先停止本实例所有插件进程，核对executions.json/completions.json与实际结果，再只清理该实例owner.lock；保留两个日志文件。后端deciding/completing中间态不能用普通完成重放强制消除，需人工核对或恢复一致备份。

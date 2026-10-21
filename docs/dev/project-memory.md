@@ -1,16 +1,16 @@
 # RVguarder 开发记忆
 
-更新时间：2026-10-20。此文记录本地源码与仓库文档核对后的状态；不是线上部署状态证明。
+更新时间：2026-10-21。此文记录本地源码与仓库文档核对后的状态；不是线上部署状态证明。
 
 ## 定位与当前进度
 
 RVguarder 是 OpenClaw Agent 安全插件，当前版本 `0.7.0-dev`（发行元数据 `0.7.0.dev0`），Apache-2.0。当前生产实现是 Python 3.13+ 后端 + 自动生成的 JS Hook + Preact 工作台，不修改 OpenClaw 源码。
 
-最新范围已于 2026-10-20 由用户修订：首个完整 DSH 版本同时迁移 **RV、PMKB、基线扫描、Dashboard、LLM 语义增强与审计**。原 2026-10-19 的“RV 优先、纯 TS + Python 离线校验”计划已被替代。新实施建议为 **TypeScript 宿主适配插件 + Python 共享核心服务 + Preact 工作台**，由 Phase 0 验证 Python 3.13+ 分发、本地传输与生命周期后定稿。DSH 默认 fail-closed，可配置 fail-open；OpenClaw 的严格 fail-open 不变。`dshRVguarder/` 已创建独立 TypeScript 工程骨架（2026-10-20 用户确认命名），已开发0.1.0测试候选，完整整机验收尚未完成。详细工作包与发布验收见 [迁移计划](../architecture/dsh-plugin-migration-feasibility-2026-10-19.md) 第 9 节与 [路线图](../ops/roadmap.md)，不能把计划当作已实现能力。
+最新范围已于 2026-10-20 由用户修订：首个完整 DSH 版本同时迁移 **RV、PMKB、基线扫描、Dashboard、LLM 语义增强与审计**。原 2026-10-19 的“RV 优先、纯 TS + Python 离线校验”计划已被替代。新实施建议为 **TypeScript 宿主适配插件 + Python 共享核心服务 + Preact 工作台**，由 Phase 0 验证 Python 3.13+ 分发、本地传输与生命周期后定稿。DSH 默认 fail-closed，可配置 fail-open；OpenClaw 的严格 fail-open 不变。`dshRVguarder/` 已创建独立 TypeScript 工程骨架（2026-10-20 用户确认命名），已升级0.2.0-rc.1测试候选，完整整机验收尚未完成。详细工作包与发布验收见 [迁移计划](../architecture/dsh-plugin-migration-feasibility-2026-10-19.md) 第 9 节与 [路线图](../ops/roadmap.md)，不能把计划当作已实现能力。
 
 ## 源码地图
 
-- `dshRVguarder/`：DSH 适配工程骨架，含 package.json、tsconfig、入口状态导出与测试范围说明。仅 Node 入口语法检查可执行，尚无 SDK、构建或 DSH 集成验证。
+- `dshRVguarder/`：DSH 0.2.0-rc.1 测试候选，含真实 SDK 插件、完成队列、打包和部署脚本；已验证 TS 构建、SDK 夹具管线和临时宿主加载。全功能尚未完成，最新核查见下方 2026-10-21 记录。
 
 - `clawRVguarder/main.py`：argparse CLI，包括 run、doctor、baseline、install-hook、uninstall-hook、export-audit、build-plugin 与宿主授权命令。
 - `services.py`：GuardServices 编排；`manager.py` 是兼容管理器和 mock/patch 锚点。热路径在 `engine/pipeline.py`，业务生命周期在 `core/`。
@@ -71,3 +71,25 @@ DSH Phase 0 宿主/部署实测 → Phase 1 共享核心及 PMKB/RV/LLM 完整�
 ## DSH实施状态（2026-10-20）
 
 插件在dshRVguarder/，Python适配在clawRVguarder/hosts/dsh/。已实现认证门禁、原生审批、单次dispatch、风险重评估、完成队列、PMKB/RV/LLM、扫描及工作台。LLM语义缓存30秒/128项、60次每分钟，不缓存授权。主路径为外部托管Python3.13+，数据目录必须独占。Windows真实临时web profile已加载并握手；未改日常配置。证据、性能和剩余PTC/子Agent、在线LLM、ACL、内容血缘验收见[验证记录](../../dshRVguarder/docs/validation-2026-10-20.md)。DSH patch须insert/id；避免从有受限.env的仓库目录启动DSH。
+
+## DSH 全功能核查（2026-10-21）
+
+最新结论：主要模块已接通，尚未全部适配成功；不得称为全功能完成。完整核查见 [适配审计](../../dshRVguarder/docs/adaptation-audit-2026-10-21.md)。本次 Python 773 passed、18 skipped、4 subtests；SDK 12/12；Chromium DSH 3/3、OpenClaw 5/5。未重跑在线模型或真实宿主任务。
+
+已复现：profile 清单 dsh/profile 为 null 时扫描 HTTP 500；DSH 清空历史接口 403，但前端未检查 HTTP 状态并提示成功。功能缺口：DSH 强内容收据/资源版本/宿主授权桥未接入，基线多个关键项仍 unknown/unsupported，MCP/委派等完整语义映射及真实 PTC/子 Agent 验收未完成；显式 fail-open 未记录逐次旁路审计。需完成在线 LLM、Windows ACL、多插件、性能和升级卸载验收。
+
+历史记录已新增 WSL 原生 DSH plugin add 安装成功，不能再笼统描述为“未做任何包管理安装”。当前审计仅新增文档和记忆，不修改业务代码或日常 profile；早期骨架与未实测的描述属于历史状态。
+
+## DSH v2修复实施（2026-10-21）
+
+工程现为0.2.0-rc.1候选，dsh-guard-v2。已修复异常清单扫描500、清空失败误报和跨页面SSE断订阅；新增进程独占、状态schema绑定、精确MCP字段映射、认证探针时效、持久旁路审计、原生read访问证据与受控字节收据分型、本机维护/任务绑定。用户本轮显式允许白名单外发：默认空白名单、双端精确HTTPSURL、每call宿主授权、版本/任务/会话/目的地/时效绑定、授权单次消耗、不跟随重定向/自动重试。本机grant_cli管理入口不对Agent或浏览器开放；原生审批不是持久授权。
+
+真实SDK+Python联调、真实Node PTC内层和十路并发、SDK委派元数据隔离通过。Windows受控复制和临时真实profile加载通过；实际ACL临时workspace-write探针内写允许/外写拒绝，SDK报告partial。WSL包管理安装/升级/回滚/卸载隔离测试通过且数据保留；不等于数据schema任意回滚已验收。真实模型、完整委派生命周期、多插件、两小时稳定性、密钥/状态对Agent实际隔离和基线全部有效配置仍未验收，不能称全功能正式版。代码/测试/用法以[修复记录](../../dshRVguarder/docs/repair-2026-10-21.md)为准；早期审计A1–A7为修复前历史。
+
+最终本轮检查：Python795 passed、18 skipped、4subtests；Node25 passed；DSH浏览器8/8、OpenClaw及403错误提示12/12。配套发行位于dist/dsh-rvguarder-0.2.0-rc.1，wheel仓库外隔离安装、PMKB79、默认空白名单及四项文件哈希通过。Windows SDK最终20次合成只读均值134.33ms、p95 160.78ms；60秒双并发SDK真实文件读取24次、0失败（不替代两小时）。未修改日常profile，未使用真实模型密钥；原有CHANGELOG.md工作区变更保留。
+
+## 真实旧插件替换（2026-10-21）
+
+用户要求重新打包替代旧插件。已从当前源码重新构建完整配套包，刷新dist/dsh-rvguarder-0.2.0-rc.1及四项SHA-256。实际WSL profile ~/.dsh/profiles/rvguarder-wsl 经 dsh plugin add --offline 从0.1.0替换为0.2.0-rc.1，依赖指向仓库根稳定发行tgz。安装入口可加载，dist逐文件与tgz一致；原cordis.patch.yml及17项运行/状态文件哈希保持不变。旧调用日志为空、插件无待提交执行或活动锁，因此未清理或重置历史。
+
+替换前私有备份位于 ~/.local/share/rvguarder/backups/repack-20261021-110225，含before-replacement.tar.gz及结果记录；备份含本地配置/状态，应保持私有，不放进发行包。仓库外确认Python后端导入当前源码且协议v2。未自动启动服务。Windows日常web profile未安装RVguarder，保持原状。

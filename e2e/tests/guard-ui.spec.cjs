@@ -145,3 +145,14 @@ test.describe("RVguarder UI", () => {
     await expect(card).toHaveCount(0, { timeout: 5_000 });
   });
 });
+
+test('清空历史被拒绝时显示失败且不误报成功',async({page,request},testInfo)=>{
+  const id='clear-error-'+testInfo.project.name;
+  const seeded=await request.post(new URL('/api/hook/before-tool-call',getBaseUrl()).toString(),{headers:{'x-openclaw-guard-token':getHookToken()},data:{toolName:'read',params:{path:'fixture.txt'},runId:id,toolCallId:id,sessionId:id,sessionKey:id,agentId:id}});
+  expect(seeded.ok()).toBeTruthy();
+  await page.goto(getBaseUrl());await expect(page.locator('#clear-actions')).toBeVisible();
+  await page.route('**/api/actions/clear',route=>route.fulfill({status:403,contentType:'application/json',body:JSON.stringify({error:'clear_forbidden'})}));
+  page.once('dialog',dialog=>dialog.accept());await page.click('#clear-actions');
+  await expect(page.locator('.toast')).toContainText('clear_forbidden');
+  await expect(page.locator('.toast')).not.toContainText('已清空历史记录');
+});

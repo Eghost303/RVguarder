@@ -31,7 +31,7 @@
 
 ### DSH 插件（当前主线）
 
-工程目录：[`dshRVguarder/`](../../dshRVguarder/README.md)，0.1.0 测试候选已打包至 `dist/dsh-rvguarder-0.1.0/`，Windows 与 WSL 原生 DSH 均完成加载与握手；实际验证及剩余门禁见[验证记录](../../dshRVguarder/docs/validation-2026-10-20.md)。
+工程目录：[`dshRVguarder/`](../../dshRVguarder/README.md)，当前预发行版 **0.2.0-rc.1**（协议 `dsh-guard-v2`）已打包至 `dist/dsh-rvguarder-0.2.0-rc.1/`，并随 [GitHub Releases](https://github.com/HorizonExploration/RVguarder/releases) 发布。Windows 与 WSL 原生 DSH 均完成加载与握手；v2 已接入签名内容收据、受控读写与宿主单次授权、fail-open 旁路审计、文件锁与离线维护入口。实际验证及剩余 7 项发布门槛见[v2 修复记录](../../dshRVguarder/docs/repair-2026-10-21.md)。
 
 > 2026-10-20 范围修订：RV、PMKB、基线扫描、Dashboard、LLM 增强与审计一并进入首个完整 DSH 版本。
 > 实施建议调整为 **TypeScript 宿主适配 + Python 共享核心 + Preact 工作台**；Phase 0 验证部署与接口后定稿。DSH 默认 fail-closed，可配置 fail-open；OpenClaw 继续 fail-open。

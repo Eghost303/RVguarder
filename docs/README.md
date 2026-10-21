@@ -42,8 +42,8 @@ features:
   </div>
   <div class="custom-card">
     <h3>📦 当前状态</h3>
-    <p>v0.7.0-dev — PMKB 权限模型、最小权限与跨 session RV 已落地，Hook 仍由 OpenClaw 单一审批并通过 SSE 同步。PMKB 1.2.0 native rules 立即参与运行时决策；迁移记录只用于 provenance/replay。DSH 0.1.0 测试候选已打包，Windows 与 WSL 原生宿主均完成加载与握手。</p>
-    <p><em>v0.7.0-dev — PMKB authorization modeling, least privilege, and cross-session RV are implemented. The DSH 0.1.0 test candidate is packaged and verified on both Windows and WSL hosts.</em></p>
+    <p>v0.7.0-dev — PMKB 权限模型、最小权限与跨 session RV 已落地，Hook 仍由 OpenClaw 单一审批并通过 SSE 同步。PMKB 1.2.0 native rules 立即参与运行时决策；迁移记录只用于 provenance/replay。DSH 0.2.0-rc.1 预发行版已打包，Windows 与 WSL 原生宿主均完成加载与握手。</p>
+    <p><em>v0.7.0-dev — PMKB authorization modeling, least privilege, and cross-session RV are implemented. The DSH 0.2.0-rc.1 pre-release is packaged and verified on both Windows and WSL hosts.</em></p>
   </div>
 </div>
 

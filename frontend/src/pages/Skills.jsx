@@ -15,6 +15,8 @@ export function Skills() {
     fetchSummary().then(setSummary).catch((error) => showToast(apiErrorMessage(error, t('error_default'))));
   }, []);
 
+  if (summary.host?.kind === 'dsh') return <section class="card">DSH 插件由宿主 profile 管理。</section>;
+
   const items = (summary.skills || {}).items || [];
   const q = (rulesSearch || '').trim().toLowerCase();
   const filtered = q

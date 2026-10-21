@@ -7,11 +7,15 @@ import { homedir } from 'node:os';
 import { realpathSync } from 'node:fs';
 import { join,resolve,relative,isAbsolute } from 'node:path';
 import { GuardClient, BridgeUnavailable } from './client.js';
+import {ControlledTools} from './controlled.js';
+import {acquireLease} from './lease.js';
+import {DegradedOutbox} from './durable.js';
+import {hostProbe} from './probe.js';
 import { Outbox } from './outbox.js';
 import { protocol,type GuardCall,type GuardDecision } from './protocol.js';
 export const name='dsh-rvguarder';
 export const inject=['tools','workingDirectory'];
-export interface Config { backendUrl:string; tokenFile:string; instanceId:string; stateDir?:string; timeoutMs?:number; failMode?:'closed'|'open'; }
+export interface Config { backendUrl:string; tokenFile:string; instanceId:string; stateDir?:string; timeoutMs?:number; failMode?:'closed'|'open'; evidenceKeyFile?:string; egressAllowlist?:string[]; egressCaFile?:string; }
 interface Pending { call:GuardCall; decision:GuardDecision; dispatched:boolean; }
 /** 注册真实 SDK 事件；策略引擎只保留在共享 Python 核心。 */
 export function apply(ctx:Context,config:Config) {
@@ -22,17 +26,23 @@ export function apply(ctx:Context,config:Config) {
   const failOpen=config.failMode==='open';
   const stateDir=resolve(config.stateDir??join(homedir(),'.rvguarder','dsh-plugin',config.instanceId));
   const client=new GuardClient(config.backendUrl,config.tokenFile,timeout);
-  const outbox=new Outbox(stateDir);
+  const release=acquireLease(stateDir);
+  let outbox:Outbox;let degraded:DegradedOutbox;
+  try {outbox=new Outbox(stateDir);degraded=new DegradedOutbox(stateDir);}catch(error){release();throw error;}
+  let controlled:ControlledTools|undefined;
+  try{if(config.evidenceKeyFile)controlled=new ControlledTools(ctx,config.evidenceKeyFile,config.egressAllowlist??[],config.egressCaFile);}catch(error){release();throw error;}
   const pending=new Map<object,Pending>();
   const bypassed=new WeakSet<object>();
+  const identities=new Map<object,GuardCall>();
+  const degradedCalls=new Map<object,GuardCall>();
   let failure:unknown=outbox.recoveryRequired ? new Error("Unconfirmed execution from previous process") : undefined;
   async function ready() {
     if(failure) throw new Error('Guard persistence failure requires reconciliation');
     await outbox.flush(client); await client.hello(config.instanceId);
+    await degraded.flush(client).catch(()=>{process.emitWarning("RVguarder degraded audit pending");});
   }
   ctx.on('tools/pre-execute',async(exec,next):Promise<PreToolDecision>=>{
     try {
-      await ready();
       if(exec.signal.aborted) return {kind:'cancel'};
       if(!exec.agent||!exec.callId||!exec.rootCallId||!exec.arguments||typeof exec.arguments!=='object'||Array.isArray(exec.arguments)) throw new Error('Missing trusted DSH call identity');
       const cwd=await ctx.workingDirectory.ensure(exec.agent,exec.signal);
@@ -42,7 +52,14 @@ export function apply(ctx:Context,config:Config) {
         if(local===''||(!local.startsWith('..')&&!isAbsolute(local))) throw new Error('Outbox must be outside Agent workspace');
       }
       const call:GuardCall={protocol,instance_id:config.instanceId,session_id:String(exec.agent.id),agent_id:String(exec.agent.id),call_id:String(exec.callId),root_call_id:String(exec.rootCallId),tool_name:exec.name,cwd,arguments:exec.arguments as Record<string,unknown>};
+      if(exec.parent){const parent=identities.get(exec.parent);if(!parent)throw new Error('Missing trusted parent execution');call.parent_call_id=parent.call_id;}
+      const parentAgent=exec.agent.session?.header.parentSession;
+      if(parentAgent)call.parent_agent_id=String(parentAgent);
+      identities.set(exec.token,call);
+      controlled?.prepare(exec.token,call);
+      await ready();
       const decision=await client.before(call,exec.signal);
+      controlled?.bind(exec.token,decision);
       pending.set(exec.token,{call,decision,dispatched:false});
       if(decision.kind==='deny') return {kind:'deny',reason:decision.reason};
       const downstream=await next();
@@ -54,7 +71,12 @@ export function apply(ctx:Context,config:Config) {
       return downstream;
     } catch(error) {
       if(exec.signal.aborted) return {kind:'cancel'};
-      if(failOpen&&!failure&&error instanceof BridgeUnavailable&&!pending.has(exec.token)) {bypassed.add(exec.token);return next();}
+      if(failOpen&&!failure&&error instanceof BridgeUnavailable&&!pending.has(exec.token)) {
+        const call=identities.get(exec.token);if(!call)return {kind:'deny',reason:'Missing trusted context'};
+        bypassed.add(exec.token);degradedCalls.set(exec.token,call);
+        degraded.push({instance_id:config.instanceId,session_id:call.session_id,call_id:call.call_id,tool_name:call.tool_name,time:Date.now()/1000,stage:'bypass',reason:'bridge_unavailable'});
+        return next();
+      }
       return {kind:'deny',reason:'RVguarder 决策服务或可信上下文不可用；已按 fail-closed 拒绝。'};
     }
   });
@@ -73,20 +95,32 @@ export function apply(ctx:Context,config:Config) {
       catch(error) { failure=error;throw error; }
       const ack=await client.post('dispatch',item.call,exec.signal);
       if(ack.ok!==true) throw new Error('Guard dispatch acknowledgement missing');
+      controlled?.permitted(exec.token,ack.permit);
       item.dispatched=true;
     }
     return next();
   });
   ctx.on('tools/result',(exec:Readonly<ToolExecution>,result:Readonly<ToolExecutionResult>)=>{
+    const call=degradedCalls.get(exec.token);degradedCalls.delete(exec.token);
+    if(call)degraded.push({instance_id:config.instanceId,session_id:call.session_id,call_id:call.call_id,tool_name:call.tool_name,time:Date.now()/1000,stage:'result',reason:'bridge_unavailable',succeeded:result.isError===false});
+    identities.delete(exec.token);
     const item=pending.get(exec.token);pending.delete(exec.token);
+    const nativeReceipt=result.isError===false?controlled?.observeNative(exec.token,result.content):undefined;
+    const receipt=controlled?.finish(exec.token) || nativeReceipt;
     if(!item) return;
     try {
-      outbox.push({call:item.call,dispatched:item.dispatched,succeeded:item.dispatched&&result.isError===false});
+      outbox.push({call:item.call,dispatched:item.dispatched,succeeded:item.dispatched&&result.isError===false,...(result.isError===false&&receipt?{evidence:receipt}:{})});
       outbox.settle(item.call);
       void outbox.flush(client).catch(()=>{});
     } catch(error) {failure=error;}
   });
-  const timer=setInterval(()=>{void ready().catch(()=>{});},15000);timer.unref();
-  void ready().catch(()=>{});
-  return ctx.effect(()=>async()=>{clearInterval(timer);await outbox.flush(client).catch(()=>{});}, 'rvguarder-shutdown');
+  let stopped=false;let heartbeatRun:Promise<void>|undefined;
+  const heartbeat=()=>{
+    if(stopped)return Promise.resolve();if(heartbeatRun)return heartbeatRun;
+    heartbeatRun=(async()=>{await ready();await client.hello(config.instanceId,true);if(!stopped)await client.post('probe',hostProbe(ctx,config.instanceId,stateDir,degraded.gap));})().finally(()=>{heartbeatRun=undefined;});
+    return heartbeatRun;
+  };
+  const timer=setInterval(()=>{void heartbeat().catch(()=>{});},15000);timer.unref();
+  void heartbeat().catch(()=>{});
+  return ctx.effect(()=>async()=>{stopped=true;clearInterval(timer);try{await heartbeatRun?.catch(()=>{});await outbox.flush(client).catch(()=>{});await degraded.flush(client).catch(()=>{});}finally{controlled?.close();release();}}, 'rvguarder-shutdown');
 }

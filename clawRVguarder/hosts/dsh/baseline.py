@@ -31,6 +31,11 @@ DshConfigLoader.add_constructor("tag:yaml.org,2002:js", _opaque_expression)
 class DshBaselineScanner(BaselineScanner):
     """复用 JSON/HTML/PDF 报告输出，只替换宿主专用检查。"""
 
+    def __init__(self, context, *, probe_provider=None) -> None:
+        """注入只读宿主投影，缺失或过期时保留静态 unknown。"""
+        super().__init__(context)
+        self.probe_provider = probe_provider
+
     def run(self) -> ComplianceReport:
         """读取 profile 清单和 patch，仅导出检查证据而非配置或密钥正文。"""
         started = time.perf_counter()
@@ -48,14 +53,29 @@ class DshBaselineScanner(BaselineScanner):
 
         manifest = profile / "package.json" if profile else None
         data: dict[str, Any] = {}
+        profile_data: dict[str, Any] = {}
         try:
-            data = json.loads(manifest.read_text(encoding="utf-8")) if manifest else {}
-            valid = isinstance(data, dict) and isinstance(data.get("dsh", {}).get("profile"), dict)
-            add("PROFILE", "DSH profile 清单", "verified" if valid else "unknown", {"path": str(manifest)}, "指定已初始化的 DSH profile。")
+            parsed = json.loads(manifest.read_text(encoding="utf-8")) if manifest else None
+            if not isinstance(parsed, dict):
+                raise ValueError("profile manifest must be an object")
+            data = parsed
+            dsh = data.get("dsh")
+            if not isinstance(dsh, dict) or not isinstance(dsh.get("profile"), dict):
+                raise ValueError("dsh.profile must be an object")
+            profile_data = dsh["profile"]
+            bundles_value = profile_data.get("bundles", [])
+            dependencies = data.get("dependencies", {})
+            if not isinstance(bundles_value, list) or not all(isinstance(v, str) for v in bundles_value):
+                raise ValueError("bundles must be a string array")
+            if not isinstance(dependencies, dict) or not all(isinstance(v, str) for v in dependencies.values()):
+                raise ValueError("dependencies must contain version strings")
+            add("PROFILE", "DSH profile 清单", "verified", {"path": str(manifest)}, "保持清单结构有效。")
         except (OSError, ValueError):
-            add("PROFILE", "DSH profile 清单", "risk", {"path": str(manifest)}, "检查 profile/package.json。")
-        bundles = data.get("dsh", {}).get("profile", {}).get("bundles", []) if isinstance(data, dict) else []
-        packages = list((data.get("dependencies") or {}).keys()) if isinstance(data.get("dependencies"), dict) else []
+            add("PROFILE", "DSH profile 清单", "risk", {"path": str(manifest)}, "检查清单可读性及 dsh/profile/bundles/dependencies 的类型。")
+        bundles_value = profile_data.get("bundles", [])
+        bundles = [v for v in bundles_value if isinstance(v, str)] if isinstance(bundles_value, list) else []
+        dependencies = data.get("dependencies", {})
+        packages = [k for k, v in dependencies.items() if isinstance(v, str)] if isinstance(dependencies, dict) else []
         add("PLUGINS", "插件清单与来源", "unknown", {"bundles": bundles, "packages": packages}, "核对插件来源、完整性与版本；清单存在不代表插件可信。")
         for name in packages:
             assets.append(AssetRecord(category="dependency", name=name, value=str(data["dependencies"][name]), source="dsh-profile"))
@@ -100,6 +120,26 @@ class DshBaselineScanner(BaselineScanner):
         add("ACCOUNT", "宿主运行账户权限", "risk" if elevated else "unknown", {"backend_platform": os.name}, "核对实际 DSH 进程账户与 Windows 令牌；后端账户不等同宿主账户。")
         add("PORTS", "宿主监听与认证", "unknown", {}, "实际检查 DSH 监听地址、端口、认证和反向代理；不套用 OpenClaw 端口。")
         add("WINDOWS", "Windows 沙箱完整性", "unknown", {}, "记录 ACL 沙箱 full/partial 与真实越界测试结果。")
+        if self.probe_provider:
+            try:
+                snapshot = self.probe_provider()
+                if snapshot.get("probe_fresh"):
+                    probe = snapshot["probe"]
+                    facts = {f["key"]: f for f in probe["facts"]}
+                    for check in checks:
+                        key = check.check_id.removeprefix("DSH-")
+                        fact = facts.get(key)
+                        if fact is None:
+                            continue
+                        state = fact["state"]
+                        # 插件完整性和沙箱边界不能靠服务存在证明。
+                        check.status = "ok" if state == "verified" else "risk" if state == "risk" else "warn"
+                        check.severity = "info" if state == "verified" else "high" if state == "risk" else "medium"
+                        check.description = f"DSH 检查状态：{state}"
+                        check.evidence = {"verification": state, "source": "authenticated_host_probe", "platform": probe["platform"],
+                                          "observed_at": probe["observed_at"], "detail": fact["evidence"]}
+            except (ValueError, OSError):
+                pass
         report = ComplianceReport(generated_at=utc_now_iso(), target_root=str(context.target.root),
                                   config_path=str(context.target.config_path), checks=checks,
                                   findings=[_finding_from_check(c) for c in checks if c.status != "ok"],

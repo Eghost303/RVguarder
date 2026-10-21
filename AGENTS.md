@@ -160,7 +160,7 @@ cd e2e && npm install && npm run install:browsers && npm test
 
 ### DSH 适配工程
 
-- 独立目录统一命名 `dshRVguarder/`，npm 包名 `dsh-rvguarder`；当前为0.1.0测试候选；SDK桥接、共享核心、扫描和工作台已实现，剩余验收见dshRVguarder/docs/validation-2026-10-20.md。
+- 独立目录统一命名 `dshRVguarder/`，npm 包名 `dsh-rvguarder`；当前为0.2.0-rc.1测试候选，协议dsh-guard-v2；修复、受控字节证据和白名单外发配置及剩余验收见dshRVguarder/docs/repair-2026-10-21.md。
 - 首个完整版本含 PMKB、RV、LLM 增强、基线扫描、Dashboard 与审计；建议 TS 适配 + Python 共享核心 + Preact，Phase 0 实测后定稿。
 - DSH 已实现默认fail-closed；显式fail-open不绕过协议冲突或历史恢复锁定；下文 OpenClaw 的 fail-open 约定仅适用于现有 OpenClaw 集成。
 - DSH 初始化不得调用 OpenClaw Hook 安装；SDK/Node 版本、协议与服务生命周期须先实测。

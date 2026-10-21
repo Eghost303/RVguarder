@@ -1,4 +1,4 @@
-"""构建匹配版本的 DSH 插件、Python wheel、UI 和带哈希的离线安装目录。"""
+"""构建匹配版本的 DSH 插件、Python wheel、UI 和带哈希的发行目录。"""
 from __future__ import annotations
 import argparse
 import hashlib
@@ -27,7 +27,7 @@ def main() -> None:
         subprocess.run([npm, 'pack', '--pack-destination', str(staging)], cwd=root / 'dshRVguarder', check=True)
         shutil.copy2(root / 'dshRVguarder/docs/deployment.md', staging / 'INSTALL.md')
         shutil.copy2(root / 'dshRVguarder/scripts/create-test-profile.mjs', staging / 'create-test-profile.mjs')
-        manifest = {'host': 'dsh', 'sdk_version': '0.2.1-rc.2', 'protocol': 'dsh-guard-v1', 'python': '>=3.13',
+        manifest = {'plugin_version': json.loads((root / 'dshRVguarder/package.json').read_text())['version'], 'host': 'dsh', 'sdk_version': '0.2.1-rc.2', 'protocol': 'dsh-guard-v2', 'python': '>=3.13',
                     'files': {p.name: hashlib.sha256(p.read_bytes()).hexdigest() for p in staging.iterdir() if p.is_file()}}
         (staging / 'manifest.json').write_text(json.dumps(manifest, indent=2), encoding='utf-8')
         output.parent.mkdir(parents=True, exist_ok=True)

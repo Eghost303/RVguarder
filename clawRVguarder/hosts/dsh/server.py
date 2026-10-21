@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 from pathlib import Path
 import signal
 import threading
@@ -22,7 +23,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--port", type=int, default=8781)
     parser.add_argument("--semantic-mode", choices=["auto", "local", "llm"], default="auto")
     args = parser.parse_args(argv)
-    if any(c in args.instance_id for c in ("/", "\\", "\x00")) or len(args.instance_id) > 128:
+    if not re.fullmatch(r"[a-zA-Z0-9_.-]{1,128}", args.instance_id):
         parser.error("invalid instance-id")
     if Path(args.profile).name != args.profile or args.profile in {".", ".."}:
         parser.error("invalid profile")
@@ -42,6 +43,7 @@ def main(argv: list[str] | None = None) -> int:
     finally:
         handle.shutdown()
         handle.server_close()
+        manager.close()
     return 0
 
 

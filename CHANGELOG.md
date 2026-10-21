@@ -1,5 +1,18 @@
 # v0.7.0-dev 工程统一与文档清查
 
+## 2026-10-21 — DSH 插件 0.2.0-rc.1（协议 `dsh-guard-v2`）
+
+- 协议升级到 `dsh-guard-v2`：认证调用携带父调用、父会话、签名快照与可选完成收据，旧协议直接拒绝；普通工具结果不上传正文。
+- 新增签名内容收据（ContentReceipt / ContentVersion）与受控工具 `rvguard_read` / `rvguard_copy` / `rvguard_transform` / `rvguard_send`；读取限制为工作区相对路径、单文件 256 KiB、拒绝符号链接，复制与变换只写独占新建文件。
+- 受控外发默认禁用：需后端 `runtime/dsh-evidence.json` 与插件 `egressAllowlist` 双端精确 HTTPS 匹配，并在每次 dispatch 消耗宿主签发的单次授权（TTL ≤ 300 秒，`grant_cli` issue / query / revoke）。
+- fail-open 改为独立旁路审计队列（含开始/结束事件），恢复后幂等补交；写盘失败在探针中标记审计缺口，不写 RV 成功历史。
+- 新增内核文件锁、插件目录锁、schema/实例/工作区/profile 绑定；新增 45 秒时效宿主探针（工具清单、账户、审批服务、Windows ACL）。
+- 新增离线维护入口 `maintenance`：`inspect`、`reconcile --completion --confirm`、`bind-task`，独占实例数据、不重跑工具、不清库。
+- 启动/重连握手改为 15 秒心跳，移除逐调用重复 `hello`；保留 dispatch 风险重评估与历史补交。
+- Dashboard 隐藏 DSH 不适用的清空历史与技能管理，HTTP 失败不再提示成功；SSE/轮询移到公共布局并支持重连补快照。
+- 验证：Python 795 passed / 18 skipped，Node 25 项，DSH 浏览器 8 项、OpenClaw 12 项；Windows 20 次合成只读调用均值 134.33ms、p95 160.78ms（LLM 关闭）。
+- 发行产物输出到 `dist/dsh-rvguarder-0.2.0-rc.1/`，并通过 GitHub Releases 以 pre-release 发布。`0.2.0-rc.1` 仍有 7 项正式发布门槛未通过，不代表全功能适配完成。
+
 ## 2026-10-20 — DSH 插件 0.1.0 适配
 
 - 新增 `dshRVguarder/`：DSH 0.2.1-rc.2 的 TypeScript 薄插件（`tools/pre-execute`、单调 `guard()`、完成 outbox）与 `clawRVguarder/hosts/dsh/` 共享 Python 核心。
@@ -184,7 +197,7 @@ v0.2.0 的 Hook 插件使用了已废弃的 `api.registerHook()` API，`requireA
 
 ### 1. 钩子 API 迁移：`api.registerHook()` → `api.on()`
 
-**修改文件**：[`clawRVguarder/integrations/hook_runtime.py`](clawRVguarder/integrations/hook_runtime.py)
+**修改文件**：[`openclaw_guard/integrations/hook_runtime.py`](openclaw_guard/integrations/hook_runtime.py)
 
 - 插件中全部 3 个钩子（`before_prompt_build`、`before_tool_call`、`after_tool_call`）从已废弃的 `api.registerHook("event", handler, opts)` 迁移为官方 `api.on("event", handler, opts)` API
 - 生成的插件 JS 通过 `node --check` 语法验证
@@ -195,7 +208,7 @@ v0.2.0 的 Hook 插件使用了已废弃的 `api.registerHook()` API，`requireA
 
 ### 2. `requireApproval` 格式对齐官方规范
 
-**修改文件**：[`clawRVguarder/integrations/hook_runtime.py`](clawRVguarder/integrations/hook_runtime.py)
+**修改文件**：[`openclaw_guard/integrations/hook_runtime.py`](openclaw_guard/integrations/hook_runtime.py)
 
 - 移除 `allowedDecisions`（非官方字段），添加 `timeoutBehavior: "deny"`（官方字段：`"allow"` | `"deny"`）
 - `onResolution` 回调使用官方类型化决策值：`"allow-once"` | `"allow-always"` | `"deny"` | `"timeout"` | `"cancelled"`
@@ -210,8 +223,8 @@ v0.2.0 的 Hook 插件使用了已废弃的 `api.registerHook()` API，`requireA
 ### 3. 双端状态同步机制
 
 **新增/修改文件**：
-- [`clawRVguarder/integrations/openclaw_adapter.py`](clawRVguarder/integrations/openclaw_adapter.py) — 新增 `resolve_plugin_approval()` 函数
-- [`clawRVguarder/manager.py`](clawRVguarder/manager.py) — `approve_action` / `reject_action` 中调用同步
+- [`openclaw_guard/integrations/openclaw_adapter.py`](openclaw_guard/integrations/openclaw_adapter.py) — 新增 `resolve_plugin_approval()` 函数
+- [`openclaw_guard/manager.py`](openclaw_guard/manager.py) — `approve_action` / `reject_action` 中调用同步
 
 - **OpenClaw → Dashboard**（Push 模式）：插件 `onResolution` 回调直接 POST `/api/hook/resolve-approval`，后端同步更新动作状态
 - **Dashboard → OpenClaw**（Gateway 远程调用）：审批/拒绝时通过 `openclaw gateway call approvals.resolve` 异步通知 OpenClaw 原生审批系统放行/拒绝
@@ -224,7 +237,7 @@ v0.2.0 的 Hook 插件使用了已废弃的 `api.registerHook()` API，`requireA
 
 ### 4. 后端 `resolve_hook_approval` 处理函数修正
 
-**修改文件**：[`clawRVguarder/api/_handlers.py`](clawRVguarder/api/_handlers.py)
+**修改文件**：[`openclaw_guard/api/_handlers.py`](openclaw_guard/api/_handlers.py)
 
 - 字段名兼容：同时接受 `actionId`（camelCase）和 `action_id`（snake_case）
 - 决策值兼容：同时接受 `allow-once`（官方连字符格式）和 `allow_once`（旧版下划线格式）
@@ -237,7 +250,7 @@ v0.2.0 的 Hook 插件使用了已废弃的 `api.registerHook()` API，`requireA
 
 ### 5. 遗留代码清理
 
-**修改文件**：[`clawRVguarder/manager.py`](clawRVguarder/manager.py)
+**修改文件**：[`openclaw_guard/manager.py`](openclaw_guard/manager.py)
 
 - 移除 `_hook_waiters` 字典和 `_hook_waiters_lock`
 - 移除 `_register_hook_waiter`、`_signal_hook_waiter`、`_clear_hook_waiter` 方法

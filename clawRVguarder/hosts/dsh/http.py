@@ -16,15 +16,18 @@ from .services import BridgeConflict, DshServices
 class Call(BaseModel):
     """宿主插件签发的执行上下文；不接受客户端绕过认证字段。"""
     model_config = ConfigDict(extra="forbid", strict=True)
-    protocol: Literal["dsh-guard-v1"]
+    protocol: Literal["dsh-guard-v2"]
     instance_id: str = Field(min_length=1, max_length=128)
     session_id: str = Field(min_length=1, max_length=512)
     agent_id: str = Field(min_length=1, max_length=512)
     call_id: str = Field(min_length=1, max_length=512)
+    parent_call_id: str | None = Field(default=None, max_length=512)
+    parent_agent_id: str | None = Field(default=None, max_length=512)
     root_call_id: str = Field(min_length=1, max_length=512)
     tool_name: str = Field(min_length=1, max_length=256)
     cwd: str = Field(min_length=1, max_length=4096)
     arguments: dict[str, Any]
+    proposal: dict[str, Any] | None = None
 
 
 class Completion(BaseModel):
@@ -33,6 +36,7 @@ class Completion(BaseModel):
     call: Call
     succeeded: bool
     dispatched: bool
+    evidence: dict[str, Any] | None = None
 
 
 def configure_app(app, manager: DshServices) -> None:
@@ -55,7 +59,7 @@ def configure_app(app, manager: DshServices) -> None:
             return JSONResponse({"error": "invalid_local_host"}, status_code=403)
         header = request.headers.get("x-rvguarder-token", "")
         plugin = valid(header)
-        bridge_only = path in {"/api/dsh/hello", "/api/dsh/before", "/api/dsh/dispatch", "/api/dsh/result", "/api/dsh/session"}
+        bridge_only = path in {"/api/dsh/hello", "/api/dsh/before", "/api/dsh/dispatch", "/api/dsh/result", "/api/dsh/session", "/api/dsh/degraded", "/api/dsh/probe"}
         browser = valid(request.cookies.get(cookie_name, ""))
         if bridge_only and not plugin or not bridge_only and not (plugin or browser):
             return JSONResponse({"error": "dsh_unauthorized"}, status_code=401)
@@ -63,17 +67,23 @@ def configure_app(app, manager: DshServices) -> None:
             origin = request.headers.get("origin", "")
             if not origin or urlsplit(origin).netloc != request.url.netloc or urlsplit(origin).scheme != request.url.scheme:
                 return JSONResponse({"error": "same_origin_required"}, status_code=403)
-        allowed_mutations = {"/api/dsh/hello", "/api/dsh/session", "/api/dsh/before", "/api/dsh/dispatch", "/api/dsh/result", "/api/dsh/semantic", "/api/baseline/run", "/api/audit/export", "/api/rv/toggle"}
+        allowed_mutations = {"/api/dsh/hello", "/api/dsh/session", "/api/dsh/before", "/api/dsh/dispatch", "/api/dsh/result", "/api/dsh/degraded", "/api/dsh/probe", "/api/dsh/semantic", "/api/baseline/run", "/api/audit/export", "/api/rv/toggle"}
         if request.method not in {"GET", "HEAD", "OPTIONS"} and path not in allowed_mutations:
             return JSONResponse({"error": "dsh_decisions_owned_by_native_host"}, status_code=403)
-        if request.method in {"POST", "PUT", "PATCH"} and len(await request.body()) > 2 * 1024 * 1024:
-            return JSONResponse({"error": "payload_too_large"}, status_code=413)
+        if request.method in {"POST", "PUT", "PATCH"}:
+            chunks, size = [], 0
+            async for chunk in request.stream():
+                size += len(chunk)
+                if size > 2 * 1024 * 1024:
+                    return JSONResponse({"error": "payload_too_large"}, status_code=413)
+                chunks.append(chunk)
+            request._body = b"".join(chunks)
         return await call_next(request)
 
     def checked(call: Call) -> dict[str, Any]:
         if call.instance_id != manager.instance_id:
             raise HTTPException(409, "instance_mismatch")
-        return call.model_dump()
+        return call.model_dump(exclude_none=True)
 
     def operation(fn, *args, **kwargs):
         try:
@@ -106,7 +116,19 @@ def configure_app(app, manager: DshServices) -> None:
 
     @router.post("/result")
     def result(completion: Completion):
-        return operation(manager.bridge_result, checked(completion.call), succeeded=completion.succeeded, dispatched=completion.dispatched)
+        return operation(manager.bridge_result, checked(completion.call), succeeded=completion.succeeded, dispatched=completion.dispatched, evidence=completion.evidence)
+
+    @router.post("/degraded")
+    def degraded(payload: dict):
+        return operation(manager.record_degraded, payload)
+
+    @router.post("/probe")
+    def probe(payload: dict):
+        return operation(manager.record_probe, payload)
+
+    @router.get("/capabilities")
+    def capabilities():
+        return manager.capabilities()
 
     @router.post("/semantic")
     def semantic(payload: dict):

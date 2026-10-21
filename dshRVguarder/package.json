@@ -1,6 +1,6 @@
 {
   "name": "dsh-rvguarder",
-  "version": "0.1.0",
+  "version": "0.2.0-rc.1",
   "private": true,
   "type": "module",
   "description": "DSH 0.2.1-rc.2 的 RVguarder 适配插件",

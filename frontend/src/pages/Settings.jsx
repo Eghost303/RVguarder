@@ -6,6 +6,7 @@ import { useStore } from '../store';
 
 export function Settings() {
   const [trust, setTrust] = useState([]);
+  const dsh = useStore((s) => s.summary.host?.kind === 'dsh');
   const showToast = useStore((s) => s.showToast);
 
   const loadTrust = async () => {
@@ -17,7 +18,7 @@ export function Settings() {
     }
   };
 
-  useEffect(() => { loadTrust(); }, []);
+  useEffect(() => { if (!dsh) loadTrust(); }, [dsh]);
 
   const handleRevoke = async (fingerprint) => {
     try {
@@ -35,7 +36,7 @@ export function Settings() {
       <article class="card trust-card">
         <div class="card-head">
           <h3>精确命令授权</h3>
-          <span class="badge info">默认 30 天</span>
+          <span class="badge info">{dsh ? '原生一次性审批' : '默认 30 天'}</span>
         </div>
         <p class="trust-intro">{useStore.getState().summary.host?.kind === 'dsh' ? 'DSH 仅使用原生一次性审批，不复用 OpenClaw 的持久授权。' : 'OpenClaw 中选择“始终允许”后，Guard 只会复用完全相同的工具、参数、工作目录和 agent/principal。'}</p>
         {trust.length ? (

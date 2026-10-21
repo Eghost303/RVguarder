@@ -245,6 +245,8 @@ DSH 仓库根目录 [SAFETY.zh.md](https://github.com/deepseek-ai/deepseek-harne
 
 首期测试候选已完成打包：发行目录 `dist/dsh-rvguarder-0.1.0/`（`manifest.json` 四项 SHA-256 全部匹配），插件包 `dsh-rvguarder-0.1.0.tgz`（12.3 kB，哈希 `e57ba4aa…`）、Python wheel `openclaw_guard-0.7.0.dev0-py3-none-any.whl`（352 kB）、`INSTALL.md` 与 `create-test-profile.mjs` 均校验一致；临时副本 `/tmp/dsh-rvguarder-0.1.0.tgz`、`/tmp/rvguarder-dsh-release-20261020/` 与发行包同哈希。实际验证及剩余门禁见[验证记录](../../dshRVguarder/docs/validation-2026-10-20.md)。
 
+2026-10-21 更新：`0.1.0`（`dsh-guard-v1`）作为首期测试候选保留归档；当前预发行版为 **`0.2.0-rc.1`**（`dsh-guard-v2`），发行目录 `dist/dsh-rvguarder-0.2.0-rc.1/`，四项 SHA-256 全部匹配，并已通过 GitHub Releases 发布。v2 增加签名内容收据（ContentReceipt/ContentVersion）、受控工具 `rvguard_read` / `rvguard_copy` / `rvguard_transform` / `rvguard_send`、宿主单次授权 CLI、fail-open 独立旁路审计队列、内核与插件目录文件锁、45 秒时效宿主探针、离线维护入口，并将逐调用 `hello` 收敛为 15 秒心跳。20 次合成只读调用复验均值 `134.33ms`、p95 `160.78ms`（LLM 关闭）。仍未通过的 7 项正式发布门槛见[v2 修复记录](../../dshRVguarder/docs/repair-2026-10-21.md)。
+
 ```text
 DSH 原生工具 / PTC 内层工具 / 子 Agent（覆盖范围需逐项验证）
   → TypeScript 适配插件：身份、参数、工作目录、调用关联、审批、结果观测

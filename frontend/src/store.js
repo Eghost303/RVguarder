@@ -19,6 +19,7 @@ export const useStore = create((set, get) => ({
   summary: {},
   loading: true,
   _summaryHash: '',
+  _actionRevision: 0,
 
   // ── Theme ──
   theme: _initialTheme(),
@@ -57,7 +58,7 @@ export const useStore = create((set, get) => ({
         ? JSON.stringify({
             actions: summary.actions,
             sync: summary.sync || {},
-            host: summary.host, semantic: summary.semantic, hook: summary.hook,
+            host: summary.host, semantic: summary.semantic, hook: summary.hook, capabilities: summary.capabilities,
             skills: summary.skills || {},
             channels: summary.channels || {},
             preferences: summary.preferences || {},
@@ -74,7 +75,7 @@ export const useStore = create((set, get) => ({
     const index = items.findIndex((item) => item.action_id === action.action_id);
     if (index >= 0) items[index] = { ...items[index], ...action };
     else items.unshift(action);
-    return { loading: false, summary: { ...s.summary, actions: { ...current, items } } };
+    return { _actionRevision: s._actionRevision + 1, loading: false, summary: { ...s.summary, actions: { ...current, items } } };
   }),
 
   setLoading: (loading) => set({ loading }),

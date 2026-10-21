@@ -51,7 +51,7 @@ def main() -> None:
         shutil.copy2(root / 'package.json', package / 'package.json')
         (profile / 'package.json').write_text(json.dumps({'name': 'rvguarder-smoke', 'private': True,
             'dsh': {'profile': {'bundles': ['@deepseek-ai/dsh-base', '@deepseek-ai/dsh-web-app']}},
-            'dependencies': {'dsh-rvguarder': '0.1.0'}}))
+            'dependencies': {'dsh-rvguarder': json.loads((root / 'package.json').read_text())['version']}}))
         config = {'backendUrl': args.backend_url, 'tokenFile': win(args.token_file),
                   'instanceId': args.instance_id, 'stateDir': win(stage / 'private'), 'failMode': 'closed'}
         (profile / 'cordis.patch.yml').write_text(yaml.safe_dump([{'insert': [{'id': 'rvguarder-dsh', 'name': 'dsh-rvguarder', 'config': config}]}], sort_keys=False))

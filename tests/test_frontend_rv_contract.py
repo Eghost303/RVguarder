@@ -16,9 +16,14 @@ class FrontendRvContractTests(unittest.TestCase):
             source,
         )
 
-    def test_dashboard_reconciles_expired_approval_events(self) -> None:
-        source = (Path(__file__).resolve().parents[1] / "frontend/src/pages/Dashboard.jsx").read_text(encoding="utf-8")
+    def test_layout_reconciles_expired_approval_events(self) -> None:
+        """公共布局持有订阅，动作页不能因离开概览而丢失超时事件。"""
+        root = Path(__file__).resolve().parents[1]
+        source = (root / "frontend/src/useGuardSync.js").read_text(encoding="utf-8")
+        layout = (root / "frontend/src/components/Layout.jsx").read_text(encoding="utf-8")
         self.assertIn("'action.timeout'", source)
+        self.assertIn("source.onopen", source)
+        self.assertIn("useGuardSync();", layout)
 
     def test_action_contains_pipeline_timings(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

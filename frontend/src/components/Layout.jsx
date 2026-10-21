@@ -1,3 +1,4 @@
+import { useGuardSync } from '../useGuardSync';
 import { Link } from 'preact-router';
 import { useStore } from '../store';
 import { t } from '../i18n';
@@ -14,6 +15,7 @@ function useIsActive(view, currentPath) {
 }
 
 export function Layout({ children, currentPath }) {
+  useGuardSync();
   const hostKind = useStore((s) => s.summary.host?.kind);
   const rvMode = useStore((s) => s.rvMode);
   const setRvMode = useStore((s) => s.setRvMode);
@@ -58,7 +60,7 @@ export function Layout({ children, currentPath }) {
           <p>{hostKind === 'dsh' ? 'DSH Agent 安全插件' : t('appSub')}</p>
         </div>
         <nav class="nav">
-          {navItems.map(([view, icon, label]) => (
+          {navItems.filter(([view]) => hostKind !== 'dsh' || view !== 'skills').map(([view, icon, label]) => (
             <Link
               key={view}
               class={'nav-btn' + (useIsActive(view, currentPath) ? ' active' : '')}

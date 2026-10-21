@@ -1,3 +1,4 @@
+import {atomicJson} from './durable.js';
 /** 完成事件先同步落盘再补交；每次前置决策先排空，故障保留事件。 */
 import { existsSync,mkdirSync,readFileSync,writeFileSync,renameSync,lstatSync } from 'node:fs';
 import { join } from 'node:path';
@@ -17,6 +18,7 @@ export class Outbox {
     this.executionsFile=join(directory,'executions.json');
     if (existsSync(this.file) && lstatSync(this.file).isSymbolicLink()) throw new Error('Outbox must not be a symlink');
     this.items=existsSync(this.file) ? JSON.parse(readFileSync(this.file,'utf8')) as Completion[] : [];
+    if (this.items.some(item=>item.call?.protocol && item.call.protocol!=='dsh-guard-v2')) throw new Error('Drain legacy completions with matching v1 plugin before upgrade');
     if (!Array.isArray(this.items)) throw new Error('Corrupt Guard completion outbox');
     if (existsSync(this.executionsFile) && lstatSync(this.executionsFile).isSymbolicLink()) throw new Error('Execution journal must not be a symlink');
     this.executions=existsSync(this.executionsFile) ? JSON.parse(readFileSync(this.executionsFile,'utf8')) as GuardCall[] : [];
@@ -26,9 +28,7 @@ export class Outbox {
     this.saveExecutions();
   }
   private saveExecutions() {
-    const temp=this.executionsFile+'.tmp';
-    writeFileSync(temp,JSON.stringify(this.executions),{mode:0o600});
-    renameSync(temp,this.executionsFile);
+    atomicJson(this.executionsFile,this.executions);
   }
   begin(call: GuardCall) {
     this.executions.push(call);this.saveExecutions();
@@ -37,9 +37,7 @@ export class Outbox {
     this.executions=this.executions.filter(item=>JSON.stringify(item)!==JSON.stringify(call));this.saveExecutions();
   }
   private save() {
-    const temp=this.file+'.tmp';
-    writeFileSync(temp,JSON.stringify(this.items),{mode:0o600});
-    renameSync(temp,this.file);
+    atomicJson(this.file,this.items);
   }
   push(item: Completion) {
     if (this.items.length>=10000) throw new Error('Guard completion outbox full');

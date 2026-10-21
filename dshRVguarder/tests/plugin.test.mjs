@@ -12,7 +12,7 @@ import { ToolRuntime,defineTool } from '@deepseek-ai/dsh-tools';
 import { apply } from '../dist/index.js';
 import { Outbox } from '../dist/outbox.js';
 import { GuardClient } from '../dist/client.js';
-const protocol='dsh-guard-v1';
+const protocol='dsh-guard-v2';
 
 async function fixture(t,{kind='allow',answer='allowed-once',failMode='closed'}={}) {
   const temp=mkdtempSync(join(tmpdir(),'rvguarder-sdk-'));
@@ -72,9 +72,14 @@ test('guard blocks another listener bypassing our pre-execute',async t=>{
   assert.equal((await f.invoke()).isError,true);assert.equal(f.executions(),0);
 });
 test('nested invocation propagates opaque root/call IDs',async t=>{
-  const f=await fixture(t);await f.invoke('opaque:child',{rootCallId:'opaque:root',parent:{}});
-  const body=f.events.find(([p])=>p.endsWith('/before'))[1];
-  assert.equal(body.root_call_id,'opaque:root');assert.equal(body.call_id,'opaque:child');
+  const f=await fixture(t);
+  f.ctx.tools.register(defineTool({name:'outer',description:'nested fixture',parameters:{},output:{schema:{type:'string'},render:(_a,v)=>[{type:'text',text:v}]},async execute(_args,exec){
+    const result=await f.ctx.tools.execute({name:'probe',arguments:{},agent:exec.agent,callId:'opaque:child',rootCallId:exec.rootCallId,parent:exec.token,signal:exec.signal});
+    assert.equal(result.isError,false);return 'done';
+  }}));
+  await f.invoke('opaque:root',{name:'outer'});
+  const body=f.events.find(([p,b])=>p.endsWith('/before')&&b.call_id==='opaque:child')[1];
+  assert.equal(body.root_call_id,'opaque:root');assert.equal(body.parent_call_id,'opaque:root');assert.equal(body.call_id,'opaque:child');
 });
 test('outbox survives restart and failed acknowledgement',async t=>{
   const f=await fixture(t);const directory=join(f.temp,'recovery');

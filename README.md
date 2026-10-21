@@ -1,5 +1,7 @@
 # RVguarder
 
+**简体中文** | [English](README.en.md)
+
 > **Agent 安全插件**：为 OpenClaw 与 DSH（DeepSeek Harness）提供工具执行前审批、PMKB 授权建模与运行时验证。
 
 [![License](https://img.shields.io/badge/License-Apache%202.0-2563EB.svg)](LICENSE)
@@ -169,8 +171,15 @@ export DEEPSEEK_API_KEY=...
 
 ### DSH 插件
 
-DSH 侧固定支持 **DSH 0.2.1-rc.2**、Node 24 与 Python 3.13+，工程位于 `dshRVguarder/`。
-发行包输出到 `dist/dsh-rvguarder-0.1.0/`（插件 tgz、Python wheel、安装说明与 SHA-256 清单）。
+DSH 侧固定支持 **DSH 0.2.1-rc.2**、Node 24 与 Python 3.13+，当前预发行版为 **0.2.0-rc.1**（协议 `dsh-guard-v2`）。
+
+从 [GitHub Releases](https://github.com/HorizonExploration/RVguarder/releases) 下载插件包后安装：
+
+```bash
+dsh plugin --profile <profile> add ./dsh-rvguarder-0.2.0-rc.1.tgz
+```
+
+从源码构建：
 
 ```bash
 cd dshRVguarder
@@ -179,6 +188,8 @@ node scripts/link-sdk.mjs '<DSH 安装根目录>'
 npm run check && npm test
 npm pack
 ```
+
+发行产物同时输出到 `dist/dsh-rvguarder-0.2.0-rc.1/`（插件 tgz、Python wheel、`INSTALL.md`、profile 生成器与 SHA-256 清单）。v2 必须配套安装同版本后端；0.1.0 队列先由旧版本排空，不与 `dsh-guard-v1` 混用。
 
 共享服务、隔离 profile、WSL 原生部署与启动目录约束见 [DSH 部署说明](dshRVguarder/docs/deployment.md)。
 
@@ -243,7 +254,7 @@ ChainRule DSL 监视器触发：
 
 ```
 clawRVguarder/        Python 后端与 CLI（FastAPI、PMKB、RV、审计、OpenClaw 集成）
-dshRVguarder/         DSH0.2.1-rc.2适配插件测试候选（部署/验证见子目录）
+dshRVguarder/         DSH 0.2.1-rc.2 适配插件（预发行版 0.2.0-rc.1，部署/验证见子目录）
 frontend/              Preact 工作台（Vite 构建，产物输出 runtime/ui/）
 policies/permissions/  PMKB 单一源（schema、operations、rules、traces、relations、vectors）
 tests/                 后端测试与文档/发布契约
