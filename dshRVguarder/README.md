@@ -18,7 +18,7 @@ npm pack
 
 安装见 [部署说明](docs/deployment.md)，本机路径见 [Windows 环境](docs/windows-environment.md)，实测和未完成项见 [验证记录](docs/validation-2026-10-20.md)。
 
-发行产物位于仓库根 `dist/dsh-rvguarder-0.2.0-rc.1/`：插件 tgz、Python wheel、`INSTALL.md`、`create-test-profile.mjs` 与 `manifest.json`（SHA-256 全部匹配）。
+发行产物位于仓库根 `dist/dsh-rvguarder-0.2.0-rc.1/`：插件 tgz、Python wheel、`INSTALL.md`、`create-test-profile.mjs` 与 `manifest.json`（SHA-256 全部匹配），并已作为 pre-release 发布至 [GitHub Releases](https://github.com/HorizonExploration/RVguarder/releases/tag/v0.2.0-rc.1)。
 
 采用外部托管 Python 服务，插件不自动启停 Python。已在临时 Windows DSH web profile 和 WSL 原生 DSH（`~/.npm-global/bin/dsh`，0.2.1-rc.2）上验证加载与握手；v2 已补充真实 Node PTC 内层测试、受控本地文件字节收据和 Windows ACL 临时边界探针（partial）。完整子 Agent、在线 LLM、长期稳定性和更广平台边界仍需验收。普通工具返回文本不是可信内容收据。
 
