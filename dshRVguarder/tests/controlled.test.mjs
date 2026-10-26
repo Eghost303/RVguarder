@@ -21,14 +21,17 @@ import {apply} from '../dist/index.js';
 import {acquireLease} from '../dist/lease.js';
 import {DegradedOutbox} from '../dist/durable.js';
 const root=fileURLToPath(new URL('../../',import.meta.url));
+const python=process.env.RVGUARDER_PYTHON||'python';
 async function fixture(t,{ptc=false,egress}={}){
   const temp=mkdtempSync(join(tmpdir(),'rvguarder-controlled-')),workspace=join(temp,'workspace'),home=join(temp,'home'),profile=join(home,'profiles','web'),project=join(temp,'guard');
   mkdirSync(workspace);mkdirSync(profile,{recursive:true});writeFileSync(join(profile,'package.json'),JSON.stringify({dsh:{profile:{bundles:[]}}}));
   writeFileSync(join(workspace,'source.txt'),'hello\r\nworld');
-  if(egress){mkdirSync(join(project,'runtime'),{recursive:true,mode:0o700});writeFileSync(join(project,'runtime','dsh-evidence.json'),JSON.stringify({egress_allowlist:[egress.url]}),{mode:0o600});}
-  const child=spawn('python',['-m','clawRVguarder.hosts.dsh.server','--project-dir',project,'--dsh-home',home,'--workspace',workspace,'--port','0','--semantic-mode','local'],{cwd:root,env:{...process.env,DEEPSEEK_API_KEY:''},stdio:['ignore','pipe','pipe']});
+  const prepared=spawnSync(python,['-X','utf8','-c','from pathlib import Path; import sys; from clawRVguarder.storage.private_files import ensure_private_directory; ensure_private_directory(Path(sys.argv[1]))',join(project,'runtime')],{cwd:root,encoding:'utf8'});
+  assert.equal(prepared.status,0,prepared.stderr);
+  if(egress){writeFileSync(join(project,'runtime','dsh-evidence.json'),JSON.stringify({egress_allowlist:[egress.url]}),{mode:0o600});}
+  const child=spawn(python,['-X','utf8','-m','clawRVguarder.hosts.dsh.server','--project-dir',project,'--dsh-home',home,'--workspace',workspace,'--port','0','--semantic-mode','local'],{cwd:root,env:{...process.env,DEEPSEEK_API_KEY:''},stdio:['ignore','pipe','pipe']});
   let cleanup;let stderr='';child.stderr.on('data',b=>stderr+=b);
-  t.after(async()=>{if(cleanup)await cleanup();child.kill('SIGTERM');await new Promise(r=>{if(child.exitCode!==null)return r();child.once('exit',r);setTimeout(()=>{child.kill('SIGKILL');r();},5000).unref();});rmSync(temp,{recursive:true,force:true});});
+  t.after(async()=>{if(cleanup)await cleanup();child.kill('SIGTERM');await new Promise(r=>{if(child.exitCode!==null)return r();child.once('exit',r);setTimeout(()=>{child.kill('SIGKILL');r();},5000).unref();});rmSync(temp,{recursive:true,force:true,maxRetries:20,retryDelay:100});});
   const url=await new Promise((resolve,reject)=>{let raw='';const timer=setTimeout(()=>reject(new Error('Backend startup timeout: '+stderr)),10000);child.once('exit',()=>{clearTimeout(timer);reject(new Error('Backend exited: '+stderr));});child.stdout.on('data',b=>{raw+=b;for(const line of raw.split('\n'))try{const data=JSON.parse(line);if(data.url){clearTimeout(timer);resolve(data.url);return;}}catch{}});});
   const ctx=new Context();new SystemPrompt(ctx,{});new SessionStore(ctx);new ToolRuntime(ctx,{mode:ptc?'ptc':'native'});
   if(ptc){
@@ -47,9 +50,9 @@ async function fixture(t,{ptc=false,egress}={}){
   const api=async(path)=>{const response=await fetch(url+'api/'+path,{headers:{'x-rvguarder-token':token}});assert.ok(response.ok);return response.json();};
   const grant=(revoke=false)=>{
     const args=['-m','clawRVguarder.hosts.dsh.grant_cli','--project-dir',project,'--workspace',workspace];
-    const issued=spawnSync('python',[...args,'issue','--agent',lastCall.agent,'--session',lastCall.session,'--task','session:'+lastCall.session,'--run',lastCall.run,'--call',lastCall.call,'--path','source.txt','--recipient',egress.url],{cwd:root,encoding:'utf8'});
+    const issued=spawnSync(python,[...args,'issue','--agent',lastCall.agent,'--session',lastCall.session,'--task','session:'+lastCall.session,'--run',lastCall.run,'--call',lastCall.call,'--path','source.txt','--recipient',egress.url],{cwd:root,encoding:'utf8'});
     assert.equal(issued.status,0,issued.stderr);const id=JSON.parse(issued.stdout).id;
-    if(revoke){const result=spawnSync('python',[...args,'revoke','--grant-id',id],{cwd:root,encoding:'utf8'});assert.equal(result.status,0,result.stderr);}
+    if(revoke){const result=spawnSync(python,[...args,'revoke','--grant-id',id],{cwd:root,encoding:'utf8'});assert.equal(result.status,0,result.stderr);}
     return id;
   };
   return {ctx,agent,execute,workspace,api,grant,onApproval:fn=>beforeApproval=fn};
@@ -75,8 +78,14 @@ test('approval-time resource modification prevents controlled copy',async t=>{
 });
 test('controlled traversal and symlinks cannot create byte receipts',async t=>{
   const f=await fixture(t);assert.equal((await f.execute('rvguard_read',{file_path:'../private'})).isError,true);
-  symlinkSync(join(f.workspace,'source.txt'),join(f.workspace,'link.txt'));
-  assert.equal((await f.execute('rvguard_read',{file_path:'link.txt'})).isError,true);
+  if(process.platform==='win32'){
+    const real=join(f.workspace,'real');mkdirSync(real);writeFileSync(join(real,'source.txt'),'test');
+    symlinkSync(real,join(f.workspace,'link'),'junction');
+    assert.equal((await f.execute('rvguard_read',{file_path:'link/source.txt'})).isError,true);
+  }else{
+    symlinkSync(join(f.workspace,'source.txt'),join(f.workspace,'link.txt'));
+    assert.equal((await f.execute('rvguard_read',{file_path:'link.txt'})).isError,true);
+  }
 });
 test('plugin lease rejects another owner and releases cleanly',t=>{
   const temp=mkdtempSync(join(tmpdir(),'rvguarder-lease-'));t.after(()=>rmSync(temp,{recursive:true,force:true}));

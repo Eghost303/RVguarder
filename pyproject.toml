@@ -18,7 +18,7 @@ dependencies = [
   "PyYAML>=6.0",
   "pydantic>=2.0",
   "fastapi>=0.115.0",
-  "uvicorn[standard]>=0.30.0",
+  "uvicorn>=0.30.0",
 ]
 
 [project.scripts]
@@ -30,6 +30,7 @@ web = []
 postgres = ["psycopg2-binary", "sqlalchemy[asyncio]>=2.0"]
 redis = ["redis>=5.0"]
 test = ["httpx"]
+performance = ["uvicorn[standard]>=0.30.0"]
 
 [tool.setuptools.packages.find]
 include = ["clawRVguarder*"]

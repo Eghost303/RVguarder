@@ -1,15 +1,23 @@
-# DSH 0.2.1-rc.2 本地部署
+# DSH 本地部署
 
-此插件在 `RVguarder/dshRVguarder/` 开发，调用 `clawRVguarder.hosts.dsh` 的共享 Python 服务，工作台复用现有 Preact 前端。固定支持 Node 24 与 DSH 0.2.1-rc.2；其他版本须重新做兼容验证。
+2026-10-26：源码支持 DSH rc.3，以及 **Windows 原生 Python 和 Linux/WSL Python** 双平台后端；Windows 支持不限定 Python 的安装渠道，均要求 Python 3.13+ 及兼容依赖。当前为插件 0.2.0-rc.2 本地开发候选。Windows 桌面安装请使用 [原生开发指南](windows-native-rc3.md)；下方 rc.2/WSL 命令保留为另一种部署路径和历史参考，WSL 不是 Windows 部署的必需组件。
+
+此插件在 `RVguarder/dshRVguarder/` 开发，调用 `clawRVguarder.hosts.dsh` 的共享 Python 服务，工作台复用现有 Preact 前端。支持 Node 24 与明确列出的 DSH 0.2.1-rc.2/rc.3；其他版本须重新做兼容验证。
+
+当前用户已验证后端启动、新 profile 对接和基础拦截；插件页未展示、独立工作台、手动部署和规则行为问题见 [阶段交接与已知问题](../../docs/dev/dsh-progress-2026-10-26.md)。工作台尚未嵌入 DSH，插件不自动启动 Python。
+
+一般顺序：准备依赖 → 构建 UI/插件或取得同批次 wheel/tgz → 初始化实例和安装新 profile → 单独运行后端 → 启动 DSH profile → 登录独立工作台。首次初始化可以使用 `--prepare-only`，因此无须为了生成令牌而保持后端运行；实际工具接入前仍须启动长期后端。
+
+源码部署、commit 和 PR 均不要求 GitHub Release；Release 仅是可选的候选产物分发方式。需要分发时应提供配套 wheel/tgz、说明和校验清单，并标注 pre-release 和已知问题；当前没有自动安装 Python/Node 依赖或托管后端的一体化安装器。
 
 ## 构建
 
 在仓库根安装 Python 3.13+ 依赖并构建前端：
 
 ```bash
-python -m pip install -e .
 npm --prefix frontend ci
 npm --prefix frontend run build
+python -m pip install -e .
 cd dshRVguarder
 npm ci --ignore-scripts --legacy-peer-deps
 node scripts/link-sdk.mjs '<DSH 安装根目录>'
@@ -23,7 +31,7 @@ Windows 本机安装根目录及 WSL 映射见 windows-environment.md。link-sdk
 构建配套发行目录（目录必须不存在）：
 
 ```bash
-python dshRVguarder/scripts/build-release.py --output dist/dsh-rvguarder-0.2.0-rc.1
+python dshRVguarder/scripts/build-release.py --output dist/dsh-rvguarder-0.2.0-rc.2
 ```
 
 发行目录包含插件 tgz、Python wheel、安装说明和 SHA-256 清单；wheel 含公开 UI、PMKB、RV 规则。Python/Node 解释器及 Python 第三方依赖需预先安装，**发行目录不是自带全部依赖的离线安装器**。
@@ -40,7 +48,7 @@ python -m clawRVguarder.hosts.dsh.server \
   --profile web --instance-id dsh-dev --port 8781 --semantic-mode auto
 ```
 
-v2 主路径为 WSL Python 后端，Windows 原生 Python 的私有授权存储尚未验收。WSL 后端支持同机盘符路径到 `/mnt/<盘符>/` 的转换；UNC/远程路径尚未支持，不能按工作区内路径放行。
+后端可直接使用 Windows 原生 Python，也可在 Linux/WSL 中运行；Windows 的依赖安装方式由所选 Python 发行渠道决定，部署与验证范围见原生开发指南。WSL 路径仍支持同机盘符到 `/mnt/<盘符>/` 的转换；UNC/远程工作区路径尚未支持，不能按工作区内路径放行。
 
 服务只绑定 `127.0.0.1`。Windows DSH 到 WSL localhost 的连通性受 WSL 网络配置影响，必须验证；不应为绕过网络问题把服务无认证地暴露到局域网。
 
@@ -59,7 +67,7 @@ node scripts/create-test-profile.mjs --profile rvguarder-dev --instance dsh-dev 
 然后通过该版本 DSH 的 profile 管理安装构建好的 tgz：
 
 ```powershell
-dsh.cmd plugin --profile rvguarder-dev add 'C:\path\to\dsh-rvguarder-0.2.0-rc.1.tgz'
+dsh.cmd plugin --profile rvguarder-dev add 'C:\path\to\dsh-rvguarder-0.2.0-rc.2.tgz'
 ```
 
 创建脚本已写入启用条目。若自行配置，必须使用锁定版本的 `insert`/`id` patch DSL，不能把普通插件列表直接放到 patch 根：
@@ -126,7 +134,7 @@ python3.13 -m clawRVguarder.hosts.dsh.server \
 node scripts/create-test-profile.mjs --profile rvguarder-dev --instance dsh-dev \
   --token /home/yosoro126/.local/share/rvguarder/dsh-dev/runtime/dsh-token \
   --backend http://127.0.0.1:8781 --home /home/yosoro126/.dsh
-dsh plugin --profile rvguarder-dev add /tmp/dsh-rvguarder-0.2.0-rc.1.tgz
+dsh plugin --profile rvguarder-dev add /tmp/dsh-rvguarder-0.2.0-rc.2.tgz
 
 # 6. 启动（必须避开含 .env 的目录）
 dsh --profile rvguarder-dev --port 8790
@@ -147,7 +155,7 @@ DSH CLI 会读取启动目录的 .env，并拒绝把部分启动控制项放在 
 
 ## v2 协议升级
 
-插件0.2.0-rc.1与配套wheel使用dsh-guard-v2。升级前使用旧版排空全部pending/dispatch及完成队列，停止本实例并备份完整project-dir/stateDir，之后同时升级插件和后端。旧协议或残留旧队列拒绝混用；不得删除未确认历史来绕过。若回滚，恢复升级前的配套包与数据备份，不能让旧后端直接写入新版状态。
+历史插件0.2.0-rc.1与当前0.2.0-rc.2均使用dsh-guard-v2；当前原生兼容改动仍须使用匹配源码或wheel。升级前使用旧版排空全部pending/dispatch及完成队列，停止本实例并备份完整project-dir/stateDir，之后同时升级插件和后端。旧协议或残留旧队列拒绝混用；不得删除未确认历史来绕过。若回滚，恢复升级前的配套包与数据备份，不能让旧后端直接写入新版状态。
 
 可选本地受控工具、精确MCP映射、探针、离线检查/核对命令及完整限制见[修复记录](repair-2026-10-21.md)。插件config可增加evidenceKeyFile，指向后端runtime/authorization/content-signing.key的受控Windows可读路径。该文件不等于桥接token，不能输出或公开分发。受控外发默认禁用；启用须配置双端精确HTTPS白名单和每次调用的宿主授权，详见修复记录。
 

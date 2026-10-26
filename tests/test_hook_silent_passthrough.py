@@ -21,7 +21,7 @@ def _run_generated_plugin(tmp_path: Path, script: str) -> None:
     plugin_path = tmp_path / "openclaw-guard-plugin.mjs"
     plugin_path.write_text(_plugin_source(guard_url="http://guard.test", auth_token="fixture"), encoding="utf-8")
     completed = subprocess.run(
-        ["node", "--input-type=module", "-e", script, str(plugin_path)],
+        ["node", "--input-type=module", "-e", script, plugin_path.as_uri()],
         capture_output=True,
         text=True,
         check=False,

@@ -1,5 +1,9 @@
 """核验干净wheel资源路径与秘密文件排除，覆盖安装后404缺陷。"""
+from __future__ import annotations
+
 from pathlib import Path
+import os
+import subprocess
 
 import pytest
 
@@ -50,6 +54,10 @@ def test_dangling_bundle_reference_refuses_incomplete_wheel(tmp_path):
 def test_symlink_cannot_smuggle_host_file_into_wheel(tmp_path):
     source = tmp_path / "built"
     frontend(source)
-    (source / "assets/hidden.js").symlink_to(tmp_path / "private-file")
+    if os.name == "nt":
+        (tmp_path / "private-file").mkdir()
+        subprocess.run(["cmd.exe", "/d", "/c", "mklink", "/J", str(source / "assets/hidden.js"), str(tmp_path / "private-file")], check=True, capture_output=True)
+    else:
+        (source / "assets/hidden.js").symlink_to(tmp_path / "private-file")
     with pytest.raises(ValueError, match="symlinks"):
         stage_ui_assets(source, tmp_path / "wheel")

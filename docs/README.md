@@ -7,8 +7,8 @@ actions:
   - text: 快速开始
     link: /deployment/local.html
     type: primary
-  - text: DSH 插件计划
-    link: /architecture/dsh-plugin-migration-feasibility-2026-10-19.html
+  - text: DSH 当前进度与部署
+    link: /dev/dsh-progress-2026-10-26.html
     type: secondary
 
 features:
@@ -24,8 +24,8 @@ features:
     details: 版本化操作目录、Authorization Trace、最小权限闭包/差分和危险权限组合图，直接参与 before_tool_call 决策并输出可解释证据。
   - title: 📊 运行时验证 RV
     details: 滑动窗口 + ChainRule DSL 生成监视器，检测「搜索→删除→外发」等链式攻击模式。
-  - title: 🖥️ 统一工作台
-    details: 动作状态、风险证据、Trace 时间线、安全规则、基线扫描、RV 状态面板 — 一个前端界面集中查看。
+  - title: 🖥️ Guard 工作台
+    details: 动作状态、风险证据、Trace 时间线、安全规则、基线扫描和 RV 状态集中查看；DSH 当前通过独立页面访问，尚未嵌入宿主。
 
 ---
 
@@ -42,8 +42,8 @@ features:
   </div>
   <div class="custom-card">
     <h3>📦 当前状态</h3>
-    <p>v0.7.0-dev — PMKB 权限模型、最小权限与跨 session RV 已落地，Hook 仍由 OpenClaw 单一审批并通过 SSE 同步。PMKB 1.2.0 native rules 立即参与运行时决策；迁移记录只用于 provenance/replay。DSH 0.2.0-rc.1 预发行版已打包，Windows 与 WSL 原生宿主均完成加载与握手。</p>
-    <p><em>v0.7.0-dev — PMKB authorization modeling, least privilege, and cross-session RV are implemented. The DSH 0.2.0-rc.1 pre-release is packaged and verified on both Windows and WSL hosts.</em></p>
+    <p>v0.7.0-dev — PMKB 权限模型、最小权限与跨 session RV 已落地。DSH 当前源码为 0.2.0-rc.2 本地候选，支持 rc.2/rc.3 宿主和 Windows 原生 / Linux/WSL Python。用户确认后端、新 profile 和基础拦截可用；插件页展示、界面整合、部署简化和人工反馈的规则行为仍待处理。源码部署与 PR 不要求 Release。</p>
+    <p><em>The local DSH 0.2.0-rc.2 candidate supports rc.2/rc.3 hosts and native Windows / Linux/WSL Python. Basic startup and interception are verified; plugin-page visibility, embedded UI, deployment convenience, and reported policy behavior remain open. A Release is optional for distribution.</em></p>
   </div>
 </div>
 
@@ -54,6 +54,7 @@ features:
 | 章节 | 内容 |
 | --- | --- |
 | [本地部署](./deployment/local.md) | 安装与首次启动 |
+| [DSH 阶段进度与团队交接](./dev/dsh-progress-2026-10-26.md) | 已完成工作、人工反馈、一般部署流程和 Release 选择 |
 | [运行时 Hook 拦截](./features/runtime-hook.md) | 插件机制与审批结果同步 |
 | [动作审批链](./features/action-gate.md) | 决策流程与 PMKB 策略 |
 | [架构总览](./architecture/overview.md) | 分层设计与代码映射 |

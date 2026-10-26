@@ -36,7 +36,7 @@ class HostProbe(BaseModel):
     """包含版本、工具清单与来源时间的认证宿主快照。"""
     model_config = ConfigDict(extra="forbid", strict=True)
     instance_id: str
-    sdk_version: Literal["0.2.1-rc.2"]
+    sdk_version: Literal["0.2.1-rc.2", "0.2.1-rc.3"]
     platform: Literal["win32", "linux", "darwin"]
     observed_at: float = Field(ge=0, allow_inf_nan=False)
     tools: list[str] = Field(max_length=512)

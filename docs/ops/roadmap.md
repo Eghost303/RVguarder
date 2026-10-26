@@ -31,7 +31,15 @@
 
 ### DSH 插件（当前主线）
 
-工程目录：[`dshRVguarder/`](../../dshRVguarder/README.md)，当前预发行版 **0.2.0-rc.1**（协议 `dsh-guard-v2`）已打包至 `dist/dsh-rvguarder-0.2.0-rc.1/`，并随 [GitHub Releases](https://github.com/HorizonExploration/RVguarder/releases) 发布。Windows 与 WSL 原生 DSH 均完成加载与握手；v2 已接入签名内容收据、受控读写与宿主单次授权、fail-open 旁路审计、文件锁与离线维护入口。实际验证及剩余 7 项发布门槛见[v2 修复记录](../../dshRVguarder/docs/repair-2026-10-21.md)。
+工程目录：[`dshRVguarder/`](../../dshRVguarder/README.md)，当前源码为 **0.2.0-rc.2 本地开发候选（未发布）**，支持 DSH `0.2.1-rc.2` / `0.2.1-rc.3`，协议 `dsh-guard-v2`。Windows 原生 Python 与 Linux/WSL 路径均保留，用户已确认后端启动、新 profile 接入和基础拦截正常。已公开的历史 rc.1 仍见 [GitHub Releases](https://github.com/HorizonExploration/RVguarder/releases)；此前门槛见 [v2 修复记录](../../dshRVguarder/docs/repair-2026-10-21.md)，当前交接与部署方式见 [阶段记录](../dev/dsh-progress-2026-10-26.md)。
+
+当前仅完成基础接入阶段，后续待办如下，本轮不实施修复：
+
+- [ ] DSH“插件”页中的展示和管理入口（DSH-UX-01）。
+- [ ] Guard 工作台与 DSH 的界面、导航和认证整合（DSH-UX-02）。
+- [ ] 环境准备、配套包安装及 Python 后端生命周期的部署简化（DSH-DEP-01）；现有脚本不等于一体化安装器。
+- [ ] 复现本地规则模式频繁 ask，以及完全权限模式下被拦截的人工反馈（DSH-POL-01/02）；根因未定，不能标为已修复。
+- [ ] 完成候选验收后，再按需决定是否通过 pre-release 分发匹配产物；源码 PR 和本地部署不依赖 Release。
 
 > 2026-10-20 范围修订：RV、PMKB、基线扫描、Dashboard、LLM 增强与审计一并进入首个完整 DSH 版本。
 > 实施建议调整为 **TypeScript 宿主适配 + Python 共享核心 + Preact 工作台**；Phase 0 验证部署与接口后定稿。DSH 默认 fail-closed，可配置 fail-open；OpenClaw 继续 fail-open。

@@ -49,6 +49,17 @@ def test_no_openclaw_side_effect_and_authenticated_api(dsh):
     assert client.post("/api/actions/approve", json={}).status_code == 403
 
 
+@pytest.mark.parametrize("version", ["0.2.1-rc.2", "0.2.1-rc.3"])
+def test_supported_sdk_version_handshake(dsh, version):
+    """仅接受明确支持的真实 SDK 版本，不将 rc.3 伪装成 rc.2。"""
+    manager, client, _ = dsh
+    response = client.post("/api/dsh/hello", json={"protocol": "dsh-guard-v2", "instance_id": "dsh-local", "sdk_version": version})
+    assert response.status_code == 200
+    assert response.json()["sdk_version"] == version
+    assert manager.sdk_version == version
+    assert client.post("/api/dsh/hello", json={"protocol": "dsh-guard-v2", "instance_id": "dsh-local", "sdk_version": "0.2.1-rc.4"}).status_code == 409
+
+
 def test_read_is_allowed_then_success_commits_once(dsh):
     manager, client, workspace = dsh
     request = call(workspace)

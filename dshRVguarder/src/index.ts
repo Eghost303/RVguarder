@@ -1,4 +1,4 @@
-/** DSH 0.2.1-rc.2 适配插件：原生审批、单调守卫与持久完成事件。 */
+/** DSH 0.2.1-rc.2/rc.3 适配插件：原生审批、单调守卫与持久完成事件。 */
 import type { Context } from '@deepseek-ai/cordis';
 import type { ToolExecution,ToolExecutionResult,PreToolDecision } from '@deepseek-ai/dsh-tools';
 import type {} from '@deepseek-ai/dsh-agent';

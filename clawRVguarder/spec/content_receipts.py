@@ -12,7 +12,6 @@ import hmac
 import json
 import math
 import os
-import stat
 import threading
 from queue import Empty, Full, Queue
 from types import SimpleNamespace
@@ -24,6 +23,7 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from clawRVguarder.rv.tool_events import OPERATION_EFFECTS
 from clawRVguarder.spec.host_authorization import HostAuthorizationError, HostAuthorizationStore, TaskBinding
+from clawRVguarder.storage.private_files import private_file
 
 
 class ContentReceiptError(ValueError):
@@ -168,24 +168,19 @@ class HostContentReceiptAuthority:
             db.execute("BEGIN IMMEDIATE")
             path = store.state_dir / "content-signing.key"
             try:
-                fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600)
+                with private_file(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL) as fd:
+                    os.write(fd, os.urandom(32))
             except FileExistsError:
                 pass
-            else:
-                try:
-                    os.write(fd, os.urandom(32))
-                finally:
-                    os.close(fd)
-            fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW)
             try:
-                info = os.fstat(fd)
-                if not stat.S_ISREG(info.st_mode) or info.st_uid != os.getuid() or stat.S_IMODE(info.st_mode) & 0o077 or info.st_nlink != 1:
-                    raise HostAuthorizationError("content signing key must be host-private")
-                self._key = os.read(fd, 33)
-                if len(self._key) != 32:
-                    raise ContentReceiptError("invalid content signing key")
-            finally:
-                os.close(fd)
+                with private_file(path, os.O_RDONLY) as fd:
+                    self._key = os.read(fd, 33)
+                    if len(self._key) != 32:
+                        raise ContentReceiptError("invalid content signing key")
+            except ContentReceiptError:
+                raise
+            except (OSError, ValueError) as exc:
+                raise HostAuthorizationError("content signing key must be host-private") from exc
 
     def issue(
         self, *, binding: TaskBinding, tool_call_id: str, tool_name: str, kind: str,
