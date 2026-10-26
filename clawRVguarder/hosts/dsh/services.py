@@ -14,8 +14,10 @@ from clawRVguarder.config import AppContext, GuardSettings, OpenClawTarget, defa
 from clawRVguarder.engine.semantic_enhancer import SemanticEnhancer
 from clawRVguarder.services import GuardServices
 from clawRVguarder.utils import sha256_text, utc_now_iso
-from .adapter import DshAdapter, PROTOCOL_VERSION
+from .adapter import DshAdapter, PROTOCOL_VERSION, SUPPORTED_SDK_VERSIONS
 from .semantic import DshSemanticEnhancer
+from clawRVguarder.storage.private_files import ensure_private_directory, private_file
+import os
 
 
 class BridgeConflict(ValueError):
@@ -52,8 +54,9 @@ class DshServices(DshObservability, GuardServices):
         if project_dir == workspace or project_dir.is_relative_to(workspace):
             raise ValueError("guard_state_must_be_outside_agent_workspace")
         paths = default_paths(project_dir)
+        # Windows 也在任何令牌/密钥产生前建立真实私有 ACL，不使用 chmod 假定隔离。
+        ensure_private_directory(paths.runtime_dir)
         paths.ensure()
-        paths.runtime_dir.chmod(0o700)
         from .ownership import DirectoryLease
         self._lease = DirectoryLease(paths.runtime_dir)
         self.semantic_settings_path = paths.runtime_dir / "dsh-settings.json"
@@ -68,11 +71,10 @@ class DshServices(DshObservability, GuardServices):
             raise ValueError("token_path_must_not_be_symlink")
         if not token_path.exists():
             # 独占创建，避免覆盖现有 token；不把 token 放进公开包或日志。
-            with token_path.open("x", encoding="utf-8") as stream:
-                token_path.chmod(0o600)
-                stream.write(secrets.token_urlsafe(48))
-        token_path.chmod(0o600)
-        self.bridge_token = token_path.read_text().strip()
+            with private_file(token_path, os.O_WRONLY | os.O_CREAT | os.O_EXCL) as fd:
+                os.write(fd, secrets.token_urlsafe(48).encode("ascii"))
+        with private_file(token_path, os.O_RDONLY) as fd:
+            self.bridge_token = os.read(fd, 4096).decode("ascii").strip()
         if len(self.bridge_token) < 32:
             raise ValueError("invalid_dsh_token")
         mappings_path = paths.runtime_dir / "dsh-tool-mappings.json"
@@ -128,7 +130,7 @@ class DshServices(DshObservability, GuardServices):
 
     def touch(self, sdk_version: str) -> dict[str, Any]:
         """认证握手后才声明有插件连入，不据配置存在推测在线。"""
-        if sdk_version != "0.2.1-rc.2":
+        if sdk_version not in SUPPORTED_SDK_VERSIONS:
             raise BridgeConflict("unsupported_dsh_sdk_version")
         self.evidence.sync_management_audit()
         self.sdk_version, self.last_seen = sdk_version, time.monotonic()

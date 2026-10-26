@@ -2,6 +2,8 @@
 from __future__ import annotations
 
 import hashlib
+import os
+import subprocess
 from pathlib import Path
 
 import pytest
@@ -38,7 +40,13 @@ def test_symlinks_are_not_followed(tmp_path, intermediate):
     root.mkdir()
     outside.mkdir()
     (outside / "data").write_text("secret")
-    (root / "link").symlink_to(outside if intermediate else outside / "data")
+    if os.name == "nt":
+        if intermediate:
+            subprocess.run(["cmd.exe", "/d", "/c", "mklink", "/J", str(root / "link"), str(outside)], check=True, capture_output=True)
+        else:
+            (root / "link").hardlink_to(outside / "data")
+    else:
+        (root / "link").symlink_to(outside if intermediate else outside / "data")
     with pytest.raises(ResourceEvidenceError):
         HostResourceObserver({"w": root}).observe("w", "link/data" if intermediate else "link")
 

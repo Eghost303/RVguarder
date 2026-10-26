@@ -1,16 +1,38 @@
 # RVguarder 开发记忆
 
-更新时间：2026-10-21。此文记录本地源码与仓库文档核对后的状态；不是线上部署状态证明。
+更新时间：2026-10-26。此文记录本地源码与仓库文档核对后的状态；不是线上部署状态证明。
+
+## 人工核验与进度提交（2026-10-26）
+
+用户确认后端启动、新建DSH profile接入及基础运行/拦截正常；同时反馈插件页不可见、Guard前端未嵌入DSH、构建安装和独立启动后端仍繁琐、本地模式频繁ask、完全权限模式下操作被后端拦截。最后两项为人工观察，未完成逐调用复现或根因定位，本阶段只记录，不修复或放宽规则。自动化allow/ask/deny用例通过不替代日常场景验收。详见 [团队交接](dsh-progress-2026-10-26.md) 中的问题编号与证据范围。
+
+用户本轮明确选择：整理当前代码与文档并完成本地commit、备好PR说明；远程推送和上游PR留到下一步。拟分支codex/dsh-native-rc3-checkpoint，目标上游HorizonExploration/RVguarder的master。源码部署与PR不要求GitHub Release；后续可按需提供包含已知问题的pre-release配套产物，不能称为一键安装或正式验收。
+
+## 最新原生开发基线（2026-10-26）
+
+当前支持范围为 **Windows 原生 Python 和 Linux/WSL Python**，要求 Python 3.13+ 及兼容依赖；Windows 支持与 Python 的发行渠道无关，不能把本机采用的某个渠道写成运行前提。Windows 部署不依赖启动 WSL，也不要求为桌面 DSH rc.3 另装 rc.2。已实现插件 `0.2.0-rc.2` 本地候选：真实 SDK 版本识别、rc.2/rc.3 握手与探针、桌面 ASAR SDK 只读提取/同版本类型补齐、Windows ACL 私有存储和逐段资源句柄。Windows 使用原生接口，Linux/WSL 保留 POSIX 路径，不跳过原有检查。
+
+本机验收环境示例：`C:/msys64/ucrt64/bin/python.exe` 为 Windows 原生 Python 3.14.8，由 MSYS2 提供；项目 `.venv/bin/python.exe` 复用该渠道的原生系统包。此路径、pacman 和系统包继承均为本机安装细节，不是跨平台支持条件。其他 Windows 发行渠道可使用 `.venv/Scripts/python.exe` 或显式指定解释器；脚本支持两种目录。此次 pip 仅在 venv 引导，未覆盖冲突的系统 pip3.exe。基础 Uvicorn 不强制安装可选原生加速，后者移至 `.[performance]`。桌面 rc.3 CLI 和 archive SDK 实测均为 rc.3，Cordis4.0.5；缓存于 runtime/dsh-sdk-0.2.1-rc.3。SDK peer 由宿主提供，标为可选安装以避免 pnpm 拉入重复运行时，实际版本仍严格校验。
+
+原生专项112通过；SDK24通过/1沙箱不可用跳过。现有桌面CLI的真实离线包安装、独立DSH_HOME/web profile启动、认证握手通过，未调用模型。安装脚本在隔离目录通过，未修改日常web/desktop profile。相关工具为 `start-windows-backend.ps1`、`install-windows-profile.ps1`、`native-profile-smoke.py`；入口和操作见 [Windows 原生开发指南](../../dshRVguarder/docs/windows-native-rc3.md)。当前源码尚未发布，不能混用历史 rc.1 wheel。下方WSL/旧版本路径与验收描述属于历史记录，不能覆盖本节最新约定。
+
+共享回归另有92项分组核对通过；Windows Node测试入口改用file URL，UI打包拒绝junction。配套产物在dist/dsh-rvguarder-0.2.0-rc.2-windows-native。本机验收执行上下文中，从Windows原生Python发起Node写Vite缓存曾EPERM，使用PowerShell分别build/pack后，build-release.py --frontend-built --plugin-tgz <tgz>组合；仍核对资源/包元数据/哈希。此问题只记录实际测试环境，不归因为某个发行渠道，也不限制平台支持范围。
+
+Windows ACL允许当前用户及SYSTEM；不声称隔离同一完整用户令牌下的Agent/进程。真实执行代码工具沙箱、在线模型、完整委派、多插件和长期稳定性仍有门槛。临时目录可能受当前执行上下文限制，测试需显式选可写目录；不通过放宽授权或删除历史来排障。
+
+## 用户目录 WinError 5 修复（2026-10-26）
+
+本机 `.venv/bin/python.exe` 带继承的 Low Mandatory Level，实际进程完整性为 S-1-16-4096；原始 MSYS2 解释器为 Medium（S-1-16-8192）。同一账户的普通 PowerShell 能写用户目录，而低完整性 venv 进程不能，不能据此归因于 MSYS2 或要求管理员运行服务。已仅将项目 Python 启动器恢复到 Medium；用于修复的临时当前用户 FullControl ACE 已撤回，未修改用户目录 ACL。默认 `C:/Users/elect/.rvguarder/dsh-rc3-dev` 已连续两次 prepare-only 成功，runtime ACL 仅当前用户与 SYSTEM。以后重建 venv 若复发，先检查启动器完整性标记；不要通过迁移状态、关闭保护或放宽用户目录权限掩盖。此前 Python 子进程访问部分目录失败的记录应结合该标记核对，不作为发行渠道限制。
 
 ## 定位与当前进度
 
 RVguarder 是 OpenClaw Agent 安全插件，当前版本 `0.7.0-dev`（发行元数据 `0.7.0.dev0`），Apache-2.0。当前生产实现是 Python 3.13+ 后端 + 自动生成的 JS Hook + Preact 工作台，不修改 OpenClaw 源码。
 
-最新范围已于 2026-10-20 由用户修订：首个完整 DSH 版本同时迁移 **RV、PMKB、基线扫描、Dashboard、LLM 语义增强与审计**。原 2026-10-19 的“RV 优先、纯 TS + Python 离线校验”计划已被替代。新实施建议为 **TypeScript 宿主适配插件 + Python 共享核心服务 + Preact 工作台**，由 Phase 0 验证 Python 3.13+ 分发、本地传输与生命周期后定稿。DSH 默认 fail-closed，可配置 fail-open；OpenClaw 的严格 fail-open 不变。`dshRVguarder/` 已创建独立 TypeScript 工程骨架（2026-10-20 用户确认命名），已升级0.2.0-rc.1测试候选，完整整机验收尚未完成。详细工作包与发布验收见 [迁移计划](../architecture/dsh-plugin-migration-feasibility-2026-10-19.md) 第 9 节与 [路线图](../ops/roadmap.md)，不能把计划当作已实现能力。
+最新范围已于 2026-10-20 由用户修订：首个完整 DSH 版本同时迁移 **RV、PMKB、基线扫描、Dashboard、LLM 语义增强与审计**。原 2026-10-19 的“RV 优先、纯 TS + Python 离线校验”计划已被替代。新实施建议为 **TypeScript 宿主适配插件 + Python 共享核心服务 + Preact 工作台**，由 Phase 0 验证 Python 3.13+ 分发、本地传输与生命周期后定稿。DSH 默认 fail-closed，可配置 fail-open；OpenClaw 的严格 fail-open 不变。`dshRVguarder/` 已创建独立 TypeScript 工程骨架（2026-10-20 用户确认命名），当前源码为0.2.0-rc.2本地开发候选（未发布），支持DSH 0.2.1-rc.2/rc.3，完整整机验收尚未完成。详细工作包与发布验收见 [迁移计划](../architecture/dsh-plugin-migration-feasibility-2026-10-19.md) 第 9 节与 [路线图](../ops/roadmap.md)，不能把计划当作已实现能力。
 
 ## 源码地图
 
-- `dshRVguarder/`：DSH 0.2.0-rc.1 测试候选，含真实 SDK 插件、完成队列、打包和部署脚本；已验证 TS 构建、SDK 夹具管线和临时宿主加载。全功能尚未完成，最新核查见下方 2026-10-21 记录。
+- `dshRVguarder/`：插件0.2.0-rc.2本地开发候选（未发布），支持DSH 0.2.1-rc.2/rc.3，含真实SDK插件、完成队列、打包和部署脚本；已验证TS构建、SDK管线及真实桌面宿主加载。全功能尚未完成，当前平台与验收范围见本文2026-10-26原生开发基线；2026-10-21记录属于历史候选。
 
 - `clawRVguarder/main.py`：argparse CLI，包括 run、doctor、baseline、install-hook、uninstall-hook、export-audit、build-plugin 与宿主授权命令。
 - `services.py`：GuardServices 编排；`manager.py` 是兼容管理器和 mock/patch 锚点。热路径在 `engine/pipeline.py`，业务生命周期在 `core/`。

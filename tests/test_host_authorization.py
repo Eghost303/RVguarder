@@ -3,6 +3,8 @@ from __future__ import annotations
 
 from dataclasses import replace
 import json
+import os
+import subprocess
 from unittest.mock import patch
 
 import pytest
@@ -119,7 +121,10 @@ def test_authorization_storage_cannot_be_inside_agent_workspace_or_symlink(tmp_p
     workspace.mkdir()
     with pytest.raises(HostAuthorizationError):
         HostAuthorizationStore(workspace / "state", agent_workspaces=[workspace])
-    (tmp_path / "link").symlink_to(workspace)
+    if os.name == "nt":
+        subprocess.run(["cmd.exe", "/d", "/c", "mklink", "/J", str(tmp_path / "link"), str(workspace)], check=True, capture_output=True)
+    else:
+        (tmp_path / "link").symlink_to(workspace)
     with pytest.raises(HostAuthorizationError):
         HostAuthorizationStore(tmp_path / "link/state", agent_workspaces=[workspace])
     with pytest.raises(HostAuthorizationError):
@@ -128,12 +133,22 @@ def test_authorization_storage_cannot_be_inside_agent_workspace_or_symlink(tmp_p
 
 def test_storage_permission_and_database_symlink_changes_rejected(host, tmp_path):
     """存储目录权限改变或数据库变为链接时，不继续使用记录。"""
-    host[2].state_dir.chmod(0o755)
+    if os.name == "nt":
+        subprocess.run(["icacls.exe", str(host[2].state_dir), "/grant", "*S-1-1-0:(RX)"], check=True, capture_output=True)
+    else:
+        host[2].state_dir.chmod(0o755)
     with pytest.raises(HostAuthorizationError):
         host[2].query()
-    host[2].state_dir.chmod(0o700)
+    if os.name == "nt":
+        subprocess.run(["icacls.exe", str(host[2].state_dir), "/remove:g", "*S-1-1-0"], check=True, capture_output=True)
+    else:
+        host[2].state_dir.chmod(0o700)
     host[2].database.unlink()
-    host[2].database.symlink_to(tmp_path / "other")
+    if os.name == "nt":
+        (tmp_path / "other").write_bytes(b"")
+        host[2].database.hardlink_to(tmp_path / "other")
+    else:
+        host[2].database.symlink_to(tmp_path / "other")
     with pytest.raises((HostAuthorizationError, OSError)):
         host[2].query()
 

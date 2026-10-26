@@ -6,7 +6,7 @@
 """
 from __future__ import annotations
 
-from contextlib import contextmanager
+from contextlib import contextmanager, ExitStack
 from dataclasses import asdict, dataclass
 import json
 import math
@@ -20,6 +20,7 @@ from uuid import uuid4
 
 from clawRVguarder.rv.tool_events import OPERATION_EFFECTS
 from clawRVguarder.spec.resource_evidence import HostResourceObserver
+from clawRVguarder.storage.private_files import ensure_private_directory, private_file
 
 
 class HostAuthorizationError(ValueError):
@@ -60,10 +61,11 @@ class HostAuthorizationStore:
         for workspace in agent_workspaces:
             if resolved.is_relative_to(Path(workspace).resolve()):
                 raise HostAuthorizationError("authorization storage must be outside agent workspaces")
-        path.mkdir(mode=0o700, exist_ok=True)
+        try:
+            ensure_private_directory(path)
+        except (OSError, ValueError) as exc:
+            raise HostAuthorizationError("authorization directory must be host-owned and private") from exc
         info = path.stat()
-        if not stat.S_ISDIR(info.st_mode) or info.st_uid != os.getuid() or stat.S_IMODE(info.st_mode) & 0o077:
-            raise HostAuthorizationError("authorization directory must be host-owned and private")
         self.state_dir = path
         self._directory_identity = (info.st_dev, info.st_ino)
         self.database = path / "authorization.sqlite3"
@@ -74,21 +76,20 @@ class HostAuthorizationStore:
     @contextmanager
     def _connect(self, *, timeout: float = 5, check_same_thread: bool = True) -> Iterator[sqlite3.Connection]:
         info = self.state_dir.lstat()
-        if (info.st_dev, info.st_ino) != self._directory_identity or not stat.S_ISDIR(info.st_mode) or info.st_uid != os.getuid() or stat.S_IMODE(info.st_mode) & 0o077:
+        if (info.st_dev, info.st_ino) != self._directory_identity or not stat.S_ISDIR(info.st_mode):
             raise HostAuthorizationError("authorization directory identity or permissions changed")
-        handle = os.open(self.database, os.O_RDWR | os.O_CREAT | os.O_NOFOLLOW, 0o600)
-        try:
-            metadata = os.fstat(handle)
-            if not stat.S_ISREG(metadata.st_mode) or metadata.st_uid != os.getuid() or stat.S_IMODE(metadata.st_mode) & 0o077 or metadata.st_nlink != 1:
-                raise HostAuthorizationError("authorization database must be a private regular file")
-        finally:
-            os.close(handle)
-        connection = sqlite3.connect(self.database, timeout=timeout, check_same_thread=check_same_thread)
-        try:
-            with connection:
-                yield connection
-        finally:
-            connection.close()
+        with ExitStack() as stack:
+            # Windows 保留不允许删除共享的目录/数据库句柄，直到 SQLite 完成访问。
+            try:
+                stack.enter_context(private_file(self.database, os.O_RDWR | os.O_CREAT))
+            except ValueError as exc:
+                raise HostAuthorizationError("authorization database or directory is not host-private") from exc
+            connection = sqlite3.connect(self.database, timeout=timeout, check_same_thread=check_same_thread)
+            try:
+                with connection:
+                    yield connection
+            finally:
+                connection.close()
 
     def issue(
         self, observer: HostResourceObserver, namespace: str, relative_path: str, *,

@@ -7,7 +7,7 @@ English | [简体中文](README.md)
 [![License](https://img.shields.io/badge/License-Apache%202.0-2563EB.svg)](LICENSE)
 ![Python](https://img.shields.io/badge/Python-3.13%2B-3776AB?logo=python&logoColor=white)
 ![Hosts](https://img.shields.io/badge/Hosts-OpenClaw%20%2F%20DSH-111827)
-![DSH](https://img.shields.io/badge/DSH-0.2.1--rc.2-2563EB)
+![DSH](https://img.shields.io/badge/DSH-0.2.1--rc.2%20%2F%20rc.3-2563EB)
 ![PMKB](https://img.shields.io/badge/PMKB-1.2.0-2563EB)
 ![RV](https://img.shields.io/badge/RV-ChainRule%20DSL-7C3AED)
 ![Status](https://img.shields.io/badge/Status-v0.7.0--dev-0F766E)
@@ -178,13 +178,21 @@ Without it, the local-rule mode is used: lower latency, same availability.
 
 ### DSH plugin
 
-DSH support is pinned to **DSH 0.2.1-rc.2**, Node 24, and Python 3.13+. The current pre-release is
-**0.2.0-rc.1** (protocol `dsh-guard-v2`).
+The source supports **DSH 0.2.1-rc.2 / rc.3**, Node 24, and Python 3.13+. The current local development candidate is
+**0.2.0-rc.2** (not published; protocol `dsh-guard-v2`). The backend supports **native Windows Python and Linux/WSL Python**.
+Windows support is independent of Python's distribution or installation channel, provided the version and dependencies are compatible; WSL is optional.
+See the [native Windows guide](dshRVguarder/docs/windows-native-rc3.md) for desktop rc.3 setup. The published rc.1 does not include these changes.
 
-Download the plugin package from [GitHub Releases](https://github.com/HorizonExploration/RVguarder/releases), then install:
+**Basic startup, a new profile connection, and interception have passed user checks; host product integration is still incomplete.** RVguarder is not visible in DSH's plugin page, its workbench is a separate page, and deployment still requires multiple manual steps. Frequent `ask` decisions in local mode and blocked operations in full-permission mode were also reported; these observations await reproduction and diagnosis. This checkpoint records them without changing policy behavior. See the [progress and team handoff](docs/dev/dsh-progress-2026-10-26.md).
+
+The current flow is: prepare dependencies → build the workbench and plugin → initialize an instance and install a new profile → **start Python separately** → start DSH → use the separate Guard workbench. The helper scripts do not provide a one-click installer or automatically manage the backend lifecycle.
+
+**A GitHub Release is not required for source deployment or a PR.** Maintainers may distribute a matched tgz/wheel set to avoid source compilation. Any later Release should be a pre-release with installation notes, checksums, and known issues; publishing artifacts does not provide the missing UI integration or automatic service management.
+
+Build the current candidate from source, then install it; historical packages remain available in [GitHub Releases](https://github.com/HorizonExploration/RVguarder/releases):
 
 ```bash
-dsh plugin --profile <profile> add ./dsh-rvguarder-0.2.0-rc.1.tgz
+dsh plugin --profile <profile> add ./dsh-rvguarder-0.2.0-rc.2.tgz
 ```
 
 Build from source:
@@ -197,12 +205,12 @@ npm run check && npm test
 npm pack
 ```
 
-Release artifacts are also written to `dist/dsh-rvguarder-0.2.0-rc.1/` (plugin tgz, Python wheel,
-`INSTALL.md`, profile generator, and SHA-256 manifest). v2 requires a matching backend version; drain
+Use `python dshRVguarder/scripts/build-release.py --output <new-directory>` to build the matching plugin tgz, Python wheel,
+installation guide, profile generator, and SHA-256 manifest. v2 requires the matching backend; drain
 the 0.1.0 queue with the old version first and never mix `dsh-guard-v1` with v2.
 
 See the [DSH deployment guide](dshRVguarder/docs/deployment.md) for the shared service, isolated
-profiles, native WSL deployment, and working-directory constraints.
+profiles, native Windows or Linux/WSL deployment, and working-directory constraints.
 
 ---
 
@@ -268,7 +276,7 @@ State is stored in `runtime/rv-state.json`, bounded by TTL and size limits.
 
 ```
 clawRVguarder/        Python backend and CLI (FastAPI, PMKB, RV, audit, OpenClaw integration)
-dshRVguarder/         DSH 0.2.1-rc.2 adapter plugin (pre-release 0.2.0-rc.1; see subdirectory)
+dshRVguarder/         DSH 0.2.1-rc.2 / rc.3 adapter plugin (local development candidate 0.2.0-rc.2, not published)
 frontend/             Preact workbench (Vite build, output to runtime/ui/)
 policies/permissions/ PMKB single source (schema, operations, rules, traces, relations, vectors)
 tests/                Backend tests and documentation/release contracts
@@ -326,7 +334,7 @@ for the fuller attack surface and known gaps.
 | [RV permission automata](docs/architecture/rv-permission-automata.md) | DSL contract, scopes, and migration |
 | [HTTP API](docs/api/http.md) | Endpoint reference |
 | [Semantic understanding](docs/semantic/method.md) | SemanticEnhancer and the label system |
-| [DSH plugin deployment](dshRVguarder/docs/deployment.md) | DSH shared service, profiles, and native WSL deployment |
+| [DSH plugin deployment](dshRVguarder/docs/deployment.md) | DSH shared service, profiles, and native Windows / Linux/WSL deployment |
 | [DSH validation record](dshRVguarder/docs/validation-2026-10-20.md) | Verified scope, performance baseline, and remaining gates |
 | [DSH migration and development plan](docs/architecture/dsh-plugin-migration-feasibility-2026-10-19.md) | Extension-point mapping, capability matrix, and phased plan |
 | [FAQ](docs/ops/faq.md) | Common questions |

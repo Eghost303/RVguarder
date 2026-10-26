@@ -1,6 +1,7 @@
 /** 认证本机 HTTP 通道，有界等待与上下文校验，不重跑工具。 */
 import { readFileSync } from 'node:fs';
 import { protocol, type GuardCall, type GuardDecision } from './protocol.js';
+import {sdkVersion} from './sdk.js';
 export class BridgeUnavailable extends Error {}
 export class GuardClient {
   private helloAt=0;
@@ -26,7 +27,7 @@ export class GuardClient {
   }
   async hello(instanceId: string,force=false) {
     if(!force && Date.now()-this.helloAt<15000)return;
-    const r = await this.post('hello',{protocol,instance_id:instanceId,sdk_version:'0.2.1-rc.2'});
+    const r = await this.post('hello',{protocol,instance_id:instanceId,sdk_version:sdkVersion});
     if (r.protocol !== protocol || r.instance_id !== instanceId || r.recovery_required !== false) throw new Error('Guard handshake rejected or requires recovery');
     this.helloAt=Date.now();
   }

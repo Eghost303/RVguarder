@@ -6,6 +6,7 @@ import { tmpdir } from 'node:os';
 import { randomUUID } from 'node:crypto';
 import assert from 'node:assert/strict';
 import { apply } from '../dist/index.js';
+import {sdkVersion} from '../dist/sdk.js';
 const [sdkRoot,backendUrl,tokenFile,workspace,evidenceKeyFile]=process.argv.slice(2);
 if(!workspace)throw new Error('Usage: windows-smoke.mjs <DSH installation> <backendURL> <tokenFile> <workspace>');
 const load=name=>import(pathToFileURL(join(sdkRoot,'node_modules','@deepseek-ai',name,'lib','index.js')).href);
@@ -35,5 +36,5 @@ try {
  await cleanup();
  const sorted=[...timings].sort((a,b)=>a-b);
  const benchmark={samples:timings.length,mean_ms:Number((timings.reduce((a,b)=>a+b,0)/timings.length).toFixed(2)),p95_ms:Number(sorted[Math.ceil(sorted.length*.95)-1].toFixed(2))};
- console.log(JSON.stringify({platform:process.platform,node:process.version,sdk:'0.2.1-rc.2',read:'allow',write:'native-ask-approved',destructiveCommand:'denied-before-body',syntheticToolBodies:bodies,controlledLocalBytes:evidenceKeyFile?'verified':'not-tested',localSdkRoundtrip:benchmark}));
+ console.log(JSON.stringify({platform:process.platform,node:process.version,sdk:sdkVersion,read:'allow',write:'native-ask-approved',destructiveCommand:'denied-before-body',syntheticToolBodies:bodies,controlledLocalBytes:evidenceKeyFile?'verified':'not-tested',localSdkRoundtrip:benchmark}));
 } finally {await cleanup();rmSync(state,{recursive:true,force:true});}

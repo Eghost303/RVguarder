@@ -6,6 +6,7 @@ Agent 沙箱只能提交资源引用；命名空间和分类证据须由宿主�
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass
+from contextlib import ExitStack
 import hashlib
 import os
 from pathlib import Path, PurePosixPath
@@ -48,8 +49,8 @@ class _Namespace:
 class HostResourceObserver:
     """在受控宿主命名空间中读取真实文件，拒绝逃逸和符号链接。
 
-    所有路径段通过目录描述符和 O_NOFOLLOW 打开，避免解析后重新
-    打开的竞态。读取时发现文件变化即不出具证据；之后执行工具仍须
+    POSIX 通过目录描述符和 O_NOFOLLOW 打开；Windows 逐段固定目录
+    句柄并拒绝重解析点和硬链接。读取时发现文件变化即不出具证据；之后执行工具仍须
     校验内容版本或使用同一不可变快照，不能据此宣称消除了全部TOCTOU。
     """
 
@@ -63,6 +64,12 @@ class HostResourceObserver:
             if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.-]{0,63}", name):
                 raise ResourceEvidenceError("invalid namespace")
             path = Path(root).absolute()
+            if os.name == "nt":
+                from clawRVguarder.storage.windows_files import reject_reparse_ancestors
+                try:
+                    reject_reparse_ancestors(path)
+                except ValueError as exc:
+                    raise ResourceEvidenceError("namespace root must not contain reparse points") from exc
             # 注册的是宿主明确选择的真实目录，命名空间不能指向链接。
             if path.is_symlink():
                 raise ResourceEvidenceError("namespace root must not be a symlink")
@@ -96,25 +103,40 @@ class HostResourceObserver:
             raise ResourceEvidenceError("classification requires host evidence source")
         if namespace not in self._namespaces:
             raise ResourceEvidenceError("unknown namespace")
-        if not isinstance(relative_path, str) or "\x00" in relative_path or "\\" in relative_path:
+        if not isinstance(relative_path, str) or "\x00" in relative_path or "\\" in relative_path or ":" in relative_path:
             raise ResourceEvidenceError("invalid relative path")
         path = PurePosixPath(relative_path)
         if path.is_absolute() or not path.parts or any(part == ".." for part in path.parts):
             raise ResourceEvidenceError("path must stay inside namespace")
+        if os.name == "nt" and any(part.endswith((".", " ")) for part in path.parts):
+            raise ResourceEvidenceError("Windows path aliases are not permitted")
         configured = self._namespaces[namespace]
         handles = []
+        windows_handles = ExitStack()
         try:
-            directory = os.open(configured.root, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
-            handles.append(directory)
+            if os.name == "nt":
+                from clawRVguarder.storage.windows_files import open_handle, open_directory_chain, reject_reparse_ancestors
+                reject_reparse_ancestors(configured.root)
+                directory = windows_handles.enter_context(open_directory_chain(configured.root))
+            else:
+                directory = os.open(configured.root, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+                handles.append(directory)
             root_stat = os.fstat(directory)
             if (root_stat.st_dev, root_stat.st_ino) != (configured.device, configured.inode):
                 raise ResourceEvidenceError("namespace directory changed")
-            for part in path.parts[:-1]:
-                directory = os.open(part, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW, dir_fd=directory)
-                handles.append(directory)
-            # NONBLOCK防止工具用FIFO卡住宿主，随后只允许普通文件。
-            file_handle = os.open(path.parts[-1], os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK, dir_fd=directory)
-            handles.append(file_handle)
+            if os.name == "nt":
+                current = configured.root
+                for part in path.parts[:-1]:
+                    current /= part
+                    windows_handles.enter_context(open_handle(current, directory=True))
+                file_handle = windows_handles.enter_context(open_handle(current / path.parts[-1]))
+            else:
+                for part in path.parts[:-1]:
+                    directory = os.open(part, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW, dir_fd=directory)
+                    handles.append(directory)
+                # NONBLOCK防止工具用FIFO卡住宿主，随后只允许普通文件。
+                file_handle = os.open(path.parts[-1], os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK, dir_fd=directory)
+                handles.append(file_handle)
             before = os.fstat(file_handle)
             if not stat.S_ISREG(before.st_mode) or before.st_size > self.max_bytes:
                 raise ResourceEvidenceError("resource must be a bounded regular file")
@@ -136,8 +158,11 @@ class HostResourceObserver:
                 source_evidence="host_fd_snapshot", classification=classification,
                 classification_source=classification_source, device=after.st_dev, inode=after.st_ino,
             )
-        except OSError as exc:
+        except ResourceEvidenceError:
+            raise
+        except (OSError, ValueError) as exc:
             raise ResourceEvidenceError("resource cannot be safely observed") from exc
         finally:
+            windows_handles.close()
             for handle in reversed(handles):
                 os.close(handle)

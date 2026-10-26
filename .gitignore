@@ -48,3 +48,5 @@ scripts/review_m2_*.py
 tests/test_atlas_*.py
 tests/test_capability_experiment_*.py
 clawRVguarder/rv/profiles/atlas-*.json
+/.pnpm-store/
+/dshRVguarder/*.tgz

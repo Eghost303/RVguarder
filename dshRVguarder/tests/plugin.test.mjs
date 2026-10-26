@@ -12,6 +12,7 @@ import { ToolRuntime,defineTool } from '@deepseek-ai/dsh-tools';
 import { apply } from '../dist/index.js';
 import { Outbox } from '../dist/outbox.js';
 import { GuardClient } from '../dist/client.js';
+import {sdkVersion} from '../dist/sdk.js';
 const protocol='dsh-guard-v2';
 
 async function fixture(t,{kind='allow',answer='allowed-once',failMode='closed'}={}) {
@@ -45,6 +46,7 @@ async function fixture(t,{kind='allow',answer='allowed-once',failMode='closed'}=
 
 test('real SDK executes allowed call, final event has no result content',async t=>{
   const f=await fixture(t);const result=await f.invoke();assert.equal(result.isError,false);assert.equal(f.executions(),1);
+  assert.equal(f.events.find(([path])=>path.endsWith('/hello'))?.[1].sdk_version,sdkVersion);
   await f.invoke('barrier');
   const completion=f.events.find(([path,body])=>path.endsWith('/result')&&body.call.call_id==='call')?.[1];
   assert.equal(completion.succeeded,true);assert.equal(completion.dispatched,true);assert.equal(completion.result,undefined);

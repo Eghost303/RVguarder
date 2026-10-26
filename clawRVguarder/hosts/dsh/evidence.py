@@ -14,6 +14,7 @@ from clawRVguarder.spec.content_receipts import ContentReceipt, ContentVersion, 
 from clawRVguarder.spec.read_access_receipts import NativeReadAccessReceipt
 from clawRVguarder.spec.host_authorization import HostAuthorizationStore
 from clawRVguarder.spec.resource_evidence import HostResourceObserver
+from clawRVguarder.storage.private_files import ensure_private_directory
 
 CONTROLLED = {"rvguard_read": "file.read", "rvguard_copy": "file.write", "rvguard_transform": "file.write", "rvguard_send": "network.egress"}
 
@@ -60,7 +61,7 @@ class DshEvidenceBridge:
     def __init__(self, manager) -> None:
         self.manager = manager
         root = manager.context.paths.runtime_dir / "authorization"
-        root.mkdir(mode=0o700, exist_ok=True)
+        ensure_private_directory(root)
         config_path = manager.context.paths.runtime_dir / "dsh-evidence.json"
         if config_path.is_symlink():
             raise ValueError("evidence_config_must_not_be_symlink")

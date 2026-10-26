@@ -12,11 +12,11 @@ def stage_ui_assets(source: Path, destination: Path) -> list[str]:
     """只复制经index引用校验的静态资源；构建前须运行frontend/npm run build。"""
     source, destination = Path(source), Path(destination)
     index = source / "index.html"
-    if not index.is_file() or index.is_symlink():
+    if not index.is_file() or index.is_symlink() or source.is_symlink() or source.is_junction():
         raise FileNotFoundError("Frontend build missing: run npm run build in frontend/ before building the backend wheel")
     files = [p for p in sorted(source.rglob("*")) if p.is_file()]
     for path in source.rglob("*"):
-        if path.is_symlink():
+        if path.is_symlink() or path.is_junction():
             raise ValueError("frontend assets must not contain symlinks")
     allowed = [p for p in files if p.suffix.lower() in ALLOWED_SUFFIXES and not any(
         part.startswith(".") for part in p.relative_to(source).parts)]

@@ -12,6 +12,7 @@ from clawRVguarder.integrations.tool_hook_bridge import build_hook_event
 from clawRVguarder.utils import sha256_text
 
 PROTOCOL_VERSION = "dsh-guard-v2"
+SUPPORTED_SDK_VERSIONS = ("0.2.1-rc.2", "0.2.1-rc.3")
 # 仅对已核对的内置工具做别名；未知 MCP/自定义工具保持 unknown。
 TOOL_ALIASES = {"read": "read", "write": "write", "edit": "edit", "bash": "exec",
                 "pwsh": "exec", "read_image": "read", "web_fetch": "web_fetch",

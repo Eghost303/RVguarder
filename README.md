@@ -7,7 +7,7 @@
 [![License](https://img.shields.io/badge/License-Apache%202.0-2563EB.svg)](LICENSE)
 ![Python](https://img.shields.io/badge/Python-3.13%2B-3776AB?logo=python&logoColor=white)
 ![Hosts](https://img.shields.io/badge/Hosts-OpenClaw%20%2F%20DSH-111827)
-![DSH](https://img.shields.io/badge/DSH-0.2.1--rc.2-2563EB)
+![DSH](https://img.shields.io/badge/DSH-0.2.1--rc.2%20%2F%20rc.3-2563EB)
 ![PMKB](https://img.shields.io/badge/PMKB-1.2.0-2563EB)
 ![RV](https://img.shields.io/badge/RV-ChainRule%20DSL-7C3AED)
 ![Status](https://img.shields.io/badge/Status-v0.7.0--dev-0F766E)
@@ -171,12 +171,18 @@ export DEEPSEEK_API_KEY=...
 
 ### DSH 插件
 
-DSH 侧固定支持 **DSH 0.2.1-rc.2**、Node 24 与 Python 3.13+，当前预发行版为 **0.2.0-rc.1**（协议 `dsh-guard-v2`）。
+DSH 源码支持 **DSH 0.2.1-rc.2 / rc.3**、Node 24 与 Python 3.13+，当前本地开发候选为 **0.2.0-rc.2**（未发布，协议 `dsh-guard-v2`）。Python 后端支持 **Windows 原生 Python 和 Linux/WSL Python**；Windows 支持与 Python 的安装渠道无关，只需满足版本和依赖要求，无需为了运行后端启动 WSL。Windows 桌面 rc.3 部署见 [原生开发指南](dshRVguarder/docs/windows-native-rc3.md)。GitHub 已发布的历史候选仍为 0.2.0-rc.1，不包含本轮原生兼容改动。
 
-从 [GitHub Releases](https://github.com/HorizonExploration/RVguarder/releases) 下载插件包后安装：
+**当前已完成基础部署和拦截链路的人工核验，尚未完成宿主产品整合。** 用户确认后端启动、新 profile 接入和基础拦截正常；同时发现 DSH“插件”页未展示插件、Guard 工作台与 DSH 分离、部署仍繁琐，以及本地模式频繁 ask / 完全权限模式下被拦截的现象。规则现象尚待复现定位，本阶段仅记录，未修复。详见 [阶段进度、已知问题与团队交接](docs/dev/dsh-progress-2026-10-26.md)。
+
+一般流程是：准备环境 → 构建工作台和插件 → 初始化实例并安装新 profile → **单独启动 Python 后端** → 启动 DSH profile → 在独立 Guard 页面查看记录。Windows 安装/启动脚本可辅助完成部分步骤，但插件不自动托管 Python 服务，前端也未嵌入 DSH。
+
+**源码部署和提交 PR 不要求 GitHub Release。** 团队也可使用维护者构建的同批次 tgz/wheel，省去源码编译；若以后通过 Release 分发，应标为 pre-release，附匹配产物、说明、哈希和已知问题。当前候选不是一键安装包，发布附件不会自动解决上述运行与界面问题。
+
+当前候选从源码构建后安装；历史发布包另见 [GitHub Releases](https://github.com/HorizonExploration/RVguarder/releases)：
 
 ```bash
-dsh plugin --profile <profile> add ./dsh-rvguarder-0.2.0-rc.1.tgz
+dsh plugin --profile <profile> add ./dsh-rvguarder-0.2.0-rc.2.tgz
 ```
 
 从源码构建：
@@ -189,9 +195,9 @@ npm run check && npm test
 npm pack
 ```
 
-发行产物同时输出到 `dist/dsh-rvguarder-0.2.0-rc.1/`（插件 tgz、Python wheel、`INSTALL.md`、profile 生成器与 SHA-256 清单）。v2 必须配套安装同版本后端；0.1.0 队列先由旧版本排空，不与 `dsh-guard-v1` 混用。
+使用 `python dshRVguarder/scripts/build-release.py --output <新目录>` 构建配套 tgz、wheel、说明和哈希清单。v2 必须配套安装本轮后端；0.1.0 队列先由旧版本排空，不与 `dsh-guard-v1` 混用。
 
-共享服务、隔离 profile、WSL 原生部署与启动目录约束见 [DSH 部署说明](dshRVguarder/docs/deployment.md)。
+共享服务、隔离 profile、Windows 原生及 Linux/WSL 部署与启动目录约束见 [DSH 部署说明](dshRVguarder/docs/deployment.md)。
 
 ---
 
@@ -254,7 +260,7 @@ ChainRule DSL 监视器触发：
 
 ```
 clawRVguarder/        Python 后端与 CLI（FastAPI、PMKB、RV、审计、OpenClaw 集成）
-dshRVguarder/         DSH 0.2.1-rc.2 适配插件（预发行版 0.2.0-rc.1，部署/验证见子目录）
+dshRVguarder/         DSH 0.2.1-rc.2 / rc.3 适配插件（0.2.0-rc.2 本地开发候选，未发布）
 frontend/              Preact 工作台（Vite 构建，产物输出 runtime/ui/）
 policies/permissions/  PMKB 单一源（schema、operations、rules、traces、relations、vectors）
 tests/                 后端测试与文档/发布契约
@@ -310,7 +316,7 @@ RVguarder 是策略与审批层，不是系统级沙箱：
 | [RV 权限自动机](docs/architecture/rv-permission-automata.md) | DSL 合同、作用域与迁移 |
 | [HTTP API](docs/api/http.md) | 接口清单 |
 | [语义理解](docs/semantic/method.md) | SemanticEnhancer 与标签体系 |
-| [DSH 插件部署](dshRVguarder/docs/deployment.md) | DSH 共享服务、profile 与 WSL 原生部署 |
+| [DSH 插件部署](dshRVguarder/docs/deployment.md) | DSH 共享服务、profile 与 Windows 原生 / Linux/WSL 部署 |
 | [DSH 验证记录](dshRVguarder/docs/validation-2026-10-20.md) | 已验证范围、性能基线与剩余门禁 |
 | [DSH 迁移与开发计划](docs/architecture/dsh-plugin-migration-feasibility-2026-10-19.md) | 扩展点映射、能力矩阵与阶段计划 |
 | [FAQ](docs/ops/faq.md) | 常见问题 |

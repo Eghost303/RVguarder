@@ -22,6 +22,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--instance-id", default="dsh-local")
     parser.add_argument("--port", type=int, default=8781)
     parser.add_argument("--semantic-mode", choices=["auto", "local", "llm"], default="auto")
+    parser.add_argument("--prepare-only", action="store_true", help="只初始化独占实例与私有令牌，不启动服务")
     args = parser.parse_args(argv)
     if not re.fullmatch(r"[a-zA-Z0-9_.-]{1,128}", args.instance_id):
         parser.error("invalid instance-id")
@@ -30,6 +31,13 @@ def main(argv: list[str] | None = None) -> int:
     manager = DshServices(args.project_dir.resolve(), dsh_home=args.dsh_home.resolve(),
                           workspace=Path(local_path(args.workspace)).resolve(), profile=args.profile,
                           instance_id=args.instance_id, semantic_mode=args.semantic_mode)
+    if args.prepare_only:
+        try:
+            print(json.dumps({"prepared": True, "host": "dsh", "instance_id": args.instance_id,
+                              "token_file": str(manager.host_adapter.token_path)}, ensure_ascii=False))
+        finally:
+            manager.close()
+        return 0
     from clawRVguarder.web.app import launch_web
     handle, _, url = launch_web(manager, "127.0.0.1", args.port, no_browser=True)
     # stdout 供受控启动器读取，不能打印 token 本身。
