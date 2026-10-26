@@ -6,7 +6,7 @@
 
 用户确认后端启动、新建DSH profile接入及基础运行/拦截正常；同时反馈插件页不可见、Guard前端未嵌入DSH、构建安装和独立启动后端仍繁琐、本地模式频繁ask、完全权限模式下操作被后端拦截。最后两项为人工观察，未完成逐调用复现或根因定位，本阶段只记录，不修复或放宽规则。自动化allow/ask/deny用例通过不替代日常场景验收。详见 [团队交接](dsh-progress-2026-10-26.md) 中的问题编号与证据范围。
 
-用户本轮明确选择：整理当前代码与文档并完成本地commit、备好PR说明；远程推送和上游PR留到下一步。拟分支codex/dsh-native-rc3-checkpoint，目标上游HorizonExploration/RVguarder的master。源码部署与PR不要求GitHub Release；后续可按需提供包含已知问题的pre-release配套产物，不能称为一键安装或正式验收。
+用户明确要求直接在master内提交，不为任务新建分支。阶段进度提交9af9d30已快进整合到本地master，临时任务分支已删除，原有提交保留且无合并提交。已备好PR说明，远程推送和上游PR留到下一步；后续从fork的master向HorizonExploration/RVguarder的master提PR。源码部署与PR不要求GitHub Release；后续可按需提供包含已知问题的pre-release配套产物，不能称为一键安装或正式验收。
 
 ## 最新原生开发基线（2026-10-26）
 

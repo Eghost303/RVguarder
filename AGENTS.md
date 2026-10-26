@@ -6,6 +6,8 @@
 
 后续开发先阅读 [项目开发记忆](docs/dev/project-memory.md)，其中记录当前架构、DSH 规划与包名迁移兼容约定。
 
+按用户要求，本项目直接在 `master` 分支内提交，不为任务新建分支；只有用户另行明确要求时才使用其他分支。
+
 ## 项目定位
 
 RVguarder 通过 OpenClaw Plugin SDK 的钩子系统，在不修改 OpenClaw 源码的前提下，为 AI Agent 增加：

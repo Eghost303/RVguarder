@@ -130,6 +130,6 @@ Windows ACL 不隔离持有同一完整用户令牌的任意进程。完整沙�
 
 ## 本地提交与下一步 PR
 
-本阶段以 `codex/dsh-native-rc3-checkpoint` 分支整理本地进度提交，目标上游为 `HorizonExploration/RVguarder` 的 `master`；PR 正文草稿见 [PR 说明](pr-dsh-native-rc3.md)。本轮不推送远程、不创建远程 PR 或 Release。
+按用户要求，本阶段及后续工作直接在本地 `master` 内提交，不为任务新建分支。阶段进度提交 `9af9d30` 已归入 `master`，临时任务分支已删除。目标上游为 `HorizonExploration/RVguarder` 的 `master`；PR 正文草稿见 [PR 说明](pr-dsh-native-rc3.md)。本轮不推送远程、不创建远程 PR 或 Release。
 
-后续由提交者核对分支和正文，再推送 fork 并向上游创建草稿 PR。PR 应以“原生部署与 rc.3 接入阶段交付”为范围，规则和 UI 问题保留为后续工作，不写成已经修复。
+后续由提交者核对正文，将本地 `master` 推送到 fork，再从 `Eghost303:master` 向上游 `master` 创建草稿 PR。PR 应以“原生部署与 rc.3 接入阶段交付”为范围，规则和 UI 问题保留为后续工作，不写成已经修复。

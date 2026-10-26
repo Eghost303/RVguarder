@@ -21,7 +21,7 @@
 - 用户人工核验确认后端启动、新 profile 接入及基础拦截正常。
 - 本轮提交整理：TypeScript 严格检查、变更 Python 源码语法、文档链接/frontmatter、差异格式及提交文件的产物/敏感内容排除检查通过。
 
-以上自动化数据来自适配阶段记录。详细来源、重跑入口和本轮人工反馈见 [阶段交接记录](https://github.com/Eghost303/RVguarder/blob/codex/dsh-native-rc3-checkpoint/docs/dev/dsh-progress-2026-10-26.md)（该分支推送后可访问）。
+以上自动化数据来自适配阶段记录。详细来源、重跑入口和本轮人工反馈见 [阶段交接记录](https://github.com/Eghost303/RVguarder/blob/master/docs/dev/dsh-progress-2026-10-26.md)（fork 的 master 推送后可访问）。
 
 ## 已知问题及范围
 
