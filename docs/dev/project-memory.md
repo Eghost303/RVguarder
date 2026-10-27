@@ -2,6 +2,14 @@
 
 更新时间：2026-10-26。此文记录本地源码与仓库文档核对后的状态；不是线上部署状态证明。
 
+## DSH 宿主内嵌界面完成（2026-10-27）
+
+DSH-UX-01/02 已实施并在真实桌面 rc.3 验收通过：插件升级为 `dsh-rvguarder@0.2.0-rc.3`（bundle 化），根因是 `listBundles()` 对"无 `dsh.bundle` 且未选入 `dsh.profile.bundles` 的普通依赖"整条跳过。新结构为双条目 bundle（核心 `rvguarder-dsh` + 管理 `rvguarder-admin`）+ 浏览器客户端包 `dist/webclient.js`（settings.section id=rvguarder + plugins.bundle.config 插槽，内嵌 Preact Guard 经宿主 owner Remote 通道 `rvguarderAdmin` 管理，浏览器不接触桥接令牌）。Python 侧仅新增 `GET /api/dsh/audit-export/{json|csv}` 受控下载端点。构建链 `frontend build + build:embedded → tsc×2 + build-client → npm pack`；旧 profile 用 `scripts/migrate-test-profile.mjs` 迁移（幂等、保身份、备份）。验证：插件 Node 24/24、迁移 3/3、管理 9/9；Python DSH/UI 57 通过（1 项 mklink 沙箱环境失败非回归）+ 共享核心 67/67；E2E：内嵌 6/6、独立 DSH 工作台 4/4、OpenClaw 6/6；真实宿主 RPC/插件页/设置页证据在 `runtime/native-rc3-ui-verify/` 与 `runtime/ui-integration-evidence/`。rc.2 内嵌 UI 未实测（核心兼容沿用既有记录）；DEP-01、POL-01/02 保留。详见 [UI 实现报告](../../dshRVguarder/docs/ui-integration-implementation.md)。
+
+## DSH 宿主内嵌界面交接计划（2026-10-26，已实施）
+
+任务书见 [DSH 内嵌管理界面计划](dsh-ui-integration-plan-2026-10-26.md)。该计划已于 2026-10-27 实施（见上方"宿主内嵌界面完成"记录）；后端仍独立启动，整包部署及 POL-01/02 规则问题不在该阶段范围。
+
 ## 人工核验与进度提交（2026-10-26）
 
 用户确认后端启动、新建DSH profile接入及基础运行/拦截正常；同时反馈插件页不可见、Guard前端未嵌入DSH、构建安装和独立启动后端仍繁琐、本地模式频繁ask、完全权限模式下操作被后端拦截。最后两项为人工观察，未完成逐调用复现或根因定位，本阶段只记录，不修复或放宽规则。自动化allow/ask/deny用例通过不替代日常场景验收。详见 [团队交接](dsh-progress-2026-10-26.md) 中的问题编号与证据范围。

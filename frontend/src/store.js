@@ -1,11 +1,12 @@
 import { create } from 'zustand';
 
-const RV_MODE_KEY = 'openclaw-guard-rv-mode';
-const THEME_KEY = 'openclaw-guard-theme';
+/** 内嵌模式持久化前缀：与独立工作台键完全隔离，按实例编号区分。 */
+const EMBED_PREFIX = 'rvguarder-embed';
+let embeddedScope = null;
 
 const _initialTheme = () => {
   if (typeof localStorage !== 'undefined') {
-    const saved = localStorage.getItem(THEME_KEY);
+    const saved = localStorage.getItem('openclaw-guard-theme');
     if (saved === 'dark' || saved === 'light') return saved;
     if (typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
       return 'dark';
@@ -13,6 +14,9 @@ const _initialTheme = () => {
   }
   return 'light';
 };
+
+/** 当前模式下的持久化键；内嵌模式按实例隔离。 */
+const _key = (base) => (embeddedScope ? `${EMBED_PREFIX}-${embeddedScope}-${base}` : `openclaw-guard-${base}`);
 
 export const useStore = create((set, get) => ({
   // ── Summary data ──
@@ -46,9 +50,14 @@ export const useStore = create((set, get) => ({
 
   // ── RV ──
   rvMode: (typeof localStorage !== 'undefined'
-    ? localStorage.getItem(RV_MODE_KEY) || 'on'
+    ? localStorage.getItem('openclaw-guard-rv-mode') || 'on'
     : 'on') === 'on',
   rvStatus: null,
+
+  // ── Embedded session ──
+  embedded: false,
+  language: 'zh',
+  backendOnline: true,
 
   // ── Setters ──
 
@@ -95,7 +104,7 @@ export const useStore = create((set, get) => ({
   setRvMode: (on) => {
     const v = !!on;
     if (typeof localStorage !== 'undefined') {
-      localStorage.setItem(RV_MODE_KEY, v ? 'on' : 'off');
+      localStorage.setItem(_key('rv-mode'), v ? 'on' : 'off');
     }
     set({ rvMode: v });
   },
@@ -103,9 +112,10 @@ export const useStore = create((set, get) => ({
   setTheme: (t) => {
     const v = t === 'dark' ? 'dark' : 'light';
     if (typeof localStorage !== 'undefined') {
-      localStorage.setItem(THEME_KEY, v);
+      localStorage.setItem(_key('theme'), v);
     }
-    if (typeof document !== 'undefined') {
+    if (typeof document !== 'undefined' && !get().embedded) {
+      // 内嵌模式不改写整页 data-theme；主题跟随宿主。
       document.documentElement.setAttribute('data-theme', v);
     }
     set({ theme: v });
@@ -114,15 +124,58 @@ export const useStore = create((set, get) => ({
   toggleTheme: () => set((s) => {
     const v = s.theme === 'dark' ? 'light' : 'dark';
     if (typeof localStorage !== 'undefined') {
-      localStorage.setItem(THEME_KEY, v);
+      localStorage.setItem(_key('theme'), v);
     }
-    if (typeof document !== 'undefined') {
+    if (typeof document !== 'undefined' && !s.embedded) {
       document.documentElement.setAttribute('data-theme', v);
     }
     return { theme: v };
   }),
 
+  // ── Embedded lifecycle ──
+
+  /** 进入内嵌会话：按实例隔离持久化，重置所有视图状态。 */
+  _enterEmbedded: (instanceId, language) => {
+    embeddedScope = `${instanceId}`;
+    const storedRv = typeof localStorage !== 'undefined' ? localStorage.getItem(_key('rv-mode')) : null;
+    set({
+      embedded: true,
+      language: language === 'en' ? 'en' : 'zh',
+      summary: {},
+      loading: true,
+      _summaryHash: '',
+      _actionRevision: 0,
+      actionFilter: 'pending_approval',
+      pages: { actions: 1 },
+      scan: { running: false, progress: 0, phase: '', result: null, selected: 'config' },
+      rulesSearch: '',
+      rvMode: (storedRv ?? 'on') === 'on',
+      rvStatus: null,
+      toast: null,
+    });
+  },
+
+  /** 退出内嵌会话：清空内存状态并恢复独立工作台键。 */
+  _exitEmbedded: () => {
+    embeddedScope = null;
+    set({
+      embedded: false,
+      summary: {},
+      loading: true,
+      _summaryHash: '',
+      _actionRevision: 0,
+      actionFilter: 'pending_approval',
+      pages: { actions: 1 },
+      scan: { running: false, progress: 0, phase: '', result: null, selected: 'config' },
+      rulesSearch: '',
+      rvStatus: null,
+      toast: null,
+    });
+  },
+
   setRvStatus: (rvStatus) => set({ rvStatus }),
+
+  setBackendOnline: (online) => set({ backendOnline: online === true }),
 
   showToast: (msg) => {
     set({ toast: msg });

@@ -100,6 +100,7 @@ export default defineUserConfig({
           text: "开发文档",
           children: [
             "/dev/dsh-progress-2026-10-26.md",
+            "/dev/dsh-ui-integration-plan-2026-10-26.md",
             "/dev/frontend.md",
           ],
         },

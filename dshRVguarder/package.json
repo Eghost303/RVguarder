@@ -1,14 +1,15 @@
 {
   "name": "dsh-rvguarder",
-  "version": "0.2.0-rc.2",
+  "version": "0.2.0-rc.3",
   "private": true,
   "type": "module",
-  "description": "DSH 0.2.1-rc.2 / rc.3 的 RVguarder 适配插件",
+  "description": "DSH 0.2.1-rc.2 / rc.3 的 RVguarder 适配插件：核心守卫 + 宿主内嵌管理界面",
   "scripts": {
-    "check": "tsc --noEmit",
+    "check": "tsc --noEmit && tsc --noEmit -p tsconfig.client.json && node scripts/verify-client-shape.mjs",
     "build": "tsc",
+    "build:client": "node scripts/build-client.mjs",
     "test": "npm run build && node --test --test-concurrency=1 tests/*.test.mjs",
-    "prepack": "npm run build"
+    "prepack": "npm run build && node scripts/build-client.mjs"
   },
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -16,10 +17,32 @@
     ".": {
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
+    },
+    "./admin": {
+      "types": "./dist/admin.d.ts",
+      "default": "./dist/admin.js"
+    },
+    "./client": {
+      "default": "./dist/webclient.js"
+    },
+    "./package.json": "./package.json",
+    "./locale/*.json": "./locale/*.json"
+  },
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "platform": "web",
+      "inject": [
+        "@deepseek-ai/dsh-client-locale"
+      ]
     }
   },
   "files": [
     "dist",
+    "locale",
+    "cordis.patch.yml",
     "README.md",
     "docs"
   ],
@@ -36,7 +59,8 @@
   },
   "devDependencies": {
     "typescript": "5.9.3",
-    "@types/node": "24.10.0"
+    "@types/node": "24.10.0",
+    "esbuild": "0.25.5"
   },
   "peerDependenciesMeta": {
     "@deepseek-ai/cordis": {

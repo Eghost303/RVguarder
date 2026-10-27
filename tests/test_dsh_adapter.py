@@ -565,3 +565,21 @@ def test_default_egress_allowlist_is_empty_and_not_wildcard(dsh):
     for value in [["http://127.0.0.1/upload"], ["https://user:password@example.test/upload"], "*"]:
         with pytest.raises(ValueError):
             validate_allowlist(value)
+
+
+def test_audit_export_download_delivers_files_not_paths(dsh):
+    """宿主管理适配器用受控标识下载审计导出：返回文件字节而非绝对路径，且格式受限。"""
+    manager, client, _ = dsh
+    manager.audit_store.append("probe_event", {"note": "for export"})
+    for fmt, head in (("json", b"{"), ("csv", b"record_id")):
+        response = client.get(f"/api/dsh/audit-export/{fmt}")
+        assert response.status_code == 200, response.text
+        assert response.headers["content-type"].startswith("application/json" if fmt == "json" else "text/csv")
+        assert response.content.startswith(head)
+    assert client.get("/api/dsh/audit-export/exe").status_code == 422
+
+
+def test_reports_route_rejects_unknown_format(dsh):
+    """报告格式只接受 json/html/pdf。"""
+    _, client, _ = dsh
+    assert client.get("/api/dsh/reports/exe").status_code == 422

@@ -62,6 +62,8 @@ function RecentSection() {
   const summary = useStore((s) => s.summary);
   const setSummary = useStore((s) => s.setSummary);
   const showToast = useStore((s) => s.showToast);
+  const embedded = useStore((s) => s.embedded);
+  const dsh = summary.host?.kind === 'dsh';
   const items = (summary.actions || {}).items || [];
   const recent = items.filter((item) => item.status !== 'pending_approval').slice(0, 6);
 

@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "RVguarder 执行守卫",
+    "description": "为 DSH Agent 提供执行前审批、语义风险分析、运行时行为验证与全链路审计。"
+  }
+}

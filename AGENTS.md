@@ -85,7 +85,7 @@ clawRVguarder/          # Python 后端主包
 │   └── audit_store.py   # AuditStore — SHA-256 哈希链，DB + JSONL 双写
 └── collectors/          # 运行时采集器（预留）
 
-dshRVguarder/            # DSH 0.2.1-rc.2 / rc.3 适配插件（0.2.0-rc.2 本地开发候选，未发布）
+dshRVguarder/            # DSH 0.2.1-rc.2 / rc.3 适配插件（0.2.0-rc.3 候选：bundle 化清单 + 内嵌管理界面）
 
 frontend/                # SPA 前端（Vite + Preact）
 ├── src/main.jsx          # Preact 入口
@@ -162,12 +162,13 @@ cd e2e && npm install && npm run install:browsers && npm test
 
 ### DSH 适配工程
 
-- 独立目录统一命名 `dshRVguarder/`，npm 包名 `dsh-rvguarder`；当前源码为 `0.2.0-rc.2` 本地开发候选（未发布），支持 DSH `0.2.1-rc.2` / `0.2.1-rc.3`，协议 `dsh-guard-v2`；GitHub 已发布的 `0.2.0-rc.1` 属于历史候选。当前部署和验证见 [Windows 原生开发指南](dshRVguarder/docs/windows-native-rc3.md)；此前修复、受控字节证据、白名单外发配置及剩余验收见 [v2 修复记录](dshRVguarder/docs/repair-2026-10-21.md)。
+- 独立目录统一命名 `dshRVguarder/`，npm 包名 `dsh-rvguarder`；当前源码为 `0.2.0-rc.3` 本地开发候选（未发布），支持 DSH `0.2.1-rc.2` / `0.2.1-rc.3`，协议 `dsh-guard-v2`；GitHub 已发布的 `0.2.0-rc.1` 属于历史候选。当前部署和验证见 [Windows 原生开发指南](dshRVguarder/docs/windows-native-rc3.md)；宿主内嵌管理界面（插件页 bundle 展示 + “设置 → RVguarder”）的实现、构建与真实 rc.3 证据见 [UI 实现报告](dshRVguarder/docs/ui-integration-implementation.md)；此前修复、受控字节证据、白名单外发配置及剩余验收见 [v2 修复记录](dshRVguarder/docs/repair-2026-10-21.md)。
 - Python 后端支持 Windows 原生 Python 和 Linux/WSL Python，要求 Python 3.13+ 及兼容依赖，不限定 Windows 的 Python 安装渠道。FastAPI 与基础 Uvicorn 为必需依赖，`uvicorn[standard]` 仅在显式安装 `.[performance]` 时启用，不是默认运行前提。
 - 首个完整版本含 PMKB、RV、LLM 增强、基线扫描、Dashboard 与审计；建议 TS 适配 + Python 共享核心 + Preact，Phase 0 实测后定稿。
 - DSH 已实现默认fail-closed；显式fail-open不绕过协议冲突或历史恢复锁定；下文 OpenClaw 的 fail-open 约定仅适用于现有 OpenClaw 集成。
 - DSH 初始化不得调用 OpenClaw Hook 安装；SDK/Node 版本、协议与服务生命周期须先实测。
-- 当前人工核验确认后端、新 profile 和基础拦截可用；插件页不可见、工作台未嵌入、部署仍手动，以及本地模式频繁 ask / 完全权限模式下被拦截均为待处理事项。规则现象未定位，不能称为已修复；当前交接与 Release 分发边界见 [阶段记录](docs/dev/dsh-progress-2026-10-26.md)。
+- DSH-UX-01/02 已于 2026-10-27 在真实桌面 rc.3 完成验收：插件以 `dsh.bundle` 层进入"插件 → 已安装"（启停/移除沿用宿主机制），"设置 → RVguarder"内嵌 Guard 管理页（概览/调用与审批/规则与 RV/扫描与报告/审计/语义模式），认证走宿主 owner 通道、浏览器不接触桥接令牌；后端离线有显式横幅与重连。构建/迁移/回滚见 [UI 实现报告](dshRVguarder/docs/ui-integration-implementation.md)。rc.2 上的内嵌 UI 未实测，核心兼容沿用既有回归记录。
+- 仍待处理：DSH-DEP-01（整包部署/后端托管，部署仍手动）、DSH-POL-01/02（本地模式频繁 ask、完全权限下被拦截——现象未定位，不能称已修复，本轮未改任何规则）；阶段记录见 [阶段记录](docs/dev/dsh-progress-2026-10-26.md)。
 
 ### 决策流水线（PMKB + RV）
 
@@ -225,4 +226,4 @@ cd e2e && npm install && npm run install:browsers && npm test
 
 ---
 
-*AGENTS.md 最后更新: 2026-10-26 · DSH 候选版本、宿主支持范围与双平台依赖说明同步*
+*AGENTS.md 最后更新: 2026-10-27 · DSH rc.3 候选升级、宿主内嵌管理界面（UX-01/02）完成与剩余待办同步*

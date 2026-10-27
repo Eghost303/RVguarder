@@ -9,6 +9,7 @@ export function useGuardSync() {
   const setRvStatus = useStore((s) => s.setRvStatus);
   const upsertAction = useStore((s) => s.upsertAction);
   const showToast = useStore((s) => s.showToast);
+  const setBackendOnline = useStore((s) => s.setBackendOnline);
   const rvMode = useStore((s) => s.rvMode);
 
   useEffect(() => {
@@ -20,16 +21,22 @@ export function useGuardSync() {
         const revision = useStore.getState()._actionRevision;
         const s = await fetchSummary({ compact: true });
         if (!disposed && revision === useStore.getState()._actionRevision) setSummary(s);
+        if (!disposed) setBackendOnline(true);
         if (rvMode) {
           const rv = await fetchRvStatus();
           if (!disposed) setRvStatus(rv);
         }
       } catch (error) {
-        if (!disposed) showToast(apiErrorMessage(error, t('error_default')));
+        if (!disposed) {
+          setBackendOnline(false);
+          // 内嵌模式离线横幅负责呈现；独立工作台保留 toast。
+          if (!useStore.getState().embedded) showToast(apiErrorMessage(error, t('error_default')));
+        }
       }
     };
     poll();
-    if (typeof EventSource !== 'undefined') {
+    // 内嵌模式走宿主认证通道，浏览器 EventSource 不可用；使用有界轮询。
+    if (!useStore.getState().embedded && typeof EventSource !== 'undefined') {
       source = new EventSource('/api/events');
       const handleEvent = async (event) => {
         try {
@@ -51,4 +58,3 @@ export function useGuardSync() {
     };
   }, [rvMode]);
 }
-

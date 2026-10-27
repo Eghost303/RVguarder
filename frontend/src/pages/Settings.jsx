@@ -7,6 +7,7 @@ import { useStore } from '../store';
 export function Settings() {
   const [trust, setTrust] = useState([]);
   const dsh = useStore((s) => s.summary.host?.kind === 'dsh');
+  const embedded = useStore((s) => s.embedded);
   const showToast = useStore((s) => s.showToast);
 
   const loadTrust = async () => {
@@ -18,7 +19,7 @@ export function Settings() {
     }
   };
 
-  useEffect(() => { if (!dsh) loadTrust(); }, [dsh]);
+  useEffect(() => { if (!dsh && !embedded) loadTrust(); }, [dsh, embedded]);
 
   const handleRevoke = async (fingerprint) => {
     try {
@@ -33,6 +34,15 @@ export function Settings() {
   return (
     <div class="settings-grid">
       <ScanProgress />
+      {embedded ? (
+        <article class="card trust-card">
+          <div class="card-head">
+            <h3>精确命令授权</h3>
+            <span class="badge info">原生一次性审批</span>
+          </div>
+          <p class="trust-intro">DSH 仅使用原生一次性审批，不复用 OpenClaw 的持久授权；本视图不提供授权管理。</p>
+        </article>
+      ) : (
       <article class="card trust-card">
         <div class="card-head">
           <h3>精确命令授权</h3>
@@ -55,6 +65,7 @@ export function Settings() {
           <div class="empty">当前没有持久授权。</div>
         )}
       </article>
+      )}
     </div>
   );
 }
