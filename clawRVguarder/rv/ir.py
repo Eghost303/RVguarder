@@ -31,12 +31,42 @@ class Constraint(BaseModel):
     value: str | bool
 
 
+EffectName = Literal["read", "write", "delete", "execute", "egress", "configure",
+                     "grant", "schedule", "spawn", "interact", "transform", "query", "unknown"]
+
+
+class EffectEvidence(BaseModel):
+    """单个效果及其证据等级。
+
+    ``effects`` 只是预期能力集合；真正发生过什么必须看 ``status``：
+    只有 ``observed``（且最好 ``verified``）才能被链式规则当作已发生。
+    """
+    effect: EffectName
+    status: Literal["expected", "potential", "observed", "unknown"] = "expected"
+    basis: Literal["operation_catalog", "native_subaction", "static_command",
+                   "host_receipt", "host_report", "unknown"] = "operation_catalog"
+    verified: bool = False
+    source: str = ""
+
+
+class Observation(BaseModel):
+    """一次调用的实际执行观测；未知保持未知，不写成成功或失败。"""
+    state: Literal["not_started", "dispatched", "reported_succeeded",
+                   "reported_failed", "outcome_unknown", "verified_succeeded"] = "not_started"
+    source: Literal["none", "host_callback", "host_receipt", "executor_receipt"] = "none"
+    verified: bool = False
+    receipt_id: str | None = None
+    content_lineage_verified: bool = False
+
+
 class ToolCallIR(BaseModel):
     """承载真实工具调用；legacy 默认值仅兼容旧语义模型输出。"""
     event_model: Literal["legacy", "tool-call-v1"] = "legacy"
     operation_family: str | None = None
-    effects: list[Literal["read", "write", "delete", "execute", "egress", "configure",
-                          "grant", "schedule", "spawn", "interact", "transform", "query", "unknown"]] = Field(default_factory=list)
+    effects: list[EffectName] = Field(default_factory=list)
+    # 预期/潜在/已观测分离；effects 保留为预期能力的兼容并集。
+    effect_evidence: list[EffectEvidence] = Field(default_factory=list)
+    observation: Observation = Field(default_factory=Observation)
     execution_state: Literal["proposed", "succeeded", "legacy_replay"] = "proposed"
     context: dict[str, Any] = Field(default_factory=dict)
     step_id: str

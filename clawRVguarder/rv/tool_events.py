@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from clawRVguarder.rv.ir import ToolCallIR
+from clawRVguarder.rv.ir import EffectEvidence, ToolCallIR
 from clawRVguarder.engine.command_safety import analyze_command
 
 # 所有 PMKB 原生操作必须在此登记；新增或未知操作不会借语义标签冒充已知效果。
@@ -81,11 +81,14 @@ def build_tool_call_step(event: Any, authorization_trace: Any) -> dict[str, Any]
     operation = trace.get("operation") or {}
     family = str(operation.get("family") or "unknown_tool")
     effects = list(OPERATION_EFFECTS.get(family, ("unknown",)))
+    potential: set[str] = set()
+    effect_basis = "operation_catalog"
     metadata = event.metadata
     tool_name = str(metadata.get("tool_name") or event.api_name or event.action_type)
     if family != "unknown_tool":
         if tool_name in TOOL_ACTION_EFFECTS:
             effects = list(TOOL_ACTION_EFFECTS[tool_name].get(str(metadata.get("tool_action")), ("unknown",)))
+            effect_basis = "native_subaction"
         elif tool_name in {"web_fetch", "web_search", "x_search"}:
             effects = ["read"]
         elif family == "process.execute":
@@ -101,6 +104,9 @@ def build_tool_call_step(event: Any, authorization_trace: Any) -> dict[str, Any]
             if set(safety.commands).intersection({"rm", "rmdir"}):
                 effects.append("delete")
     effects = list(dict.fromkeys(effects))
+    # 由工具契约或确定性命令分类直接给出的效果视为"预期"；
+    # 仅由潜在能力集合带出的效果才是"潜在"。
+    expected_effects = set(effects)
     structural = set()
     if family != "unknown_tool":
         if tool_name in {"web_fetch", "web_search", "x_search"}:
@@ -110,6 +116,8 @@ def build_tool_call_step(event: Any, authorization_trace: Any) -> dict[str, Any]
         if family == "process.execute":
             safety = analyze_command(event.command)
             effects = list(dict.fromkeys([*effects, *safety.potential_effects]))
+            potential.update(safety.potential_effects)
+            effect_basis = "static_command"
             structural.update(f"contract:potential_{effect}" for effect in safety.potential_effects)
             if "unknown" in safety.potential_effects:
                 structural.add("contract:opaque_execution")
@@ -171,10 +179,21 @@ def build_tool_call_step(event: Any, authorization_trace: Any) -> dict[str, Any]
     # 留在授权Trace，不得污染执行器签名所覆盖的参数哈希。
     native_arguments = event.raw_payload.get("params") if isinstance(event.raw_payload, dict) else None
     call_arguments = dict(native_arguments) if isinstance(native_arguments, dict) else dict(operation.get("arguments") or {})
+    # 执行前只有预期/潜在能力，没有已观测效果；`effects` 保持兼容并集。
+    effect_evidence = [
+        EffectEvidence(
+            effect=effect,
+            status=("potential" if effect in potential and effect not in expected_effects
+                    else "unknown" if family == "unknown_tool" else "expected"),
+            basis=effect_basis if family != "unknown_tool" else "unknown",
+            source="pre_execution",
+        )
+        for effect in effects
+    ]
     return ToolCallIR(
         step_id=identity, event="tool_call", event_model="tool-call-v1",
         tool_name=tool_name,
-        operation_family=family, effects=effects,
+        operation_family=family, effects=effects, effect_evidence=effect_evidence,
         arguments=call_arguments, props=sorted(labels), entities=entities,
         sensitivity=data.get("classification"), quantity=int(data.get("quantity") or 0),
         context={"scope": resource.get("scope"), "recipient_zone": zone,
