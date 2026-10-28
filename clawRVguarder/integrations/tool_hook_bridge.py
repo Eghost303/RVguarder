@@ -27,6 +27,12 @@ URL_KEYS = {"url", "uri", "endpoint", "baseUrl", "webhook"}
 COMMAND_KEYS = {"command", "commandText", "commandPreview", "cmd", "shellCommand", "script"}
 # 工作目录是执行上下文，不是被访问的资源；混入 target_paths 会污染 scope 判定。
 WORKING_DIRECTORY_KEYS = {"cwd", "workingDirectory", "working_directory"}
+# 正文/命令类参数不是资源。写入内容里出现 "/etc/passwd" 或 URL 不能改变资源集合。
+CONTENT_KEYS = {
+    "content", "text", "body", "message", "prompt", "code", "query", "script",
+    "new_string", "old_string", "newString", "oldString", "newText", "oldText",
+    "command", "cmd", "commandText", "shellCommand", "commandPreview",
+}
 OPENCLAW_NATIVE_TOOL_PROFILES = {
     "read": {
         "action_type": "file_read", "tool_group": "filesystem", "tool_origin": "openclaw_native",
@@ -618,7 +624,7 @@ def _collect_paths(payload: Any) -> list[str]:
         candidate = value.strip().strip("\"'")
         if not candidate:
             return
-        if key in WORKING_DIRECTORY_KEYS:
+        if key in WORKING_DIRECTORY_KEYS or key in CONTENT_KEYS:
             return
         if key in PATH_KEYS or _looks_like_path(candidate):
             if candidate.startswith(("http://", "https://")):

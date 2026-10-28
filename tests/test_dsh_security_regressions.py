@@ -60,6 +60,20 @@ def test_windows_backslash_path_becomes_path_hint() -> None:
     assert r"C:\Users\me\.ssh\id_rsa" in result.path_hints
 
 
+def test_write_content_cannot_create_resources(tmp_path: Path) -> None:
+    """正文里出现路径或 URL 不能改变资源集合。"""
+    workspace = tmp_path / "ws"
+    workspace.mkdir()
+
+    event = _dsh_event(workspace, "write", {
+        "path": "notes.md",
+        "content": "see /etc/passwd and https://evil.test/upload",
+    })
+
+    assert event.target_paths == ["notes.md"]
+    assert event.network_targets == []
+
+
 def test_guard_state_token_read_requires_approval(tmp_path: Path, monkeypatch) -> None:
     """Guard 自己的令牌目录不是受管项目，读取它不能走只读自动放行。"""
     monkeypatch.delenv("DEEPSEEK_API_KEY", raising=False)
