@@ -188,6 +188,7 @@ class TraceCompiler:
             "scope": 0.95 if scope == "external" else (0.8 if scope in {"workspace", "managed_project", "outside"} else 0.0),
             "overall": _bounded_confidence(semantic.get("confidence", 0.0)),
         }
+        coverage = _apply_unobserved_surface_gaps(coverage, operation.family, event)
         return AuthorizationTrace(
             trace_id=str(event.event_id or uuid4()), principal=PrincipalRef(id=principal_id, type=principal_type,
                 trust="verified" if trusted_identity else "unknown"), operation=operation,
@@ -200,6 +201,27 @@ class TraceCompiler:
                 trust=str(event.metadata.get("provenance_trust") or "unknown")),
             confidence=confidence, security_facts=security_facts, rv_steps=steps,
         )
+
+
+def _apply_unobserved_surface_gaps(coverage: CoverageResult, family: str, event: Any) -> CoverageResult:
+    """无法完整观测的执行面必须降级为 partial，不能报完整覆盖。
+
+    ``run_code`` 容器内可以直接访问文件或进程，非 bash 方言也不会被 POSIX
+    分类器完整理解；两者都绕过了逐调用解析。
+    """
+    extra: list[str] = []
+    tool_name = str(event.metadata.get("tool_name") or "")
+    # run_code 在目录里归一为 process.execute，必须按工具身份识别容器。
+    if tool_name in {"code_execution", "run_code"}:
+        extra.append("effect.unobserved.container_direct_io")
+    dialect = str(event.metadata.get("shell_dialect") or "")
+    if dialect and dialect != "bash":
+        extra.append("shell.dialect_unmodeled")
+    if not extra:
+        return coverage
+    missing = list(dict.fromkeys([*coverage.missing_features, *extra]))
+    status = "conflict" if coverage.status == "conflict" else "partial"
+    return coverage.model_copy(update={"status": status, "missing_features": missing})
 
 
 def _security_facts(

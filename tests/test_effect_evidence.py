@@ -29,6 +29,17 @@ def _step(bundle: PolicyBundle, workspace: Path, tool: str, arguments: dict) -> 
     return build_tool_call_step(event, trace)
 
 
+def _trace(bundle: PolicyBundle, workspace: Path, tool: str, arguments: dict):
+    adapter = DshAdapter("dsh-local", "binding", workspace, workspace / "token")
+    payload = adapter.payload({
+        "protocol": "dsh-guard-v2", "instance_id": "dsh-local",
+        "session_id": "s1", "agent_id": "s1", "call_id": "c1", "root_call_id": "c1",
+        "tool_name": tool, "cwd": str(workspace), "arguments": arguments,
+    })
+    event = adapter.build_event(payload, None)
+    return TraceCompiler(bundle).compile(event, semantic={}, rv_trace=[])
+
+
 def _statuses(step: dict) -> set[str]:
     return {item["status"] for item in step.get("effect_evidence", [])}
 
@@ -63,3 +74,19 @@ def test_unmapped_tool_effects_are_unknown(bundle, tmp_path: Path) -> None:
 
     assert step["effects"] == ["unknown"]
     assert _statuses(step) == {"unknown"}
+
+
+def test_container_direct_io_is_not_complete(bundle, tmp_path: Path) -> None:
+    """run_code 容器内可以直接访问文件或进程，不能报完整覆盖。"""
+    trace = _trace(bundle, tmp_path, "run_code", {"code": "await import('node:fs')"})
+
+    assert trace.coverage.status != "complete"
+    assert "effect.unobserved.container_direct_io" in trace.coverage.missing_features
+
+
+def test_non_bash_shell_dialect_is_not_complete(bundle, tmp_path: Path) -> None:
+    """PowerShell 语法不会被 POSIX 分类器完整理解，必须降级为 partial。"""
+    trace = _trace(bundle, tmp_path, "pwsh", {"command": "cat notes.md"})
+
+    assert trace.coverage.status != "complete"
+    assert "shell.dialect_unmodeled" in trace.coverage.missing_features

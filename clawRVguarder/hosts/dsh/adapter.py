@@ -101,6 +101,11 @@ class DshAdapter:
         event.metadata.update({"host": "dsh", "instance_id": self.instance_id,
                                "host_workspace": str(self.workspace), "dsh": payload["_dsh"]})
         event.metadata["tool_origin"] = "dsh_native" if payload["_dsh"]["tool_name"] in TOOL_ALIASES else "host_mapped" if payload["_dsh"]["tool_name"] in self.mappings else "unknown"
+        raw_tool = payload["_dsh"]["tool_name"]
+        if raw_tool in {"pwsh", "powershell"}:
+            event.metadata["shell_dialect"] = "pwsh"
+        elif raw_tool in {"bash", "exec", "shell"}:
+            event.metadata["shell_dialect"] = "bash"
         event.metadata["trusted_identity"] = {
             "principal_id": f"dsh:{self.binding}", "principal_type": "agent",
             # DSH agent.id 是 session ID；同一个受控 profile 的主体能力跨会话聚合。
