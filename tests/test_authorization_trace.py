@@ -34,7 +34,9 @@ def test_compile_external_report_send_preserves_negation_and_scope():
     )
     assert trace.operation.family == "network.egress"
     assert trace.resource.scope == "external"
-    assert trace.context.purpose == "report_delivery"
+    # 语义用途写入 goal；purpose 只接受可信宿主声明，不参与最小权限比较。
+    assert trace.context.goal == "report_delivery"
+    assert trace.context.purpose == ""
 
 
 def test_compile_missing_recipient_is_partial_not_safe():

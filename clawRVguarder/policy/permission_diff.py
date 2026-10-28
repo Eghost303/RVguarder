@@ -7,6 +7,7 @@ from typing import Any, Iterable
 
 from .catalog import PolicyBundle
 from .models import CapabilityGrant, PermissionRef
+from .resources import canonical_resource_type
 
 
 _SCOPE_RANK = {"unknown": -1, "own": 0, "workspace": 1, "managed_project": 1, "outside": 2,
@@ -129,7 +130,9 @@ def _resource_covers(granted: PermissionRef, requested: PermissionRef) -> bool:
 
 
 def _required_resource_covers(required: PermissionRef, requested: PermissionRef) -> bool:
-    if required.resource_type != requested.resource_type:
+    # 规则 trace 的意图词（file/directory/table）与编译器的可观测词（path）
+    # 归一后比较；资源 ID 与 scope 仍严格比较，真实越界不会被掩盖。
+    if canonical_resource_type(required.resource_type) != canonical_resource_type(requested.resource_type):
         return False
     if required.resource_ids and tuple(required.resource_ids) != tuple(requested.resource_ids):
         return False
@@ -160,16 +163,15 @@ def _fields_covers(granted: PermissionRef, requested: PermissionRef) -> bool:
 def _required_fields_covers(required: PermissionRef, requested: PermissionRef) -> bool:
     """Apply directional least-privilege bounds from the required Trace.
 
-    Empty field/purpose dimensions in a legacy P0 Trace are intentional
-    wildcards.  Once a Trace declares either bound, however, a request must
-    carry the same bound; omitting it is treated as broader unknown authority.
+    ``purpose`` is intentionally not compared: it originates from semantic free
+    text, so binding it made every ordinary write and exec look like a scope
+    expansion.  The operation family, typed resource, scope, classification and
+    an explicit field scope remain enforceable bounds.
     """
     if required.field_scope and (
         not requested.field_scope
         or set(required.field_scope) != set(requested.field_scope)
     ):
-        return False
-    if required.purpose and required.purpose != requested.purpose:
         return False
     return required.ttl_seconds == requested.ttl_seconds
 

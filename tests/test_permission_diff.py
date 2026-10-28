@@ -111,7 +111,7 @@ def test_permission_ref_is_immutable_and_hash_safe():
 
 
 @pytest.mark.parametrize("dimension", [
-    "classification", "resource_type", "resource_ids", "field_scope", "purpose", "ttl_seconds",
+    "classification", "resource_type", "resource_ids", "field_scope", "ttl_seconds",
 ])
 def test_least_privilege_marks_every_dimension_expansion_excessive(dimension):
     required = PermissionRef(
@@ -126,10 +126,10 @@ def test_least_privilege_marks_every_dimension_expansion_excessive(dimension):
     )
     values = {
         "classification": "secret",
-        "resource_type": "table",
+        # url 与 document 归一后仍不同（document->path），purpose 已不再是执行约束。
+        "resource_type": "url",
         "resource_ids": ("doc-2",),
         "field_scope": ("title", "body"),
-        "purpose": "export",
         "ttl_seconds": 600,
     }
     requested = required.model_copy(update={dimension: values[dimension]})
@@ -137,6 +137,16 @@ def test_least_privilege_marks_every_dimension_expansion_excessive(dimension):
     result = PermissionDiff.compute(frozenset(), [requested], [required])
 
     assert result.excessive_permissions == [requested]
+
+
+def test_intent_resource_types_are_compared_canonically():
+    """规则 trace 的 file/document 与编译器的 path 是同一可观测资源。"""
+    required = PermissionRef(family="file.write", resource_type="file", resource_ids=("notes.md",), scope="workspace")
+    requested = required.model_copy(update={"resource_type": "path"})
+
+    result = PermissionDiff.compute(frozenset(), [requested], [required])
+
+    assert result.excessive_permissions == []
 
 
 def test_unknown_required_scope_is_not_a_wildcard():
@@ -148,20 +158,18 @@ def test_unknown_required_scope_is_not_a_wildcard():
     assert result.excessive_permissions == [requested]
 
 
-def test_explicit_required_resource_and_purpose_mismatches_are_excessive():
+def test_explicit_required_resource_mismatch_is_excessive():
     requested = PermissionRef(
         family="document.read",
         resource_type="document",
         resource_ids=("doc-1",),
         scope="workspace",
-        purpose="meeting_summary",
     )
     required = PermissionRef(
         family="document.read",
         resource_type="document",
         resource_ids=("doc-2",),
         scope="workspace",
-        purpose="other_purpose",
     )
 
     result = PermissionDiff.compute(frozenset(), [requested], [required])
@@ -169,9 +177,22 @@ def test_explicit_required_resource_and_purpose_mismatches_are_excessive():
     assert result.excessive_permissions == [requested]
 
 
+def test_purpose_is_not_an_enforceable_bound():
+    """purpose 来自语义自由文本，不能把普通请求判成超范围。"""
+    required = PermissionRef(
+        family="document.read", resource_type="document",
+        resource_ids=("doc-1",), scope="workspace", purpose="meeting_summary",
+    )
+    requested = required.model_copy(update={"purpose": ""})
+
+    result = PermissionDiff.compute(frozenset(), [requested], [required])
+
+    assert result.excessive_permissions == []
+
+
 @pytest.mark.parametrize(
     ("dimension", "missing"),
-    [("field_scope", ()), ("purpose", "")],
+    [("field_scope", ())],
 )
 def test_missing_request_bound_is_excessive_against_explicit_required_trace(dimension, missing):
     required = PermissionRef(

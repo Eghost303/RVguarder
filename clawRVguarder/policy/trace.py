@@ -129,7 +129,10 @@ class TraceCompiler:
             # 渠道ID/别名没有已验证内部域；不能由模型称其为内部收件人。
             recipient_zone = "unknown"
             scope = "unknown"
-        purpose = str(semantic.get("purpose") or semantic.get("intent", {}).get("goal", "") if isinstance(semantic.get("intent"), dict) else semantic.get("purpose", ""))
+        intent = semantic.get("intent")
+        goal = str(semantic.get("purpose") or (intent.get("goal") if isinstance(intent, dict) else "") or "")
+        # purpose 参与最小权限比较，因此只接受可信宿主声明；模型自由文本只能进 goal。
+        purpose = str(event.metadata.get("purpose") or "")
         missing = []
         resource_gap = _resource_gap(operation.family, resource_ids)
         if resource_gap:
@@ -189,7 +192,7 @@ class TraceCompiler:
             coverage=coverage, agent_id=agent_id, session_id=str(event.metadata.get("session_id") or "") or None,
             capability_lineage=capability_lineage,
             data=DataRef(classification=classification, quantity=quantity),
-            context=ContextRef(recipient_zone=recipient_zone, purpose=purpose),
+            context=ContextRef(recipient_zone=recipient_zone, purpose=purpose, goal=goal),
             provenance=ProvenanceRef(source=str(semantic.get("origin") or event.source or "unknown"),
                 trust=str(event.metadata.get("provenance_trust") or "unknown")),
             confidence=confidence, security_facts=security_facts, rv_steps=steps,

@@ -67,7 +67,9 @@ class DataRef(GuardBaseModel):
 
 class ContextRef(GuardBaseModel):
     recipient_zone: Literal["internal", "external", "unknown"] = "unknown"
+    # 可执行用途约束只能来自可信宿主声明；语义自由文本写入 goal。
     purpose: str = ""
+    goal: str = ""
 
 
 class ProvenanceRef(GuardBaseModel):
