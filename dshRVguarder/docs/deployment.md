@@ -163,8 +163,8 @@ DSH CLI 会读取启动目录的 .env，并拒绝把部分启动控制项放在 
 
 ## 使用 DSH 当前模型路由
 
-在 Guard 工作台的 DSH 面板将语义模式设为 `host-agent`。该模式复用当前 DSH Agent 路由，经 `ctx.subagents` 启动只处理脱敏语义任务的隔离子 Agent；不需要配置 RVguarder 专用 API key。只有后端收到新鲜的认证探针，确认子代理服务、空工具 preset、preset registry 和同版本 provider 可用后，才允许切换。
+在 Guard 工作台的 DSH 面板将语义模式设为 `host-agent`。该模式复用当前 DSH Agent 路由，经 `ctx.subagents` 启动只处理脱敏语义任务的隔离子 Agent；不需要配置 RVguarder 专用 API key。只有后端收到新鲜的认证探针，确认子代理服务、限制 preset、preset registry 和同版本本地 provider 可用后，才允许切换。
 
-DSH profile 需要提供 `dsh-subagent` 与 `dsh-agent-preset-registry` 服务；RVguarder 会在插件作用域内注册同版本的 `dsh-subagent-spawn-in-process` provider 和私有空 preset。缺少服务或版本不匹配时，前端会显示固定原因码并将该模式标记为不可用。子代理错误、超时、工具隔离检查失败或响应 schema 无效时，决策流水线继续使用本地语义分析。
+DSH profile 需要提供 `dsh-subagent` 与 `dsh-agent-preset-registry` 服务；RVguarder 会在插件作用域内注册同版本的 `dsh-subagent-spawn-in-process` provider 和私有限制 preset。preset 插件在子 Agent 首轮提示前屏蔽全局工具、切换为不呈现 PTC 传输工具的 native 模式并拒绝 scoped 工具调用，宿主钩子还会阻止语义子 Agent 递归委派。缺少服务或版本不匹配时，前端会显示固定原因码并将该模式标记为不可用。子代理错误、超时、工具隔离检查失败或响应 schema 无效时，决策流水线继续使用本地语义分析。
 
 语义回答不进入 outbox 或调用审计正文。后端只保留解析后的受限语义结构；PMKB/RV 和 DSH 原生审批仍是唯一授权来源。

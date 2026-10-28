@@ -179,6 +179,6 @@ SDK 测试可用 `RVGUARDER_PYTHON` 明确选择 Python。若系统临时目录�
 
 ## 宿主子代理语义增强
 
-新版本的 HostPanel 增加 `host-agent` 语义模式。该模式经 DSH 正式子代理 API 复用当前模型路由，不需要独立 DeepSeek key。启用前，插件会检查 DSH SDK 精确版本、subagents/preset 服务、同版本 in-process provider 和空工具 preset；运行时也核对 child Agent 的有效工具表为空。任一条件不满足时，工作台显示不可用原因并保留本地分析回退。
+HostPanel 提供 `host-agent` 语义模式。该模式经 DSH 正式子代理 API 复用当前模型路由，不需要独立 DeepSeek key。启用前，插件会检查 DSH SDK 精确版本、subagents/preset 服务、明确不继承父上下文的本地 provider，以及内部限制插件是否处于激活组合中。限制插件在 Agent 发布前屏蔽全局工具、切换到不呈现 PTC 传输工具的 native 模式并拒绝工具执行；运行时还会核对 child Agent 的有效工具表。任一条件不满足时，工作台显示不可用原因并保留本地分析回退。
 
 只向子代理发送后端构造的脱敏语义任务。它的结构化回答仅作为 `suggested` 语义证据，schema 校验、PMKB/RV 规则和 DSH 原生审批继续控制最终裁决。原始回答不写入调用日志或 outbox。

@@ -35,17 +35,22 @@ async function fixture(t,{kind='allow',answer='allowed-once',failMode='closed',s
   server.listen(0,'127.0.0.1');await once(server,'listening');
   const backendUrl='http://127.0.0.1:'+server.address().port;
   const ctx=new Context();new SystemPrompt(ctx,{});new ToolRuntime(ctx,{});
-  let semanticSpec;
+  let semanticSpec,semanticChildToolResult;
   if(hostAgentServices){
-    const subagents=new Service(ctx,'subagents');let provider;
+    const subagents=new Service(ctx,'subagents');let provider,childId;
     subagents.registerProvider=(value)=>{provider=value;return ()=>{provider=undefined;};};
     subagents.getProvider=(name)=>provider?.name===name?provider:undefined;
-    subagents.startActivation=async(spec)=>{semanticSpec=spec;return {childId:'semantic-child',result:Promise.resolve({stopReason:'completed',output:[{type:'text',text:JSON.stringify({version:'v3',engine:'llm',operation_candidates:[],facts:{},entities:{},constraints:{},uncertainties:[]})}]}),dispose:async()=>{}};};
+    subagents.startActivation=async(spec)=>{
+      semanticSpec=spec;childId=spec.childId;
+      semanticChildToolResult=await ctx.tools.execute({name:'probe',arguments:{},callId:'semantic-child-attempt',rootCallId:'semantic-child-attempt',agent:{id:childId},signal:new AbortController().signal});
+      return {childId:spec.childId,result:Promise.resolve({stopReason:'completed',output:[{type:'text',text:JSON.stringify({version:'v3',engine:'llm',operation_candidates:[],facts:{},entities:{},constraints:{},uncertainties:[]})}]}),dispose:async()=>{}};
+    };
     const presets=new Service(ctx,'agentPresets');let definition;
     presets.register=async(value)=>{definition=value;return async()=>{};};
-    presets.readDocument=async(id)=>({agentPreset:id,content:definition?.plugins.length===0?'[]':'[{}]'});
+    presets.resolve=async(id)=>({id});
+    presets.inspectCompositions=()=>definition?[{id:definition.id,modules:[{moduleName:definition.plugins[0]?.name}],leakedServices:[]}]:[];
     const agents=new Service(ctx,'agents');
-    agents.get=(id)=>id==='semantic-child'?{ctx:{tools:{schemas:()=>[]},get(name){return name==='tools'?this.tools:undefined;}}}:undefined;
+    agents.get=(id)=>id===childId?{id,ctx:{tools:{schemas:()=>[]},get(name){return name==='tools'?this.tools:undefined;}}}:undefined;
   }
   const cwd=new Service(ctx,'workingDirectory');cwd.ensure=async()=>workspace;
   const approval=new Service(ctx,'approval');approval.request=async()=>answer;
@@ -55,7 +60,7 @@ async function fixture(t,{kind='allow',answer='allowed-once',failMode='closed',s
   const agent={id:'session-test'};
   const invoke=(id='call',extra={})=>ctx.tools.execute({name:'probe',arguments:{},callId:id,agent,signal:new AbortController().signal,...extra});
   t.after(async()=>{await cleanup();server.closeAllConnections();await new Promise(r=>server.close(r));rmSync(temp,{recursive:true,force:true});});
-  return {ctx,invoke,events,executions:()=>executions,fail:()=>{fail=true;},backendUrl,tokenFile,temp,semanticSpec:()=>semanticSpec};
+  return {ctx,invoke,events,executions:()=>executions,fail:()=>{fail=true;},backendUrl,tokenFile,temp,semanticSpec:()=>semanticSpec,semanticChildToolResult:()=>semanticChildToolResult};
 }
 
 test('real SDK executes allowed call, final event has no result content',async t=>{
@@ -129,7 +134,7 @@ test('host-agent mode prepares sanitized delegation and falls back when DSH chil
   assert.equal(before[1].host_semantic_request_id,undefined);
   assert.equal(f.events.some(([path])=>path.endsWith('/semantic/submit')),false);
 });
-test('host-agent delegation uses the empty-preset DSH child and binds only its request ID',async t=>{
+test('host-agent delegation uses the pre-restricted DSH child and binds only its request ID',async t=>{
   const f=await fixture(t,{semanticMode:'host-agent',hostAgentServices:true});
   assert.equal((await f.invoke()).isError,false);
   const spec=f.semanticSpec();
@@ -145,4 +150,7 @@ test('host-agent delegation uses the empty-preset DSH child and binds only its r
   assert.ok(submit[1].response.includes('"version":"v3"'));
   assert.equal(before[1].host_semantic_request_id,'request-id-semantic-123456');
   assert.equal(dispatch[1].host_semantic_request_id,'request-id-semantic-123456');
+  assert.equal(f.semanticChildToolResult().isError,true);
+  assert.equal(f.events.filter(([path])=>path.endsWith('/semantic/prepare')).length,1,'semantic child tools must not recursively delegate');
+  assert.equal(f.events.filter(([path])=>path.endsWith('/before')).length,1,'semantic child tools must never reach the Guard backend');
 });

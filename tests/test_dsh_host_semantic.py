@@ -212,3 +212,28 @@ class HostSemanticTests(unittest.TestCase):
         self.assertEqual(DshObservability._host_agent_status(blocked, True), {
             "available": False, "reason": "tool_free_child_unverified",
         })
+
+    def test_host_probe_preserves_specific_semantic_tool_isolation_failures(self) -> None:
+        probe = {
+            "instance_id": "instance-a", "sdk_version": "0.2.1-rc.3",
+            "platform": "win32", "observed_at": 1793145600.0,
+            "tools": [], "facts": [], "host_agent": {
+                "subagents_available": True, "preset_registry_available": True,
+                "provider_available": True, "isolated_preset_ready": False,
+                "effective_tools_empty": False,
+            },
+        }
+        for reason in (
+            "provider_inherits_parent_context",
+            "semantic_tool_guard_unavailable",
+            "semantic_tool_preset_registration_failed",
+            "semantic_tool_preset_not_active",
+            "semantic_tool_preset_verification_failed",
+            "effective_tools_nonempty",
+        ):
+            with self.subTest(reason=reason):
+                candidate = {**probe, "host_agent": {**probe["host_agent"], "provider_reason": reason}}
+                validated = HostProbe.model_validate(candidate)
+                self.assertEqual(DshObservability._host_agent_status(validated.model_dump(), True), {
+                    "available": False, "reason": reason,
+                })

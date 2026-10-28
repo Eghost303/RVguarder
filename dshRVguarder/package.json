@@ -16,6 +16,10 @@
     ".": {
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
+    },
+    "./semantic-tools-deny": {
+      "types": "./dist/semantic-tools-deny.d.ts",
+      "default": "./dist/semantic-tools-deny.js"
     }
   },
   "files": [

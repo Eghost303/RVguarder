@@ -57,7 +57,10 @@ class HostAgentProbe(BaseModel):
         "not_checked", "ready", "subagent_services_unavailable", "preset_registry_unavailable",
         "sdk_package_version_mismatch", "spawn_provider_apply_missing", "spawn_provider_module_unavailable",
         "spawn_provider_load_failed", "provider_registration_failed",
-        "provider_registration_or_capability_missing", "provider_initialization_failed",
+        "provider_registration_or_capability_missing", "provider_inherits_parent_context",
+        "semantic_tool_guard_unavailable", "semantic_tool_preset_registration_failed",
+        "semantic_tool_preset_not_active", "semantic_tool_preset_verification_failed",
+        "effective_tools_nonempty", "provider_initialization_failed",
     ] = "not_checked"
 
 
@@ -112,6 +115,16 @@ class DshObservability:
         if not fresh:
             reason = "probe_unavailable"
         else:
+            provider_reason = observed.get("provider_reason")
+            if isinstance(provider_reason, str) and provider_reason in {
+                "provider_inherits_parent_context",
+                "semantic_tool_guard_unavailable",
+                "semantic_tool_preset_registration_failed",
+                "semantic_tool_preset_not_active",
+                "semantic_tool_preset_verification_failed",
+                "effective_tools_nonempty",
+            }:
+                return {"available": False, "reason": provider_reason}
             fields = (
                 ("subagents_available", "subagents_unavailable"),
                 ("preset_registry_available", "preset_registry_unavailable"),

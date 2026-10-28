@@ -46,6 +46,7 @@ export function apply(ctx:Context,config:Config) {
   ctx.on('tools/pre-execute',async(exec,next):Promise<PreToolDecision>=>{
     try {
       if(exec.signal.aborted) return {kind:'cancel'};
+      if(exec.agent&&hostSemantic.isSemanticChild(exec.agent.id)) return {kind:'deny',reason:'RVguarder semantic child tools are disabled'};
       if(!exec.agent||!exec.callId||!exec.rootCallId||!exec.arguments||typeof exec.arguments!=='object'||Array.isArray(exec.arguments)) throw new Error('Missing trusted DSH call identity');
       const cwd=await ctx.workingDirectory.ensure(exec.agent,exec.signal);
       const original=exec.agent.session?.header.cwd || cwd;
