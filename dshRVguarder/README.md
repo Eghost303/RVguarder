@@ -31,3 +31,11 @@ npm pack
 当前修复、升级约束和未完成门槛以 [v2 修复记录](docs/repair-2026-10-21.md) 为准。必须配套安装 v2 后端；旧队列先使用旧版本排空，不混用协议。
 
 受控外发默认禁用：配置双端精确HTTPS白名单后，还需每次调用的宿主单次授权。私有凭据的实际Agent隔离仍是正式发布门槛。
+
+## 宿主子代理语义模式
+
+在 Guard 工作台的 DSH 面板选择“宿主子代理（使用当前 DSH 模型路由）”。只有探针确认 DSH 子代理服务、agent preset registry、同版本 in-process provider 与空工具 preset 可用时，选项才可用。宿主 Agent 的模型路由会被子 Agent 继承，不需要另配 RVguarder API key。
+
+每次分析只发送后端生成的脱敏语义任务，不发送完整对话、原始工具参数或用户会话历史。子 Agent 使用空插件 preset；运行时还检查子 Agent 的有效工具列表必须为空。返回内容经过受限 schema 校验，仅作为 suggested 证据。调用失败、超时或结果无效时回退本地规则；授权仍由 PMKB/RV 与 DSH 原生审批决定。
+
+切换到 `host-agent` 前请确保运行中的 DSH profile 提供 `dsh-subagent` 和 `dsh-agent-preset-registry` 服务，且 DSH CLI 运行时包含与 SDK 同版本的 `dsh-subagent-spawn-in-process` 包。插件会自动从当前 DSH 运行时加载并注册私有 provider 和空 preset；无需单独配置模型、provider 或 API key。缺少任一能力时，工作台会显示不可用原因，插件仍可使用其他语义模式。

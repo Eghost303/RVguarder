@@ -1,6 +1,34 @@
 import { useEffect, useState } from 'preact/hooks';
 import { useStore } from '../store';
-import { api, apiErrorMessage, exportAudit } from '../api';
+import { api, apiErrorMessage, exportAudit, setDshSemanticMode } from '../api';
+
+const DSH_HOST_AGENT_STATUS = {
+  ready: '可用',
+  probe_unavailable: '等待新的宿主能力探针',
+  subagents_unavailable: 'DSH 子代理服务不可用',
+  subagent_services_unavailable: 'DSH 子代理服务不可用',
+  preset_registry_unavailable: 'DSH agent preset registry 不可用',
+  sdk_package_version_mismatch: 'DSH 子代理组件版本不匹配',
+  spawn_provider_module_unavailable: '未找到 DSH 同版本子代理 provider',
+  spawn_provider_load_failed: 'DSH 子代理 provider 加载失败',
+  spawn_provider_apply_missing: 'DSH 子代理 provider 接口不完整',
+  provider_registration_failed: 'DSH 子代理 provider 注册失败',
+  provider_registration_or_capability_missing: 'DSH 子代理 provider 未提供空工具 preset 能力',
+  isolated_preset_unavailable: '空工具 preset 不可用',
+  tool_free_child_unverified: '无法确认子代理没有工具',
+  provider_initialization_failed: 'DSH 子代理初始化失败',
+  not_checked: '等待宿主能力检查',
+};
+
+const DSH_HOST_AGENT_FALLBACK = {
+  no_child_response: '子代理未返回结果',
+  invalid_response: '子代理返回格式无效',
+  response_too_large: '子代理返回内容超出限制',
+};
+
+function hostAgentLabel(code) {
+  return DSH_HOST_AGENT_STATUS[code] || code || '未知状态';
+}
 
 /** DSH 实例、语义模式和审计；状态只来自认证服务，不推测已连接。 */
 export function HostPanel() {
@@ -19,10 +47,15 @@ export function HostPanel() {
   if (!dsh) return null;
   const capabilities = status?.capabilities || summary.capabilities || {};
   const semantic = status?.semantic || summary.semantic || {};
+  const hostAgentAvailable = semantic.host_agent_available === true || capabilities.host_agent?.available === true;
+  const hostAgentReason = semantic.host_agent_reason || capabilities.host_agent?.reason || 'probe_unavailable';
+  const delegateStatus = semantic.last_delegate_status || 'not_run';
+  const delegateReason = DSH_HOST_AGENT_FALLBACK[semantic.last_delegate_reason] || semantic.last_delegate_reason;
   const changeMode = async (event) => {
     try {
-      const result = await api('/api/dsh/semantic', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ mode: event.target.value }) });
-      setStatus((s) => ({ ...s, semantic: result }));
+      await setDshSemanticMode(event.target.value);
+      const [confirmed, currentCapabilities] = await Promise.all([api('/api/dsh/status'), api('/api/dsh/capabilities')]);
+      setStatus((s) => ({ ...s, ...confirmed, capabilities: currentCapabilities }));
       showToast('语义模式已更新');
     } catch (error) { showToast(apiErrorMessage(error)); }
   };
@@ -43,8 +76,11 @@ export function HostPanel() {
         <p>字节收据：{capabilities.evidence?.content_receipts || 0} · 原生读取访问证据：{capabilities.evidence?.access_receipts || 0}</p>
         <p>受控外发：默认禁用，仅允许精确 HTTPS 白名单和当前单次宿主授权；Windows ACL 与沙箱以实际探针结果为准。</p>
       </div>
-      <label>语义模式 <select aria-label="DSH 语义模式" value={semantic.configured_mode || 'auto'} onChange={changeMode}><option value="auto">自动（LLM 可用时增强）</option><option value="local">本地规则</option><option value="llm">LLM（需要宿主密钥）</option></select></label>
-      <p>LLM：{semantic.llm_enabled ? '已配置，失败时退回本地分析' : '未启用，使用本地分析'} · 模型：{semantic.model || '—'} · 最近增强：{semantic.last_llm_status || '未运行'}</p>
+      <label>语义模式 <select aria-label="DSH 语义模式" value={semantic.configured_mode || 'auto'} onChange={changeMode}><option value="auto">自动（LLM 可用时增强）</option><option value="local">本地规则</option><option value="llm">LLM（需要宿主密钥）</option><option value="host-agent" disabled={!hostAgentAvailable}>宿主子代理（使用当前 DSH 模型路由）</option></select></label>
+      {!hostAgentAvailable && <p>宿主子代理暂不可用：{hostAgentLabel(hostAgentReason)}</p>}
+      {semantic.configured_mode === 'host-agent'
+        ? <p>子代理状态：{hostAgentLabel(semantic.provider_status || (hostAgentAvailable ? 'ready' : hostAgentReason))} · 最近委派：{delegateStatus === 'success' ? '成功' : delegateStatus === 'fallback' ? '已回退到本地分析' : delegateStatus === 'not_used' ? '未使用' : '未运行'}{delegateReason ? ` · 回退原因：${DSH_HOST_AGENT_FALLBACK[semantic.last_delegate_reason] || delegateReason}` : ''}</p>
+        : <p>LLM：{semantic.llm_enabled ? '已配置，失败时退回本地分析' : '未启用，使用本地分析'} · 模型：{semantic.model || '—'} · 最近增强：{semantic.last_llm_status || '未运行'}</p>}
       <button class="btn" onClick={handleExport}>导出审计</button>
       <p>扫描报告：{['json', 'html', 'pdf'].map((format) => <a key={format} href={'/api/dsh/reports/' + format} target="_blank" rel="noreferrer"> {format.toUpperCase()} </a>)}</p>
       {(status?.audit?.items || summary.audit?.recent || []).slice(0, 5).map((record, index) => <p key={index}>审计：{record.event_type || record.record_type || '事件'} · {record.timestamp || record.created_at || ''}</p>)}

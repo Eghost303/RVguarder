@@ -176,3 +176,9 @@ SDK 测试可用 `RVGUARDER_PYTHON` 明确选择 Python。若系统临时目录�
 - 前端修改：`npm --prefix frontend run build` 后，停止后端并将仓库 `runtime/ui/` 的内容复制到实例 `runtime/ui/`，再启动。已有实例不会自动覆盖旧入口页面。
 - 若使用 Vite 开发服务器，默认 `/api` 代理仍指向 8780；DSH 后端为 8781，需同步处理代理和同源登录，不能只改浏览器地址。
 - 本轮未更改 UI 设计或权限规则；后续可在已验证环境中逐项改动并验证。
+
+## 宿主子代理语义增强
+
+新版本的 HostPanel 增加 `host-agent` 语义模式。该模式经 DSH 正式子代理 API 复用当前模型路由，不需要独立 DeepSeek key。启用前，插件会检查 DSH SDK 精确版本、subagents/preset 服务、同版本 in-process provider 和空工具 preset；运行时也核对 child Agent 的有效工具表为空。任一条件不满足时，工作台显示不可用原因并保留本地分析回退。
+
+只向子代理发送后端构造的脱敏语义任务。它的结构化回答仅作为 `suggested` 语义证据，schema 校验、PMKB/RV 规则和 DSH 原生审批继续控制最终裁决。原始回答不写入调用日志或 outbox。

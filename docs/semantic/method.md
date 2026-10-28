@@ -87,3 +87,11 @@ python -m pytest -q tests/test_semantic_enhancer.py tests/test_authorization_tra
 ```json
 {"trace_id":"trace-demo","match_status":"matched","policy_version":"1.2.0","selected_rule_ids":["EX-10"],"missing_features":[],"requested_delta":[],"redundant_permissions":[],"excessive_permissions":[]}
 ```
+
+## DSH 宿主子代理语义模式
+
+DSH 可显式选择 `host-agent`。插件通过 DSH `ctx.subagents` 启动一个调用方持有结果的隔离子 Agent；它继承当前 Agent 的模型路由，不配置 RVguarder API 密钥，也不调用用户会话聊天接口。此模式仅在 DSH 子代理服务、preset registry、同版本 spawn provider 和空工具 preset 均可用时启用。
+
+后端用现有 `build_sanitized_llm_input` 构造单次语义任务。原始工具参数、命令、凭据、路径和会话历史不会直接交给子 Agent。子 Agent 只返回受限 JSON；后端按 `SemanticMatchIR` 校验并将模型证据标为 `suggested`，再与本地确定性语义合并。结果不包含授权决策，PMKB/RV 和 DSH 原生审批仍负责最终裁决。
+
+子 Agent 返回失败、超时、无文本、非空工具表或不符合 schema 时，使用本地语义分析。原始回答只在桥接提交时做解析，桥接内存仅暂存规范化结果；调用日志/outbox 不保存回答正文。`local`、`auto` 和 `llm` 保持原有含义。

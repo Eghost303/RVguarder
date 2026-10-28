@@ -95,6 +95,15 @@ export async function exportAudit() {
   return api('/api/audit/export', { method: 'POST' });
 }
 
+/** POST /api/dsh/semantic */
+export async function setDshSemanticMode(mode) {
+  return api('/api/dsh/semantic', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ mode }),
+  });
+}
+
 /** POST /api/skills/upsert */
 export async function upsertSkill(name, enabled) {
   return api('/api/skills/upsert', {

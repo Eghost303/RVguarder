@@ -160,3 +160,11 @@ DSH CLI 会读取启动目录的 .env，并拒绝把部分启动控制项放在 
 可选本地受控工具、精确MCP映射、探针、离线检查/核对命令及完整限制见[修复记录](repair-2026-10-21.md)。插件config可增加evidenceKeyFile，指向后端runtime/authorization/content-signing.key的受控Windows可读路径。该文件不等于桥接token，不能输出或公开分发。受控外发默认禁用；启用须配置双端精确HTTPS白名单和每次调用的宿主授权，详见修复记录。
 
 插件owner.lock遇到已退出PID时不会自动竞争接管。先停止本实例所有插件进程，核对executions.json/completions.json与实际结果，再只清理该实例owner.lock；保留两个日志文件。后端deciding/completing中间态不能用普通完成重放强制消除，需人工核对或恢复一致备份。
+
+## 使用 DSH 当前模型路由
+
+在 Guard 工作台的 DSH 面板将语义模式设为 `host-agent`。该模式复用当前 DSH Agent 路由，经 `ctx.subagents` 启动只处理脱敏语义任务的隔离子 Agent；不需要配置 RVguarder 专用 API key。只有后端收到新鲜的认证探针，确认子代理服务、空工具 preset、preset registry 和同版本 provider 可用后，才允许切换。
+
+DSH profile 需要提供 `dsh-subagent` 与 `dsh-agent-preset-registry` 服务；RVguarder 会在插件作用域内注册同版本的 `dsh-subagent-spawn-in-process` provider 和私有空 preset。缺少服务或版本不匹配时，前端会显示固定原因码并将该模式标记为不可用。子代理错误、超时、工具隔离检查失败或响应 schema 无效时，决策流水线继续使用本地语义分析。
+
+语义回答不进入 outbox 或调用审计正文。后端只保留解析后的受限语义结构；PMKB/RV 和 DSH 原生审批仍是唯一授权来源。
