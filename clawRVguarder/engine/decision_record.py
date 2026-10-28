@@ -70,6 +70,24 @@ def _execution_surface(tool_name: str, shell_dialect: str) -> str:
     return "unknown"
 
 
+def _resource_items(trace: dict[str, Any]) -> list[dict[str, Any]]:
+    """多值资源条目；旧记录没有 items 时返回空列表。"""
+    resource = _mapping(trace.get("resource"))
+    items = resource.get("items") if isinstance(resource.get("items"), list) else []
+    out: list[dict[str, Any]] = []
+    for item in items[:_MAX_ITEMS]:
+        if not isinstance(item, dict):
+            continue
+        out.append({
+            "type": item.get("type"),
+            "ids": _bounded_list(item.get("ids")),
+            "scope": item.get("scope"),
+            "role": item.get("role"),
+            "source": item.get("source"),
+        })
+    return out
+
+
 def build_decision_record(event: Any, decision: Any, *, action: Any = None) -> dict[str, Any]:
     """构造一条逐调用决策记录；缺失字段保持显式未知，不推断补齐。"""
     metadata = _mapping(getattr(event, "metadata", None))
@@ -146,6 +164,7 @@ def build_decision_record(event: Any, decision: Any, *, action: Any = None) -> d
             "paths": _bounded_list(getattr(event, "target_paths", None)),
             "network": _bounded_list(getattr(event, "network_targets", None)),
             "scope_class": _bounded_text(metadata.get("scope_class")) or "unknown",
+            "items": _resource_items(trace),
         },
         "evidence": {
             "coverage_status": _bounded_text(coverage.get("status")) or "unknown",

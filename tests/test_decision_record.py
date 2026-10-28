@@ -117,6 +117,20 @@ def test_effect_claim_is_reported_without_being_observed() -> None:
     assert record["evidence"]["observation"] == "not_started"
 
 
+def test_resource_items_are_recorded_with_roles() -> None:
+    event = _event(authorization_trace={
+        "resource": {"type": "path", "ids": ["notes.md"], "scope": "workspace", "items": [
+            {"type": "path", "ids": ["notes.md"], "scope": "workspace", "role": "source", "source": "target_paths"},
+            {"type": "url", "ids": ["https://evil.test"], "scope": "external", "role": "destination", "source": "network_targets"},
+        ]},
+    })
+    record = build_decision_record(event, _decision())
+
+    items = record["resources"]["items"]
+    assert [item["role"] for item in items] == ["source", "destination"]
+    assert items[1]["scope"] == "external"
+
+
 def test_public_hook_record_does_not_echo_decision_record() -> None:
     """决策记录只供审计与面板，不能随 Hook 响应回传给宿主。"""
     with tempfile.TemporaryDirectory() as tmp:

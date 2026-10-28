@@ -54,10 +54,36 @@ class OperationRef(GuardBaseModel):
     gaps: list[str] = Field(default_factory=list)
 
 
+class ResourceItem(GuardBaseModel):
+    """一个带角色的资源条目。
+
+    一次调用可能同时访问文件与外部目的地，单值 ``ResourceRef`` 会丢掉其中
+    之一；角色区分"被操作的目标"和"数据流向的目的地"。
+    """
+    type: str
+    ids: list[str] = Field(default_factory=list)
+    scope: Literal["workspace", "managed_project", "outside", "external", "unknown"] = "unknown"
+    role: Literal["target", "destination", "source", "context"] = "target"
+    source: str = ""
+
+
 class ResourceRef(GuardBaseModel):
     type: str
     ids: list[str] = Field(default_factory=list)
     scope: Literal["workspace", "managed_project", "outside", "external", "unknown"] = "unknown"
+    # 多值资源的完整视图；type/ids/scope 是从它派生或显式给定的兼容投影。
+    items: list[ResourceItem] = Field(default_factory=list)
+
+    @classmethod
+    def from_items(cls, items: list[ResourceItem]) -> "ResourceRef":
+        """由条目显式构造；不隐式覆盖调用方给出的旧字段。"""
+        primary = items[0] if items else None
+        return cls(
+            type=primary.type if primary else "unknown",
+            ids=list(primary.ids) if primary else [],
+            scope=primary.scope if primary else "unknown",
+            items=list(items),
+        )
 
 
 class DataRef(GuardBaseModel):

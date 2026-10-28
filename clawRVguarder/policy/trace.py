@@ -12,7 +12,7 @@ from clawRVguarder.engine.semantic_models import SemanticMatchIR, local_semantic
 from clawRVguarder.policy.catalog import PolicyBundle
 from clawRVguarder.policy.models import (
     AuthorizationTrace, ContextRef, CoverageResult, DataRef,
-    PrincipalRef, ProvenanceRef, ResourceRef, SecurityFactEvidence,
+    PrincipalRef, ProvenanceRef, ResourceItem, ResourceRef, SecurityFactEvidence,
 )
 
 
@@ -192,7 +192,9 @@ class TraceCompiler:
         return AuthorizationTrace(
             trace_id=str(event.event_id or uuid4()), principal=PrincipalRef(id=principal_id, type=principal_type,
                 trust="verified" if trusted_identity else "unknown"), operation=operation,
-            resource=ResourceRef(type=resource_type, ids=resource_ids, scope=scope),
+            resource=ResourceRef(type=resource_type, ids=resource_ids, scope=scope,
+                                 items=_resource_items(recipients, paths, urls,
+                                                       resource_type, resource_ids, scope)),
             coverage=coverage, agent_id=agent_id, session_id=str(event.metadata.get("session_id") or "") or None,
             capability_lineage=capability_lineage,
             data=DataRef(classification=classification, quantity=quantity),
@@ -201,6 +203,33 @@ class TraceCompiler:
                 trust=str(event.metadata.get("provenance_trust") or "unknown")),
             confidence=confidence, security_facts=security_facts, rv_steps=steps,
         )
+
+
+def _resource_items(recipients: list[str], paths: list[str], urls: list[str],
+                    resource_type: str, resource_ids: list[str], scope: str) -> list[ResourceItem]:
+    """把多类资源保留为带角色的条目；旧字段仍由调用方显式给出。"""
+    items: list[ResourceItem] = []
+    if recipients:
+        items.append(ResourceItem(
+            type="recipient", ids=list(recipients),
+            scope=scope if resource_type == "recipient" else "unknown",
+            role="destination", source="recipients"))
+    if urls:
+        items.append(ResourceItem(
+            type="url", ids=list(urls), scope="external",
+            role="destination", source="network_targets"))
+    if paths:
+        items.append(ResourceItem(
+            type="path", ids=list(paths),
+            scope=scope if resource_type == "path" else "unknown",
+            # 有目的地时路径是被发送的数据源，否则才是被操作的目标。
+            role="source" if (urls or recipients) else "target",
+            source="target_paths"))
+    if not items and resource_ids:
+        items.append(ResourceItem(
+            type=resource_type, ids=list(resource_ids), scope=scope,
+            role="target", source="operation"))
+    return items
 
 
 def _apply_unobserved_surface_gaps(coverage: CoverageResult, family: str, event: Any) -> CoverageResult:
