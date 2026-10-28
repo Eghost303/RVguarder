@@ -37,6 +37,10 @@ def main() -> None:
         with urlopen(Request(url.rstrip("/") + "/api/dsh/status", headers={"x-rvguarder-token": token}), timeout=3) as response:
             return json.load(response)
 
+    def capabilities(url, token):
+        with urlopen(Request(url.rstrip("/") + "/api/dsh/capabilities", headers={"x-rvguarder-token": token}), timeout=3) as response:
+            return json.load(response)
+
     def stop(process):
         if process is None or process.poll() is not None:
             return
@@ -82,11 +86,13 @@ def main() -> None:
             deadline = time.monotonic() + 45
             while time.monotonic() < deadline and host.poll() is None:
                 current = status(url, token)
+                current_capabilities = capabilities(url, token)
                 text = (stage / "host.log").read_text(encoding="utf-8", errors="replace")
-                if current["hook"].get("active") and re.search(r"http://(?:127\.0\.0\.1|localhost):\d+", text):
+                if current["hook"].get("active") and current_capabilities.get("probe_fresh") and re.search(r"http://(?:127\.0\.0\.1|localhost):\d+", text):
                     report = {"python": sys.executable, "sdk_version": current["hook"]["sdk_version"],
                               "protocol": current["protocol"], "installed_with_desktop_cli": True,
                               "real_profile_loaded": True, "authenticated_handshake": True,
+                              "host_agent_capability": current_capabilities.get("host_agent", {}),
                               "model_calls": 0, "profile": "rvguarder-smoke"}
                     (stage / "result.json").write_text(json.dumps(report, indent=2), encoding="utf-8")
                     print(json.dumps(report))

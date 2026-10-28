@@ -5,6 +5,7 @@ import {sdkVersion} from './sdk.js';
 export class BridgeUnavailable extends Error {}
 export class GuardClient {
   private helloAt=0;
+  semanticMode:'auto'|'local'|'llm'|'host-agent'='auto';
   readonly base: string;
   readonly token: string;
   constructor(base: string, tokenFile: string, readonly timeoutMs = 5000) {
@@ -26,14 +27,26 @@ export class GuardClient {
     return result;
   }
   async hello(instanceId: string,force=false) {
-    if(!force && Date.now()-this.helloAt<15000)return;
+    if(!force && Date.now()-this.helloAt<5000)return;
     const r = await this.post('hello',{protocol,instance_id:instanceId,sdk_version:sdkVersion});
     if (r.protocol !== protocol || r.instance_id !== instanceId || r.recovery_required !== false) throw new Error('Guard handshake rejected or requires recovery');
+    if(['auto','local','llm','host-agent'].includes(String(r.semantic_mode))) this.semanticMode=r.semantic_mode as GuardClient['semanticMode'];
     this.helloAt=Date.now();
   }
   async before(call: GuardCall, signal: AbortSignal): Promise<GuardDecision> {
     const r = await this.post('before',call,signal);
     if (r.protocol !== protocol || r.instance_id !== call.instance_id || r.session_id !== call.session_id || r.call_id !== call.call_id || !['allow','ask','deny'].includes(String(r.kind)) || typeof r.reason !== 'string' || typeof r.action_id !== 'string' || typeof r.policy_version !== 'string' || typeof r.expires_at !== 'number' || !Number.isFinite(r.expires_at) || r.expires_at*1000 < Date.now()) throw new Error('Guard decision context/protocol/expiry mismatch');
     return r as unknown as GuardDecision;
+  }
+  async prepareSemantic(call: GuardCall, signal: AbortSignal): Promise<{available:boolean;reason?:string;request_id?:string;prompt?:string;expires_at?:number}> {
+    const r = await this.post('semantic/prepare',call,signal);
+    if(r.available!==true) return {available:false,reason:typeof r.reason==='string'?r.reason:'unavailable'};
+    if(typeof r.request_id!=='string'||r.request_id.length<16||r.request_id.length>128||typeof r.prompt!=='string'||typeof r.expires_at!=='number'||r.expires_at*1000<Date.now()) throw new Error('Invalid host semantic preparation');
+    return {available:true,request_id:r.request_id,prompt:r.prompt,expires_at:r.expires_at};
+  }
+  async submitSemantic(requestId:string,call:GuardCall,response:string,signal:AbortSignal):Promise<boolean> {
+    if(Buffer.byteLength(response,'utf8')>16*1024) return false;
+    const r=await this.post('semantic/submit',{request_id:requestId,call,response},signal);
+    return r.ok===true;
   }
 }

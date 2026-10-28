@@ -15,7 +15,7 @@ import { GuardClient } from '../dist/client.js';
 import {sdkVersion} from '../dist/sdk.js';
 const protocol='dsh-guard-v2';
 
-async function fixture(t,{kind='allow',answer='allowed-once',failMode='closed'}={}) {
+async function fixture(t,{kind='allow',answer='allowed-once',failMode='closed',semanticMode='auto',hostAgentServices=false}={}) {
   const temp=mkdtempSync(join(tmpdir(),'rvguarder-sdk-'));
   const workspace=join(temp,'workspace');mkdirSync(workspace);
   const tokenFile=join(temp,'token');writeFileSync(tokenFile,'x'.repeat(48));
@@ -26,13 +26,27 @@ async function fixture(t,{kind='allow',answer='allowed-once',failMode='closed'}=
     if(req.headers['x-rvguarder-token']!=='x'.repeat(48)) {res.writeHead(401).end();return;}
     if(fail) {res.writeHead(503).end();return;}
     let response={ok:true};
-    if(req.url.endsWith('/hello')) response={ok:true,protocol,instance_id:'test',recovery_required:false};
+    if(req.url.endsWith('/hello')) response={ok:true,protocol,instance_id:'test',recovery_required:false,semantic_mode:semanticMode};
+    if(req.url.endsWith('/semantic/prepare')) response={available:true,request_id:'request-id-semantic-123456',prompt:'sanitized task',expires_at:Date.now()/1000+30};
+    if(req.url.endsWith('/semantic/submit')) response={ok:true};
     if(req.url.endsWith('/before')) response={protocol,instance_id:'test',session_id:body.session_id,call_id:body.call_id,kind,reason:'rule evidence',action_id:body.call_id,policy_version:'1.2.0',expires_at:Date.now()/1000+300};
     res.writeHead(200,{'Content-Type':'application/json'}).end(JSON.stringify(response));
   });
   server.listen(0,'127.0.0.1');await once(server,'listening');
   const backendUrl='http://127.0.0.1:'+server.address().port;
   const ctx=new Context();new SystemPrompt(ctx,{});new ToolRuntime(ctx,{});
+  let semanticSpec;
+  if(hostAgentServices){
+    const subagents=new Service(ctx,'subagents');let provider;
+    subagents.registerProvider=(value)=>{provider=value;return ()=>{provider=undefined;};};
+    subagents.getProvider=(name)=>provider?.name===name?provider:undefined;
+    subagents.startActivation=async(spec)=>{semanticSpec=spec;return {childId:'semantic-child',result:Promise.resolve({stopReason:'completed',output:[{type:'text',text:JSON.stringify({version:'v3',engine:'llm',operation_candidates:[],facts:{},entities:{},constraints:{},uncertainties:[]})}]}),dispose:async()=>{}};};
+    const presets=new Service(ctx,'agentPresets');let definition;
+    presets.register=async(value)=>{definition=value;return async()=>{};};
+    presets.readDocument=async(id)=>({agentPreset:id,content:definition?.plugins.length===0?'[]':'[{}]'});
+    const agents=new Service(ctx,'agents');
+    agents.get=(id)=>id==='semantic-child'?{ctx:{tools:{schemas:()=>[]},get(name){return name==='tools'?this.tools:undefined;}}}:undefined;
+  }
   const cwd=new Service(ctx,'workingDirectory');cwd.ensure=async()=>workspace;
   const approval=new Service(ctx,'approval');approval.request=async()=>answer;
   let executions=0;
@@ -41,7 +55,7 @@ async function fixture(t,{kind='allow',answer='allowed-once',failMode='closed'}=
   const agent={id:'session-test'};
   const invoke=(id='call',extra={})=>ctx.tools.execute({name:'probe',arguments:{},callId:id,agent,signal:new AbortController().signal,...extra});
   t.after(async()=>{await cleanup();server.closeAllConnections();await new Promise(r=>server.close(r));rmSync(temp,{recursive:true,force:true});});
-  return {ctx,invoke,events,executions:()=>executions,fail:()=>{fail=true;},backendUrl,tokenFile,temp};
+  return {ctx,invoke,events,executions:()=>executions,fail:()=>{fail=true;},backendUrl,tokenFile,temp,semanticSpec:()=>semanticSpec};
 }
 
 test('real SDK executes allowed call, final event has no result content',async t=>{
@@ -104,4 +118,31 @@ test('persisted completion reconciles an interrupted execution marker',async t=>
   const call={session_id:'s',call_id:'settled'};const outbox=new Outbox(directory);
   outbox.begin(call);outbox.push({call,dispatched:true,succeeded:true});
   assert.equal(new Outbox(directory).recoveryRequired,false);
+});
+test('host-agent mode prepares sanitized delegation and falls back when DSH child services are absent',async t=>{
+  const f=await fixture(t,{semanticMode:'host-agent'});
+  assert.equal((await f.invoke()).isError,false);
+  const prepare=f.events.find(([path])=>path.endsWith('/semantic/prepare'));
+  const before=f.events.find(([path])=>path.endsWith('/before'));
+  assert.ok(prepare);
+  assert.equal(prepare[1].arguments?.secret,undefined);
+  assert.equal(before[1].host_semantic_request_id,undefined);
+  assert.equal(f.events.some(([path])=>path.endsWith('/semantic/submit')),false);
+});
+test('host-agent delegation uses the empty-preset DSH child and binds only its request ID',async t=>{
+  const f=await fixture(t,{semanticMode:'host-agent',hostAgentServices:true});
+  assert.equal((await f.invoke()).isError,false);
+  const spec=f.semanticSpec();
+  const prepare=f.events.find(([path])=>path.endsWith('/semantic/prepare'));
+  const submit=f.events.find(([path])=>path.endsWith('/semantic/submit'));
+  const before=f.events.find(([path])=>path.endsWith('/before'));
+  const dispatch=f.events.find(([path])=>path.endsWith('/dispatch'));
+  assert.deepEqual(spec.request.prompt,[{type:'text',text:'sanitized task'}]);
+  assert.match(spec.request.agentPreset,/^rvguarder-semantic-only-test$/);
+  assert.equal(spec.request.agentOptions,undefined);
+  assert.equal(spec.delivery,'caller');
+  assert.equal(prepare[1].arguments?.secret,undefined);
+  assert.ok(submit[1].response.includes('"version":"v3"'));
+  assert.equal(before[1].host_semantic_request_id,'request-id-semantic-123456');
+  assert.equal(dispatch[1].host_semantic_request_id,'request-id-semantic-123456');
 });

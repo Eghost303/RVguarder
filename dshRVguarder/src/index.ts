@@ -13,6 +13,7 @@ import {DegradedOutbox} from './durable.js';
 import {hostProbe} from './probe.js';
 import { Outbox } from './outbox.js';
 import { protocol,type GuardCall,type GuardDecision } from './protocol.js';
+import {HostSemanticDelegator} from './host-semantic.js';
 export const name='dsh-rvguarder';
 export const inject=['tools','workingDirectory'];
 export interface Config { backendUrl:string; tokenFile:string; instanceId:string; stateDir?:string; timeoutMs?:number; failMode?:'closed'|'open'; evidenceKeyFile?:string; egressAllowlist?:string[]; egressCaFile?:string; }
@@ -31,6 +32,7 @@ export function apply(ctx:Context,config:Config) {
   try {outbox=new Outbox(stateDir);degraded=new DegradedOutbox(stateDir);}catch(error){release();throw error;}
   let controlled:ControlledTools|undefined;
   try{if(config.evidenceKeyFile)controlled=new ControlledTools(ctx,config.evidenceKeyFile,config.egressAllowlist??[],config.egressCaFile);}catch(error){release();throw error;}
+  const hostSemantic=new HostSemanticDelegator(ctx,config.instanceId);
   const pending=new Map<object,Pending>();
   const bypassed=new WeakSet<object>();
   const identities=new Map<object,GuardCall>();
@@ -58,6 +60,17 @@ export function apply(ctx:Context,config:Config) {
       identities.set(exec.token,call);
       controlled?.prepare(exec.token,call);
       await ready();
+      if(client.semanticMode==='host-agent') {
+        try {
+          const prepared=await client.prepareSemantic(call,exec.signal);
+          if(prepared.available&&prepared.request_id&&prepared.prompt&&!exec.signal.aborted) {
+            const response=await hostSemantic.run(prepared.prompt,exec.agent,exec.signal,timeout);
+            if(response&&!exec.signal.aborted&&await client.submitSemantic(prepared.request_id,call,response,exec.signal)) {
+              call.host_semantic_request_id=prepared.request_id;
+            }
+          }
+        } catch { if(exec.signal.aborted)return {kind:'cancel'}; }
+      }
       const decision=await client.before(call,exec.signal);
       controlled?.bind(exec.token,decision);
       pending.set(exec.token,{call,decision,dispatched:false});
@@ -117,10 +130,10 @@ export function apply(ctx:Context,config:Config) {
   let stopped=false;let heartbeatRun:Promise<void>|undefined;
   const heartbeat=()=>{
     if(stopped)return Promise.resolve();if(heartbeatRun)return heartbeatRun;
-    heartbeatRun=(async()=>{await ready();await client.hello(config.instanceId,true);if(!stopped)await client.post('probe',hostProbe(ctx,config.instanceId,stateDir,degraded.gap));})().finally(()=>{heartbeatRun=undefined;});
+    heartbeatRun=(async()=>{await ready();await client.hello(config.instanceId,true);const hostAgent=await hostSemantic.readyCapabilities();if(!stopped)await client.post('probe',hostProbe(ctx,config.instanceId,stateDir,degraded.gap,hostAgent));})().finally(()=>{heartbeatRun=undefined;});
     return heartbeatRun;
   };
   const timer=setInterval(()=>{void heartbeat().catch(()=>{});},15000);timer.unref();
   void heartbeat().catch(()=>{});
-  return ctx.effect(()=>async()=>{stopped=true;clearInterval(timer);try{await heartbeatRun?.catch(()=>{});await outbox.flush(client).catch(()=>{});await degraded.flush(client).catch(()=>{});}finally{controlled?.close();release();}}, 'rvguarder-shutdown');
+  return ctx.effect(()=>async()=>{stopped=true;clearInterval(timer);try{await heartbeatRun?.catch(()=>{});await outbox.flush(client).catch(()=>{});await degraded.flush(client).catch(()=>{});}finally{await hostSemantic.close();controlled?.close();release();}}, 'rvguarder-shutdown');
 }

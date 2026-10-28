@@ -3,7 +3,8 @@ import type {Context} from '@deepseek-ai/cordis';
 import {userInfo} from 'node:os';
 import {spawnSync} from 'node:child_process';
 import {sdkVersion} from './sdk.js';
-export function hostProbe(ctx:Context,instanceId:string,stateDir:string,auditGap:boolean) {
+import type {HostSemanticCapabilities} from './host-semantic.js';
+export function hostProbe(ctx:Context,instanceId:string,stateDir:string,auditGap:boolean,hostAgent?:HostSemanticCapabilities) {
   const facts:Array<{key:string;state:string;evidence:string}>=[];
   const username=userInfo().username;
   facts.push({key:'ACCOUNT',state:process.platform==='win32'?'unknown':process.getuid?.()===0?'risk':'verified',evidence:process.platform==='win32'?'Windows token elevation requires native boundary probe':`uid=${process.getuid?.()};user=${username}`});
@@ -20,5 +21,6 @@ export function hostProbe(ctx:Context,instanceId:string,stateDir:string,auditGap
   const sandboxFact=facts.find(f=>f.key==='SANDBOX');
   if(sandboxFact)sandboxFact.evidence=sandbox?'Native sandbox provider registered; enforcement boundary still requires actual execution probe':'Native sandbox provider missing';
   return {instance_id:instanceId,sdk_version:sdkVersion,platform:process.platform,observed_at:Date.now()/1000,
-    tools:ctx.tools.schemas().map(t=>t.name),facts,audit_gap:auditGap};
+    tools:ctx.tools.schemas().map(t=>t.name),facts,audit_gap:auditGap,
+    host_agent:hostAgent??{subagents_available:false,preset_registry_available:false,provider_available:false,isolated_preset_ready:false,effective_tools_empty:false,provider_reason:'not_checked'}};
 }

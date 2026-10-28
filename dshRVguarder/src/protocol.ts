@@ -4,6 +4,7 @@ export interface GuardCall {
   protocol: typeof protocol; instance_id: string; session_id: string; agent_id: string;
   parent_call_id?:string; parent_agent_id?:string;
   call_id: string; root_call_id: string; tool_name: string; cwd: string; arguments: Record<string, unknown>; proposal?:Record<string,unknown>;
+  host_semantic_request_id?: string;
 }
 export interface GuardDecision {
   protocol: typeof protocol; instance_id: string; session_id: string; call_id: string;
