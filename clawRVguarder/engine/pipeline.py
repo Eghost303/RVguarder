@@ -24,6 +24,7 @@ from clawRVguarder.integrations.tool_hook_bridge import (
 )
 from clawRVguarder.engine.command_safety import analyze_command
 from clawRVguarder.engine.approval import build_approval_presentation
+from clawRVguarder.engine.decision_record import build_decision_record
 from clawRVguarder.engine.experiment_components import current as _experiment_components
 from clawRVguarder.utils import utc_now_iso
 if TYPE_CHECKING:
@@ -359,6 +360,13 @@ def _apply_rv_if_available(
             decision.rule_ids = list(decision.rule_ids) + [
                 f"RV-{rv_result['triggered_by']}"
             ]
+        policy = getattr(decision, "policy_decision", None)
+        if isinstance(policy, dict):
+            codes = list(policy.get("reason_codes") or [])
+            if "rv_escalation" not in codes:
+                codes.append("rv_escalation")
+            policy["reason_codes"] = codes
+        event.metadata["deciding_layer"] = "rv"
     return decision
 
 
@@ -466,6 +474,7 @@ def handle_before_tool_call_pipeline(
         controlled.decision_state = "allowed"
         controlled.execution_state = "running"
         controlled.event.metadata["approval_trust_reused"] = True
+        controlled.event.metadata["deciding_layer"] = "approval_trust"
         presentation["risk_summary"] = {
             "level": "safe",
             "reason": controlled.decision.reason,
@@ -490,6 +499,9 @@ def handle_before_tool_call_pipeline(
     controlled.decision_state = "pending" if controlled.status == "pending_approval" else ("denied" if controlled.status == "blocked" else "allowed")
     controlled.execution_state = "not_started" if controlled.status in {"pending_approval", "blocked"} else "running"
     controlled.sync_state = "local_only"
+    controlled.event.metadata["decision_record"] = build_decision_record(
+        controlled.event, controlled.decision, action=controlled,
+    )
     services._save_action(controlled)
     event_record = services.events.publish("action.created", {
         "action_id": controlled.action_id,
@@ -643,6 +655,8 @@ def _public_hook_action_record(action: Any, presentation: dict[str, Any]) -> dic
         event["network_targets"] = [record["target_summary"]]
     metadata = event.get("metadata") if isinstance(event.get("metadata"), dict) else {}
     metadata["derived_paths"] = []
+    # 逐调用决策记录只供审计与面板使用，不回传给宿主。
+    metadata.pop("decision_record", None)
     semantic = metadata.get("semantic")
     if isinstance(semantic, dict):
         intent = semantic.get("intent")

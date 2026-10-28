@@ -195,10 +195,21 @@ class DshServices(DshObservability, GuardServices):
                     host_semantic_mode=self.semantic_mode == "host-agent",
                 )
                 record = result["action_record"]
+                action = self._find_action(record["action_id"])
+                decision_record = action.event.metadata.get("decision_record")
+                if isinstance(decision_record, dict):
+                    call = decision_record.get("call")
+                    if isinstance(call, dict):
+                        call["task_id"] = self.evidence.task(request)
+                    host = decision_record.get("host")
+                    if isinstance(host, dict):
+                        host["profile"] = self.context.target.profile
+                        host["protocol"] = PROTOCOL_VERSION
+                        host["sdk_version"] = self.sdk_version
+                    action.event.metadata["decision_record"] = decision_record
                 if request.get("proposal"):
-                    action = self._find_action(record["action_id"])
                     action.event.metadata["dsh_content_history"] = self.evidence.history(request)
-                    self._replace_action(action)
+                self._replace_action(action)
                 kind = {"allow": "allow", "require_approval": "ask", "block": "deny"}[result["action"]]
                 message = str(result.get("message") or record.get("decision", {}).get("reason") or "DSH 工具安全检查")
                 message = message.replace("OpenClaw", "DSH")
