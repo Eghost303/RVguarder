@@ -1,5 +1,6 @@
 """相对cwd以受控工作区解析，不能依赖Guard进程宿主cwd或越界放行。"""
 from clawRVguarder.engine.pipeline import _classify_scope
+from tests.platform_support import requires_symlinks
 
 
 def test_relative_cwd_uses_trusted_workspace_not_host_process(tmp_path, monkeypatch):
@@ -29,6 +30,7 @@ def test_absolute_workspace_cwd_remains_inside(tmp_path):
     assert _classify_scope(['public.txt'], roots=[('workspace', workspace)], working_directory=str(workspace)) == 'workspace'
 
 
+@requires_symlinks
 def test_relative_cwd_symlink_escape_stays_outside(tmp_path):
     workspace, outside = tmp_path / 'workspace', tmp_path / 'outside'
     workspace.mkdir()

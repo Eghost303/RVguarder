@@ -124,9 +124,10 @@ if (writeResult !== undefined) process.exit(2);
 callbacks.gateway_stop();
 '''
     completed = subprocess.run(
-        ["node", "--input-type=module", "-e", script, str(plugin_path)],
+        ["node", "--input-type=module", "-e", script, plugin_path.as_uri()],
         capture_output=True,
         text=True,
+        encoding="utf-8",
         check=False,
     )
     assert completed.returncode == 0, completed.stderr or completed.stdout
@@ -177,9 +178,10 @@ if (!blocked.blockReason.endsWith("…")) process.exit(6);
 callbacks.gateway_stop();
 '''
     completed = subprocess.run(
-        ["node", "--input-type=module", "-e", script, str(plugin_path)],
+        ["node", "--input-type=module", "-e", script, plugin_path.as_uri()],
         capture_output=True,
         text=True,
+        encoding="utf-8",
         check=False,
     )
     assert completed.returncode == 0, completed.stderr or completed.stdout

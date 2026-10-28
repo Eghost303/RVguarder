@@ -40,7 +40,7 @@ def test_hook_state_is_durable_before_response_with_bounded_writes(tmp_path, mod
                     'sessionId': 'durability-session', 'toolCallId': 'durability-call'})
             assert result['action'] == expected_action
             assert saver.call_count <= max_writes
-            persisted = json.loads(services.action_service.actions_path.read_text())['items']
+            persisted = json.loads(services.action_service.actions_path.read_text(encoding="utf-8"))['items']
             assert len(persisted) == 1
             action = persisted[0]
             assert action['status'] == expected_status
