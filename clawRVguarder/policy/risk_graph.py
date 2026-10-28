@@ -119,13 +119,31 @@ class RiskGraph:
         }
 
 
+_PERSISTENCE_SINKS = (
+    "startup", "autorun", "\\run", "/run/", "systemd", "cron", "rc.local",
+    ".bashrc", ".zshrc", ".profile", ".bash_profile", "launchagents",
+    "launchdaemons", "authorized_keys", ".config/autostart", "git/hooks",
+    "scheduled tasks", "/tasks/",
+)
+
+
+def _is_persistence_sink(resource_ids: Any) -> bool:
+    """持久化位置必须由资源证据判定，不能由操作名推断。"""
+    for raw in resource_ids or []:
+        text = str(raw).replace("\\", "/").lower()
+        if any(marker in text for marker in _PERSISTENCE_SINKS):
+            return True
+    return False
+
+
 def _condition_endpoint(endpoint: str, permissions: set[PermissionRef], trace: AuthorizationTrace) -> bool:
     if endpoint in {"external_target", "external_recipient"}:
         return trace.resource.scope == "external" or trace.context.recipient_zone == "external" or any(p.scope == "external" for p in permissions)
     if endpoint == "sensitive_data":
         return trace.data.classification in {"sensitive", "secret"} or any(p.classification in {"sensitive", "secret"} for p in permissions)
     if endpoint == "persistence_location":
-        return trace.resource.scope in {"outside", "external"} or any(token in trace.operation.family.lower() for token in ("write", "persist", "save"))
+        # 旧的 family 子串回退会把每一次写入都判成持久化组合，已移除。
+        return _is_persistence_sink(trace.resource.ids)
     return False
 
 
