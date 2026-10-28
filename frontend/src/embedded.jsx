@@ -9,11 +9,10 @@
  *   initialView  string                初始视图（默认 'overview'）
  */
 import { render } from 'preact';
-import { useEffect, useState } from 'preact/hooks';
-import { setTransport, createHttpTransport } from './transport';
-import { useStore } from './store';
-import { fetchSummary } from './api';
-import { t } from './i18n';
+import { useState } from 'preact/hooks';
+import { createGuardStore } from './store';
+import { createScopedApi } from './api';
+import { GuardSession } from './session';
 import { EmbeddedShell } from './embedded/EmbeddedShell';
 import { embeddedCss } from './embedded-styles.js';
 import embeddedLayout from './embedded-layout.css?inline';
@@ -22,13 +21,17 @@ const VIEWS = ['overview', 'actions', 'rules', 'scan', 'audit', 'settings'];
 
 /** 注入一次性作用域样式表；返回移除函数。 */
 const STYLE_ID = 'rvguarder-embedded-styles';
+let styleUsers = 0;
+let mountSequence = 0;
 function ensureStyles() {
-  if (document.getElementById(STYLE_ID)) return () => {};
+  styleUsers++;
+  const remove = () => { if (--styleUsers === 0) document.getElementById(STYLE_ID)?.remove(); };
+  if (document.getElementById(STYLE_ID)) return remove;
   const tag = document.createElement('style');
   tag.id = STYLE_ID;
   tag.textContent = embeddedCss + embeddedLayout;
   document.head.append(tag);
-  return () => { tag.remove(); };
+  return remove;
 }
 
 /** 挂载内嵌 Guard 管理界面；返回 { dispose }。 */
@@ -40,36 +43,45 @@ export function mountEmbedded(container, options = {}) {
   const initialView = VIEWS.includes(options.initialView) ? options.initialView : 'overview';
 
   const removeStyles = ensureStyles();
-  setTransport(transport);
-  useStore.getState()._enterEmbedded(instanceId, options.language || 'zh');
+  let disposed = false;
+  const scopedTransport = Object.fromEntries(['call', 'download'].map(method => [method, async (...args) => {
+    if (disposed) throw new DOMException('Embedded session disposed', 'AbortError');
+    const value = await transport[method](...args);
+    if (disposed) throw new DOMException('Embedded session disposed', 'AbortError');
+    return value;
+  }]));
+  const store = createGuardStore();
+  store.getState()._enterEmbedded(instanceId, options.language || 'zh');
+  const session = { store, transport: scopedTransport, api: createScopedApi(scopedTransport, store) };
+  const panelId = 'rvguarder-panel-' + (++mountSequence);
 
   const Root = () => {
     const [view, setView] = useState(initialView);
-    useEffect(() => {
-      // 初始快照；错误由 EmbeddedShell 的离线状态呈现，不用无限 spinner。
-      fetchSummary({ compact: true }).catch(() => {});
-    }, []);
     return (
       <EmbeddedShell
         view={view}
         views={VIEWS}
         onNavigate={(next) => { if (VIEWS.includes(next)) setView(next); }}
         instanceId={instanceId}
+        panelId={panelId}
       />
     );
   };
 
-  render(<Root />, container);
-  let disposed = false;
+  render(<GuardSession.Provider value={session}><Root /></GuardSession.Provider>, container);
   return {
     dispose() {
       if (disposed) return;
       disposed = true;
       render(null, container);
       removeStyles();
-      // 恢复 HTTP 传输并清空内嵌会话状态（选择、错误、缓存、订阅数据）。
-      setTransport(createHttpTransport());
-      useStore.getState()._exitEmbedded();
+      // 清空此挂载的状态与延迟任务。
+      clearTimeout(store.getState()._toastTimer);
+      store.getState()._exitEmbedded();
+    },
+    update(next = {}) {
+      if (disposed) return;
+      store.setState({ language: next.language === 'en' ? 'en' : 'zh', theme: next.theme === 'dark' ? 'dark' : 'light' });
     },
   };
 }

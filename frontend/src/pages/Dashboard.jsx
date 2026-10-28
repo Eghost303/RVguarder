@@ -1,6 +1,6 @@
 import { useStore } from '../store';
-import { t, esc } from '../i18n';
-import { fetchSummary, clearActions, apiErrorMessage } from '../api';
+import { useT, esc } from '../i18n';
+import { useApi, apiErrorMessage } from '../api';
 import { StatRow } from '../components/StatRow';
 import { ActionCard } from '../components/ActionCard';
 import { HookStatus } from '../components/HookStatus';
@@ -10,6 +10,9 @@ import { InsightsCard } from '../components/Charts';
 
 /* ── Sub-components ── */
 function HeroCard() {
+  const t = useT();
+  const { fetchSummary, clearActions } = useApi();
+
   const summary = useStore((s) => s.summary);
   const chat = summary.chat || {};
   const target = summary.target || {};
@@ -25,13 +28,13 @@ function HeroCard() {
           <strong>{t(connected ? 'connected' : 'disconnected')}</strong>
         </div>
         <div class="hero-action">
-          <p>{dsh ? '请在 DSH 原生窗口进行工具审批' : t('openOpenClaw')}</p>
-          {!dsh && <a href={openClawUrl} target="_blank" class="btn primary hero-btn" rel="noreferrer">立即前往</a>}
+          <p>{dsh ? t("请在 DSH 原生窗口进行工具审批") : t('openOpenClaw')}</p>
+          {!dsh && <a href={openClawUrl} target="_blank" class="btn primary hero-btn" rel="noreferrer">{t("立即前往")}</a>}
         </div>
       </div>
       {connected && (
         <div class="hero-meta">
-          <span>模型：{esc(chat.current_model || '—')}</span>
+          <span>{t("模型：")}{esc(chat.current_model || '—')}</span>
           <span>Agent：{esc(chat.current_agent || '—')}</span>
         </div>
       )}
@@ -40,6 +43,9 @@ function HeroCard() {
 }
 
 function PendingSection() {
+  const t = useT();
+  const { fetchSummary, clearActions } = useApi();
+
   const summary = useStore((s) => s.summary);
   const items = (summary.actions || {}).items || [];
   const pending = items.filter((i) => i.status === 'pending_approval');
@@ -59,6 +65,9 @@ function PendingSection() {
 }
 
 function RecentSection() {
+  const t = useT();
+  const { fetchSummary, clearActions } = useApi();
+
   const summary = useStore((s) => s.summary);
   const setSummary = useStore((s) => s.setSummary);
   const showToast = useStore((s) => s.showToast);
@@ -68,10 +77,10 @@ function RecentSection() {
   const recent = items.filter((item) => item.status !== 'pending_approval').slice(0, 6);
 
   const handleClear = async () => {
-    if (!confirm('确定要清空所有动作历史记录吗？')) return;
+    if (!confirm(t("确定要清空所有动作历史记录吗？"))) return;
     try {
       await clearActions();
-      showToast('✅ 已清空历史记录');
+      showToast(t("✅ 已清空历史记录"));
       const s = await fetchSummary();
       setSummary(s);
     } catch (error) {
@@ -100,6 +109,9 @@ function RecentSection() {
 
 /* ── Main export ── */
 export function Dashboard() {
+  const t = useT();
+  const { fetchSummary, clearActions } = useApi();
+
   const loading = useStore((s) => s.loading);
   const summary = useStore((s) => s.summary);
   const rvMode = useStore((s) => s.rvMode);

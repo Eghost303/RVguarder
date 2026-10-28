@@ -1,5 +1,13 @@
 # v0.7.0-dev 工程统一与文档清查
 
+## 2026-10-29 — DSH rc.5 Windows x64 候选
+
+- 宿主 active 语言快照/主题订阅、中英文静态文本、局部主题和键盘页签；每个挂载独有 store/transport，关闭后丢弃旧响应。
+- 托管运行时按 manifest 内容哈希复制到 DSH_HOME 私有缓存并保留旧版；overview 增加脱敏部署、启动与故障状态。
+- 冻结程序新增离线 migrate inspect/apply/rollback；managedBinding 沿用实例、令牌、RV、审计和完成队列，不增加迁移 Remote 方法。
+- 合并并发握手，复用独占数据库连接，DSH journal 使用 WAL + FULL；保留决策和落盘顺序。完整 Node 回归连续三轮49通过/1真实PTC沙箱跳过。
+- 复验、安装/迁移命令与剩余问题见 dshRVguarder/docs/rc5-revalidation-2026-10-29.md、deployment-rc5.md。原提交历史结论保留；POL-01/02、PMKB及授权语义未改，未推送、未发布远程。
+
 ## 2026-10-28 — DSH 独立审查与平台整包（0.2.0-rc.4，本地候选）
 
 - 独立核对 f3990e8 并填写 UI 任务书第13节：原交付5项通过、3项不通过、5项待整改，未把rc.2 UI/故障矩阵判为通过。

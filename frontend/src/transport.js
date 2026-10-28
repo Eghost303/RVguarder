@@ -3,6 +3,7 @@
  *
  * 每个方法对应宿主管理适配器的一个固定业务方法；不提供通用 URL 代理。
  */
+import { useGuardSession } from './session';
 
 /**
  * 创建基于现有 HTTP API 的传输（独立工作台继续使用）。
@@ -12,7 +13,7 @@ export function createHttpTransport(base = '') {
   const call = async (method, args = {}) => {
     const route = httpRoutes[method];
     if (!route) throw new Error(`transport: unknown method ${method}`);
-    const url = base + route.path(route.params ? route.params(args) : {});
+    const url = base + route.path(route.params ? args : {});
     const options = route.method === 'POST'
       ? { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(route.body ? route.body(args) : {}) }
       : { cache: 'no-store' };
@@ -28,7 +29,7 @@ export function createHttpTransport(base = '') {
   const download = async (method, args = {}) => {
     const route = httpRoutes[method];
     if (!route) throw new Error(`transport: unknown method ${method}`);
-    const url = base + route.path(route.params ? route.params(args) : {});
+    const url = base + route.path(route.params ? args : {});
     const response = await fetch(url, { cache: 'no-store' });
     if (!response.ok) {
       const payload = await response.json().catch(() => ({}));
@@ -111,3 +112,6 @@ export function setTransport(transport) {
 export function getTransport() {
   return active;
 }
+
+/** 渲染树内只使用当前会话的传输，不改全局默认值。 */
+export function useTransport() { return useGuardSession()?.transport ?? getTransport(); }

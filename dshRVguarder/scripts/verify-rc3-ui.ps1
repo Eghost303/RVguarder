@@ -75,7 +75,7 @@ try {
     if (-not $launchToken) { throw 'no launch token' }
     # 认证换 cookie
     $session = New-Object Microsoft.PowerShell.Commands.WebRequestSession
-    try { Invoke-WebRequest -Uri "http://127.0.0.1:$port/connect?token=$launchToken" -WebSession $session -Method GET -UseBasicParsing -MaximumRedirection 0 -ErrorAction Stop | Out-Null } catch { }
+    try { Invoke-WebRequest -Uri "http://127.0.0.1:$port/?token=$launchToken" -WebSession $session -Method GET -UseBasicParsing -MaximumRedirection 0 -ErrorAction Stop | Out-Null } catch { }
     Start-Sleep -Seconds 6
 
     # 6) RPC：pluginInventory.list —— 核心与管理条目应同时加载
@@ -119,3 +119,6 @@ finally {
 }
 $report | ConvertTo-Json -Depth 8 | Set-Content (Join-Path $stage 'result.json')
 Write-Host ($report | ConvertTo-Json -Depth 8)
+if ($report.install.exit -ne 0 -or !$report.bundle.installed -or $report.adminOverview.type -eq 'error' -or !$report.adminOverview.value.backend.online -or $report.anonymous -ne 401 -or !$report.guardHandshake.active) {
+    throw 'Real rc.3 verification failed; inspect result.json.'
+}

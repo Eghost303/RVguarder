@@ -55,26 +55,26 @@ test('embedded overview shows real backend connection', async ({ page }) => {
   await openRvguarderSection(page);
   // 后端在线：显示“已连接”与原生审批说明
   const embed = page.locator('.rvg-embed');
-  await expect(embed).toContainText('已连接', { timeout: 30_000 });
-  await expect(embed).toContainText('请在 DSH 原生窗口进行工具审批');
+  await expect(embed).toContainText(/已连接|[Cc]onnected/, { timeout: 30_000 });
+  await expect(embed).toContainText(/请在 DSH 原生窗口进行工具审批|Approve tools in the native DSH window/);
 });
 
 test('embedded navigation uses local tabs without touching host pathname', async ({ page }) => {
   test.setTimeout(150_000);
   await openRvguarderSection(page);
   const pathnameBefore = new URL(page.url()).pathname;
-  await page.locator('.rvg-embed-tab:has-text("审计")').click();
+  await page.locator('.rvg-embed').getByRole('tab', { name: /审计|Audit/ }).click();
   await expect(page.locator('[data-testid="embed-audit"]')).toBeVisible({ timeout: 15_000 });
   expect(new URL(page.url()).pathname).toBe(pathnameBefore);
   // 切回概览（局部状态，不重载）
-  await page.locator('.rvg-embed-tab:has-text("概览")').click();
+  await page.locator('.rvg-embed').getByRole('tab', { name: /概览|Overview/ }).click();
   await expect(page.locator('[data-testid="dsh-host-panel"]').first()).toBeVisible({ timeout: 15_000 });
 });
 
 test('embedded actions tab lists actions and marks native approval', async ({ page }) => {
   test.setTimeout(150_000);
   await openRvguarderSection(page);
-  await page.locator('.rvg-embed-tab:has-text("调用与审批")').click();
+  await page.locator('.rvg-embed').getByRole('tab', { name: /调用与审批|Calls & approvals/ }).click();
   await expect(page.locator('.approval-list, .empty').first()).toBeVisible({ timeout: 15_000 });
   // DSH 动作卡片不出现自建批准按钮（原生审批为准）
   await expect(page.locator('.approve-action')).toHaveCount(0);
@@ -83,14 +83,14 @@ test('embedded actions tab lists actions and marks native approval', async ({ pa
 test('embedded scan tab can run baseline and audit tab shows chain', async ({ page }) => {
   test.setTimeout(180_000);
   await openRvguarderSection(page);
-  await page.locator('.rvg-embed-tab:has-text("扫描与报告")').click();
+  await page.locator('.rvg-embed').getByRole('tab', { name: /扫描与报告|Scans & reports/ }).click();
   const run = page.locator('#run-baseline');
   await expect(run).toBeVisible({ timeout: 15_000 });
   await run.click();
   await expect(run).toBeEnabled({ timeout: 120_000 });
-  await page.locator('.rvg-embed-tab:has-text("审计")').click();
+  await page.locator('.rvg-embed').getByRole('tab', { name: /审计|Audit/ }).click();
   await expect(page.locator('[data-testid="embed-audit"]')).toBeVisible({ timeout: 15_000 });
-  await expect(page.locator('[data-testid="embed-audit"]')).toContainText('审计链完整性', { timeout: 30_000 });
+  await expect(page.locator('[data-testid="embed-audit"]')).toContainText(/审计链完整性|Audit integrity/, { timeout: 30_000 });
 });
 
 test('closing settings unmounts embedded app without residue', async ({ page }) => {
@@ -116,31 +116,53 @@ test('closing settings unmounts embedded app without residue', async ({ page }) 
 test('embedded downloads contain real JSON report and audit bytes', async ({ page }) => {
   test.setTimeout(180_000);
   await openRvguarderSection(page);
-  await page.locator('.rvg-embed-tab:has-text("扫描与报告")').click();
+  await page.locator('.rvg-embed').getByRole('tab', { name: /扫描与报告|Scans & reports/ }).click();
   await page.locator('#run-baseline').click();
   await expect(page.locator('#run-baseline')).toBeEnabled({ timeout: 120_000 });
-  await page.locator('.rvg-embed-tab:has-text("概览")').click();
+  await page.locator('.rvg-embed').getByRole('tab', { name: /概览|Overview/ }).click();
   const reportReady = page.waitForEvent('download');
   await page.locator('[data-testid="dsh-host-panel"]').getByRole('button', { name: 'JSON', exact: true }).click();
   const report = await reportReady;
   expect(report.suggestedFilename()).toBe('rvguarder-report.json');
   expect(typeof JSON.parse(fs.readFileSync(await report.path(), 'utf8'))).toBe('object');
-  await page.locator('.rvg-embed-tab:has-text("审计")').click();
+  await page.locator('.rvg-embed').getByRole('tab', { name: /审计|Audit/ }).click();
   const auditReady = page.waitForEvent('download');
-  await page.getByRole('button', { name: '导出 JSON', exact: true }).click();
+  await page.getByRole('button', { name: /^(导出|Export) JSON$/ }).click();
   const audit = await auditReady;
   expect(audit.suggestedFilename()).toBe('rvguarder-audit-export.json');
   expect(typeof JSON.parse(fs.readFileSync(await audit.path(), 'utf8'))).toBe('object');
-  const output = path.resolve(__dirname, '../../runtime/review-20261028');
+  const output = path.resolve(__dirname, '../../runtime/rc5-evidence/browser');
   fs.mkdirSync(output, { recursive: true });
   await page.screenshot({ path: path.join(output, 'managed-audit.png') });
+});
+
+test('managed bundle disable and enable preserve identity and business history', async ({ page }) => {
+  test.skip(!process.env.RVGUARDER_MANAGED_PACKAGE, 'platform bundle only');
+  test.setTimeout(150_000);
+  await openRvguarderSection(page);
+  const rpc = async (service, method, args = {}) => {
+    const response = await page.request.post(new URL(`/api/${service}/${method}`, dshUrl()).href, { data: { type: 'client-request', rpcId: crypto.randomUUID(), method: `${service}/${method}`, payload: { args } } });
+    expect(response.ok()).toBe(true);
+    const body = await response.json(); expect(body.result.ok).toBe(true); return body.result.value;
+  };
+  const before = await rpc('rvguarderAdmin', 'overview');
+  expect(before.backend.online).toBe(true);
+  await rpc('pluginManager', 'setBundleEnabled', { name: 'dsh-rvguarder', enabled: false });
+  await expect.poll(async () => (await rpc('pluginInventory', 'list')).entries.filter(e => ['rvguarder-dsh', 'rvguarder-admin'].includes(e.entryId)).every(e => e.fiberPhase !== 'active'), { timeout: 15000 }).toBe(true);
+  await rpc('pluginManager', 'setBundleEnabled', { name: 'dsh-rvguarder', enabled: true });
+  await expect.poll(async () => { try { return (await rpc('rvguarderAdmin', 'overview')).backend.online; } catch { return false; } }, { timeout: 60000 }).toBe(true);
+  const after = await rpc('rvguarderAdmin', 'overview');
+  expect(after.backend.instanceId).toBe(before.backend.instanceId);
+  const entries = (await rpc('pluginInventory', 'list')).entries;
+  expect(entries.filter(e => e.entryId === 'rvguarder-dsh')).toHaveLength(1);
+  expect(entries.filter(e => e.entryId === 'rvguarder-admin')).toHaveLength(1);
 });
 
 test('embedded browser surfaces never receive temporary bridge credentials', async ({ page }) => {
   test.setTimeout(150_000);
   const info = JSON.parse(fs.readFileSync(path.join(__dirname, '../.cache/embed-e2e.json'), 'utf8'));
   await openRvguarderSection(page);
-  await expect(page.locator('.rvg-embed')).toContainText('已连接');
+  await expect(page.locator('.rvg-embed')).toContainText(/已连接|[Cc]onnected/);
   let runtime = path.join(info.tmpRoot, 'guard/runtime');
   const managedRoot = path.join(info.tmpRoot, 'home/rvguarder');
   if (process.env.RVGUARDER_MANAGED_PACKAGE) {

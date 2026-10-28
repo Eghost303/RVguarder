@@ -1,11 +1,15 @@
+import { useT } from '../i18n';
 /** 内嵌审计页：近期记录、链完整性、受控导出下载。 */
 import { useEffect, useState } from 'preact/hooks';
 import { useStore } from '../store';
-import { getTransport } from '../transport';
-import { apiErrorMessage } from '../api';
+import { useTransport } from '../transport';
+import { useApi, apiErrorMessage } from '../api';
 import { esc } from '../i18n';
 
 export function EmbeddedAudit() {
+  const t = useT();
+  const transport = useTransport();
+
   const showToast = useStore((s) => s.showToast);
   const [audit, setAudit] = useState(null);
   const [error, setError] = useState(null);
@@ -13,7 +17,7 @@ export function EmbeddedAudit() {
 
   useEffect(() => {
     let alive = true;
-    getTransport().call('audit').then((value) => { if (alive) setAudit(value); }).catch((e) => { if (alive) setError(apiErrorMessage(e, '无法读取审计记录')); });
+    transport.call('audit').then((value) => { if (alive) setAudit(value); }).catch((e) => { if (alive) setError(apiErrorMessage(e, t("无法读取审计记录"))); });
     return () => { alive = false; };
   }, []);
 
@@ -24,7 +28,7 @@ export function EmbeddedAudit() {
     if (busy) return; // 防重复点击
     setBusy(true);
     try {
-      const result = await getTransport().download('auditExport', { format });
+      const result = await transport.download('auditExport', { format });
       const blob = new Blob([result?.bytes ?? result], { type: format === 'json' ? 'application/json' : 'text/csv' });
       const url = URL.createObjectURL(blob);
       const anchor = document.createElement('a');
@@ -33,39 +37,39 @@ export function EmbeddedAudit() {
       anchor.rel = 'noopener';
       anchor.click();
       setTimeout(() => URL.revokeObjectURL(url), 10000);
-      showToast('审计导出已交付下载');
+      showToast(t("审计导出已交付下载"));
     } catch (e) {
-      showToast(apiErrorMessage(e, '审计导出失败'));
+      showToast(apiErrorMessage(e, t("审计导出失败")));
     } finally {
       setBusy(false);
     }
   };
 
   if (error) return <div class="card"><p role="alert">{esc(error)}</p></div>;
-  if (!audit) return <div class="card"><p>正在读取审计记录…</p></div>;
+  if (!audit) return <div class="card"><p>{t("正在读取审计记录…")}</p></div>;
 
   return (
     <div class="stack-view">
       <section class="card" data-testid="embed-audit">
         <div class="card-head">
-          <h3>审计链完整性</h3>
-          <span class={'badge ' + (chainOk ? 'ok' : 'warn')}>{chainOk ? '链完整' : '存在断链'}</span>
+          <h3>{t("审计链完整性")}</h3>
+          <span class={'badge ' + (chainOk ? 'ok' : 'warn')}>{chainOk ? t("链完整") : t("存在断链")}</span>
         </div>
         {!chainOk && (
-          <p role="alert">断链记录：{(audit.chain.broken_records || []).join('、') || '未知'}；请核对导出记录。</p>
+          <p role="alert">{t("断链记录：")}{(audit.chain.broken_records || []).join('、') || t("未知")}{t("；请核对导出记录。")}</p>
         )}
         <p>
-          <button class="btn" disabled={busy} onClick={() => download('json')}>导出 JSON</button>{' '}
-          <button class="btn" disabled={busy} onClick={() => download('csv')}>导出 CSV</button>
+          <button class="btn" disabled={busy} onClick={() => download('json')}>{t("导出 JSON")}</button>{' '}
+          <button class="btn" disabled={busy} onClick={() => download('csv')}>{t("导出 CSV")}</button>
         </p>
       </section>
       <section class="card">
-        <div class="card-head"><h3>近期审计记录（{items.length}）</h3></div>
+        <div class="card-head"><h3>{t("近期审计记录（")}{items.length}）</h3></div>
         <div class="approval-list">
-          {items.length === 0 && <div class="empty">暂无审计记录。</div>}
+          {items.length === 0 && <div class="empty">{t("暂无审计记录。")}</div>}
           {items.slice(0, 20).map((record, index) => (
             <p key={record.record_id || index}>
-              {esc(record.timestamp || '')} · {esc(record.record_type || record.event_type || '事件')} · 哈希 {esc(String(record.record_hash || '').slice(0, 12) || '—')}
+              {esc(record.timestamp || '')} · {esc(record.record_type || record.event_type || t("事件"))}{t("· 哈希")}{esc(String(record.record_hash || '').slice(0, 12) || '—')}
             </p>
           ))}
         </div>

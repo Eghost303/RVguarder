@@ -1,8 +1,8 @@
 import { create } from 'zustand';
+import { useGuardSession } from './session';
 
 /** 内嵌模式持久化前缀：与独立工作台键完全隔离，按实例编号区分。 */
 const EMBED_PREFIX = 'rvguarder-embed';
-let embeddedScope = null;
 
 const _initialTheme = () => {
   if (typeof localStorage !== 'undefined') {
@@ -16,9 +16,10 @@ const _initialTheme = () => {
 };
 
 /** 当前模式下的持久化键；内嵌模式按实例隔离。 */
+export function createGuardStore() {
+let embeddedScope = null;
 const _key = (base) => (embeddedScope ? `${EMBED_PREFIX}-${embeddedScope}-${base}` : `openclaw-guard-${base}`);
-
-export const useStore = create((set, get) => ({
+return create((set, get) => ({
   // ── Summary data ──
   summary: {},
   loading: true,
@@ -59,6 +60,8 @@ export const useStore = create((set, get) => ({
   language: 'zh',
   backendOnline: true,
   backendError: '',
+  backendErrorCode: '',
+  backendStatus: null,
   setBackendError: (backendError) => set({ backendError }),
 
   // ── Setters ──
@@ -145,7 +148,7 @@ export const useStore = create((set, get) => ({
       backendOnline: true,
       backendError: '',
       language: language === 'en' ? 'en' : 'zh',
-      summary: {},
+      summary: { host: { kind: 'dsh', instance_id: instanceId } },
       loading: true,
       _summaryHash: '',
       _actionRevision: 0,
@@ -210,3 +213,10 @@ export const useStore = create((set, get) => ({
       return { summary: { ...s.summary, actions: { ...a, items } } };
     }),
 }));
+}
+
+const defaultStore = createGuardStore();
+/** 组件通过上下文取得其所属挂载的 store。 */
+export function useGuardStore() { return useGuardSession()?.store ?? defaultStore; }
+export function useStore(selector) { return useGuardStore()(selector); }
+useStore.getState = defaultStore.getState;

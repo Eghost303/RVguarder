@@ -1,5 +1,11 @@
 # RVguarder 开发记忆
 
+## rc.5 审查整改与 Windows 整包（2026-10-29）
+
+基线1539653，直接master提交，不推送/发布。新增挂载独立store/transport、宿主语言active/主题订阅、键盘页签和首次失败重连；后端按manifest内容哈希部署到DSH_HOME私有缓存，避免npm安装目录被常驻executable锁住。冻结程序支持离线inspect/apply/rollback，managedBinding原地保留旧实例、令牌、审计/RV/完成队列；迁移不增加Remote方法。用户新安装Windows x64整包后不必单独启动Python；旧实例需一次离线迁移。见[部署](../../dshRVguarder/docs/deployment-rc5.md)和[复验表](../../dshRVguarder/docs/rc5-revalidation-2026-10-29.md)。
+
+十并发曾复现5秒超时，观测包含握手/排队/决策审计/journal提交。修复并发握手重复、audit连接反复关闭和DELETE journal落盘开销；DSH独占连接使用WAL/FULL，原超时及十路Promise.all不变，无工具重跑。完整Node连续三轮49通过/1真实PTC沙箱不可用跳过。Python两个规则链断言在1539653原始DSH/存储实现同样失败，保留为未关闭问题，不改PMKB或授权语义。历史f3990e8审查5通过/3不通过/5待整改保持。rc.2 UI及Linux整包不能据本轮计通过。
+
 ## 独立审查与平台整包（2026-10-28）
 
 已独立审查 f3990e8 并填写任务书第13节：原交付5项通过、3项不通过、5项待整改；见 [审查报告](../../dshRVguarder/docs/ui-review-2026-10-28.md)。发现并修复默认 bundle 非法 return 表达式、下载对象被当 Blob 字节、固定 dsh 实例范围、管理实例身份缺失、500/401 错误吞并、响应事后限额及 E2E 未调用清理。UI 主题/语言/焦点、完整故障矩阵、生命周期/迁移矩阵仍待验收，下方2026-10-27“完成”是原交付陈述，不能代替该结论。

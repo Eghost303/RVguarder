@@ -6,7 +6,7 @@
  * Remote 命名空间 remote.rvguarderAdmin 由本插件 $mount 创建；
  * 插槽注册放在 ctx.inject 延迟注入里，命名空间就绪后自动激活，无循环依赖。
  */
-import { createElement, useEffect, useRef } from 'react';
+import { createElement, useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import type { ClientContext } from './types.js';
 import { mountEmbedded } from '../embedded/rvguarder-embedded.mjs';
 import { createRemoteContribution } from './remote-contribution.js';
@@ -82,7 +82,7 @@ function applyInner(ctx: ClientContext) {
       order: 40,
       label: () => t('nav'),
       locale: NS,
-      inject: () => ({ transport: transportFor, language: ctxLocaleLanguage(ctx) }),
+      inject: () => ({ transport: transportFor, context: nsCtx }),
     }, RvguarderSettingsSection));
 
     // 插件详情配置插槽：按包名 key 定位，显示连接摘要与入口指引。
@@ -90,7 +90,7 @@ function applyInner(ctx: ClientContext) {
       name: 'plugins.bundle.config',
       key: 'dsh-rvguarder',
       locale: NS,
-      inject: () => ({ openPanel: t('openPanel') }),
+      inject: () => ({ context: nsCtx }),
     }, RvguarderBundleConfig));
   });
 }
@@ -99,7 +99,7 @@ function applyInner(ctx: ClientContext) {
 function ctxLocaleLanguage(ctx: ClientContext): string {
   try {
     const snapshot = ctx.locale?.getSnapshot?.();
-    const language = snapshot?.language;
+    const language = snapshot?.active;
     if (typeof language === 'string') return language.startsWith('en') ? 'en' : 'zh';
   } catch { /* 语言读取失败按默认 zh */ }
   return 'zh';
@@ -121,10 +121,11 @@ function remoteArgs(method: string, args: Record<string, unknown>): unknown[] {
 interface SettingsSectionProps {
   transport?: () => { call(method: string, args?: Record<string, unknown>): Promise<unknown>; download(method: string, args?: Record<string, unknown>): Promise<unknown> } | null;
   language?: string;
+  context?: ClientContext;
 }
 
 /** 插件详情插槽注入面。 */
-interface BundleConfigProps { openPanel?: string }
+interface BundleConfigProps { context?: ClientContext }
 
 /**
  * React 外层容器：只管理一个 div 节点；Preact 全部渲染在容器内部。
@@ -132,6 +133,19 @@ interface BundleConfigProps { openPanel?: string }
  */
 function RvguarderSettingsSection(props: SettingsSectionProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
+  const handleRef = useRef<ReturnType<typeof mountEmbedded> | null>(null);
+  const [retry, setRetry] = useState(0);
+  const [error, setError] = useState('');
+  const language = useSyncExternalStore(
+    listener => props.context?.locale.subscribe?.(listener) ?? (() => {}),
+    () => props.context ? ctxLocaleLanguage(props.context) : (props.language || 'zh'),
+  );
+  const theme = useSyncExternalStore(
+    listener => props.context?.on?.('theme/change', listener) ?? (() => {}),
+    () => props.context?.get<{getTheme(): {colorScheme?: string}}>('theme')?.getTheme().colorScheme === 'dark' ? 'dark' : 'light',
+  );
+  const appearance = useRef({ language, theme }); appearance.current = { language, theme };
+  useEffect(() => { handleRef.current?.update({ language, theme }); }, [language, theme]);
   useEffect(() => {
     const node = containerRef.current;
     if (!node || !props.transport) return;
@@ -144,18 +158,23 @@ function RvguarderSettingsSection(props: SettingsSectionProps) {
       if (disposed) return;
       const instanceId = (value as { backend?: { instanceId?: unknown } })?.backend?.instanceId;
       if (typeof instanceId !== 'string' || !/^[a-zA-Z0-9_.-]{1,128}$/.test(instanceId)) throw new Error('管理通道未提供有效实例身份。');
-      handle = mountEmbedded(node, { transport, instanceId, language: props.language === 'en' ? 'en' : 'zh', initialView: 'overview' });
+      setError('');
+      handle = mountEmbedded(node, { transport, instanceId, language: appearance.current.language, initialView: 'overview' });
+      handleRef.current = handle; handle.update(appearance.current);
     }).catch((error: unknown) => {
-      if (!disposed) { node.setAttribute('role', 'alert'); node.textContent = error instanceof Error ? error.message : '管理通道不可用。'; }
+      if (!disposed) setError(error instanceof Error ? error.message : 'Management unavailable');
     });
-    return () => { disposed = true; handle?.dispose(); node.removeAttribute('role'); node.textContent = ''; };
-  }, [props.transport, props.language]);
-  return createElement('div', { ref: containerRef, className: 'rvguarder-settings-host', 'data-testid': 'rvguarder-settings-section' });
+    return () => { disposed = true; handle?.dispose(); handleRef.current = null; };
+  }, [props.transport, retry]);
+  return createElement('div', null,
+    createElement('div', { ref: containerRef, className: 'rvguarder-settings-host', 'data-testid': 'rvguarder-settings-section' }),
+    error ? createElement('div', { role: 'alert' }, error, createElement('button', { onClick: () => setRetry(value => value + 1) }, language === 'en' ? 'Reconnect' : '重新连接')) : null);
 }
 
 /** 插件详情配置区域：连接摘要 + 指引（同一管理组件打开）。 */
 function RvguarderBundleConfig(props: BundleConfigProps) {
+  const language = useSyncExternalStore(listener => props.context?.locale.subscribe?.(listener) ?? (() => {}), () => props.context ? ctxLocaleLanguage(props.context) : 'zh');
   return createElement('div', { className: 'rvguarder-bundle-config', 'data-testid': 'rvguarder-bundle-config' },
-    createElement('p', null, props.openPanel || '在“设置 → RVguarder”中管理 Guard 状态、调用记录、规则与审计。'),
+    createElement('p', null, language === 'en' ? 'Manage Guard in Settings → RVguarder.' : '在“设置 → RVguarder”中管理 Guard 状态、调用记录、规则与审计。'),
   );
 }

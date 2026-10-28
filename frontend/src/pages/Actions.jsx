@@ -1,5 +1,5 @@
 import { useStore } from '../store';
-import { t } from '../i18n';
+import { useT } from '../i18n';
 import { ActionCard } from '../components/ActionCard';
 
 const STATUSES = [
@@ -9,6 +9,7 @@ const STATUSES = [
 ];
 
 export function Actions() {
+  const t = useT();
   const summary = useStore((s) => s.summary);
   const actionFilter = useStore((s) => s.actionFilter);
   const setActionFilter = useStore((s) => s.setActionFilter);

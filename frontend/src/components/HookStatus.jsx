@@ -1,20 +1,21 @@
 import { useStore } from '../store';
-import { t, esc } from '../i18n';
+import { useT, esc } from '../i18n';
 
 export function HookStatus() {
+  const t = useT();
   const summary = useStore((s) => s.summary);
   const hook = summary.hook || {};
   const st = hook.state || 'unknown';
 
   let badge;
   if (hook.active && st === 'active') {
-    badge = <span class="badge ok">{t('hookActive')}</span>;
+    badge = <span class="badge ok">{summary.host?.kind === 'dsh' ? t('已接入 DSH 工具拦截链') : t('hookActive')}</span>;
   } else if (st === 'loaded_waiting_restart') {
-    badge = <span class="badge warn">⏳ 已配置，需重启 Gateway</span>;
+    badge = <span class="badge warn">{t("⏳ 已配置，需重启 Gateway")}</span>;
   } else if (st === 'runtime_unreachable') {
-    badge = <span class="badge warn">⚠️ {summary.host?.kind === 'dsh' ? 'DSH 插件未连接' : 'OpenClaw Gateway 未连接'}</span>;
+    badge = <span class="badge warn">⚠️ {summary.host?.kind === 'dsh' ? t("DSH 插件未连接") : t("OpenClaw Gateway 未连接")}</span>;
   } else if (st === 'plugin_invalid') {
-    badge = <span class="badge danger">❌ 插件文件异常</span>;
+    badge = <span class="badge danger">{t("❌ 插件文件异常")}</span>;
   } else {
     badge = <span class="badge warn">{t('hookInactive')}</span>;
   }

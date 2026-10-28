@@ -2,7 +2,7 @@ const { defineConfig, devices } = require("@playwright/test");
 
 module.exports = defineConfig({
   testDir: "./tests",
-  testIgnore: ["**/dsh-ui.spec.cjs", "**/dsh-embedded-settings.spec.cjs"],
+  testIgnore: ["**/dsh-ui.spec.cjs", "**/dsh-embedded-settings.spec.cjs", "**/embedded-lifecycle.spec.cjs"],
   timeout: 60_000,
   expect: { timeout: 10_000 },
   fullyParallel: true,

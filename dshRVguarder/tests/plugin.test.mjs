@@ -55,6 +55,15 @@ test('real SDK denial never reaches tool body',async t=>{
   const f=await fixture(t,{kind:'deny'});assert.equal((await f.invoke()).isError,true);assert.equal(f.executions(),0);
 });
 
+test('concurrent calls share one authenticated handshake without sharing decisions', async t => {
+  const f = await fixture(t);
+  const results = await Promise.all(Array.from({ length: 10 }, (_, index) => f.invoke('parallel-' + index)));
+  assert.ok(results.every(result => !result.isError));
+  assert.equal(f.events.filter(([path]) => path.endsWith('/hello')).length, 1);
+  assert.equal(f.events.filter(([path]) => path.endsWith('/before')).length, 10);
+  assert.equal(f.executions(), 10);
+});
+
 test('managed initialization failure keeps a real execution guard even with fail-open configured', async t => {
   const ctx = new Context(); new SystemPrompt(ctx, {}); new ToolRuntime(ctx, {});
   t.after(() => ctx.fiber.dispose());

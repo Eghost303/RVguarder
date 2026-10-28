@@ -1,11 +1,14 @@
 import { useStore } from '../store';
-import { t, esc } from '../i18n';
-import { fetchSummary, runBaseline, exportAudit, apiErrorMessage } from '../api';
+import { useT, esc } from '../i18n';
+import { useApi, apiErrorMessage } from '../api';
 
 const PHASES = ['scanStage_prepare', 'scanStage_config', 'scanStage_runtime', 'scanStage_audit'];
 const STEPS = [18, 42, 71, 92];
 
 export function ScanProgress() {
+  const t = useT();
+  const { fetchSummary, runBaseline, exportAudit } = useApi();
+
   const scan = useStore((s) => s.scan);
   const setScan = useStore((s) => s.setScan);
   const showToast = useStore((s) => s.showToast);
@@ -38,7 +41,7 @@ export function ScanProgress() {
   const handleExportAudit = async () => {
     try {
       const p = await exportAudit();
-      showToast('✅ 导出成功：' + p.json);
+      showToast(t("✅ 导出成功：") + p.json);
     } catch (error) {
       showToast(apiErrorMessage(error, t('error_default')));
     }
@@ -160,14 +163,14 @@ export function ScanProgress() {
                   )}
                   {item.recommendation && (
                     <div class="scan-detail-rec">
-                      <strong>修改建议</strong>
+                      <strong>{t("修改建议")}</strong>
                       <div>{esc(item.recommendation)}</div>
                     </div>
                   )}
                 </article>
               ))
             ) : (
-              <div class="empty">暂无检查项</div>
+              <div class="empty">{t("暂无检查项")}</div>
             )}
           </div>
         </div>

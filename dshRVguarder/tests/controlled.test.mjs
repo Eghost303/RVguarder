@@ -1,7 +1,7 @@
 /** 实际 SDK + 实际 Python 核心，本地临时文件；不调用在线模型或外部目标。 */
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {mkdtempSync,mkdirSync,writeFileSync,readFileSync,rmSync,symlinkSync} from 'node:fs';
+import {mkdtempSync,mkdirSync,writeFileSync,readFileSync,rmSync,symlinkSync,appendFileSync} from 'node:fs';
 import {tmpdir} from 'node:os';
 import {join,resolve} from 'node:path';
 import {fileURLToPath} from 'node:url';
@@ -30,8 +30,14 @@ async function fixture(t,{ptc=false,egress}={}){
   assert.equal(prepared.status,0,prepared.stderr);
   if(egress){writeFileSync(join(project,'runtime','dsh-evidence.json'),JSON.stringify({egress_allowlist:[egress.url]}),{mode:0o600});}
   const child=spawn(python,['-X','utf8','-m','clawRVguarder.hosts.dsh.server','--project-dir',project,'--dsh-home',home,'--workspace',workspace,'--port','0','--semantic-mode','local'],{cwd:root,env:{...process.env,DEEPSEEK_API_KEY:''},stdio:['ignore','pipe','pipe']});
-  let cleanup;let stderr='';child.stderr.on('data',b=>stderr+=b);
-  t.after(async()=>{if(cleanup)await cleanup();child.kill('SIGTERM');await new Promise(r=>{if(child.exitCode!==null)return r();child.once('exit',r);setTimeout(()=>{child.kill('SIGKILL');r();},5000).unref();});rmSync(temp,{recursive:true,force:true,maxRetries:20,retryDelay:100});});
+  let cleanup;let stderr='';let timingBuffer='';child.stderr.on('data',b=>{
+    stderr+=b;
+    if(process.env.RVGUARDER_DSH_TIMING_OUTPUT){
+      timingBuffer+=b;
+      while(timingBuffer.includes('\n')){const end=timingBuffer.indexOf('\n');const line=timingBuffer.slice(0,end);timingBuffer=timingBuffer.slice(end+1);try{const item=JSON.parse(line);if(['dsh.bridge.lock','dsh.bridge.phase'].includes(item.event))appendFileSync(process.env.RVGUARDER_DSH_TIMING_OUTPUT,JSON.stringify(item)+'\n');}catch{}}
+    }
+  });
+  t.after(async()=>{try{if(cleanup)await cleanup();}finally{if(process.platform==='win32'){spawnSync('taskkill',['/PID',String(child.pid),'/T','/F'],{stdio:'ignore',windowsHide:true});}else{child.kill('SIGTERM');}await new Promise(r=>{if(child.exitCode!==null)return r();child.once('exit',r);setTimeout(()=>{child.kill('SIGKILL');r();},5000).unref();});rmSync(temp,{recursive:true,force:true,maxRetries:20,retryDelay:100});}});
   const url=await new Promise((resolve,reject)=>{let raw='';const timer=setTimeout(()=>reject(new Error('Backend startup timeout: '+stderr)),10000);child.once('exit',()=>{clearTimeout(timer);reject(new Error('Backend exited: '+stderr));});child.stdout.on('data',b=>{raw+=b;for(const line of raw.split('\n'))try{const data=JSON.parse(line);if(data.url){clearTimeout(timer);resolve(data.url);return;}}catch{}});});
   const ctx=new Context();new SystemPrompt(ctx,{});new SessionStore(ctx);new ToolRuntime(ctx,{mode:ptc?'ptc':'native'});
   if(ptc){

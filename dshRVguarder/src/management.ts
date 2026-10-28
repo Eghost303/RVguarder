@@ -3,8 +3,9 @@ import { readFileSync } from 'node:fs';
 import type { Context } from '@deepseek-ai/cordis';
 import { Remote, RemoteError, TypertRemoteService, principalOf } from '@deepseek-ai/dsh-typert-protocol';
 import { sdkVersion } from './sdk.js';
+import type { DeploymentStatus } from './managed.js';
 
-export interface AdminConfig { backendUrl: string; tokenFile: string; instanceId: string; timeoutMs?: number; connectionReady?: Promise<{backendUrl: string; tokenFile: string; instanceId: string}>; }
+export interface AdminConfig { backendUrl: string; tokenFile: string; instanceId: string; timeoutMs?: number; connectionReady?: Promise<{backendUrl: string; tokenFile: string; instanceId: string}>; deploymentStatus?: () => DeploymentStatus; }
 
 /** 后端字段白名单：概览中允许离开宿主的键；其余配置与私有路径不离开宿主侧。 */
 const SUMMARY_FIELDS = [
@@ -45,6 +46,7 @@ export class RvguarderAdmin extends TypertRemoteService {
   private readonly timeoutMs: number;
   private instanceId: string;
   private readonly connectionReady: Promise<void>;
+  private readonly deploymentStatus: () => DeploymentStatus;
   /** 与后端最近一次成功握手时间；0 表示尚未确认在线。 */
   private backendSeenAt = 0;
 
@@ -59,6 +61,7 @@ export class RvguarderAdmin extends TypertRemoteService {
     const timeout = config.timeoutMs ?? 8000;
     if (!Number.isInteger(timeout) || timeout < 500 || timeout > 30000) throw new Error('Invalid timeoutMs');
     this.timeoutMs = timeout;
+    this.deploymentStatus = config.deploymentStatus ?? (() => ({ mode: config.connectionReady ? 'managed' : 'external', state: 'ready' }));
     this.connectionReady = config.connectionReady ? config.connectionReady.then(connection => {
       this.base = connection.backendUrl;
       this.token = readFileSync(connection.tokenFile, 'utf8').trim();
@@ -138,17 +141,19 @@ export class RvguarderAdmin extends TypertRemoteService {
   @Remote('overview')
   async overview(): Promise<Json> {
     this.requireOwner();
+    const deployment = this.deploymentStatus();
+    if (deployment.state === 'starting' || deployment.state === 'failed' || deployment.state === 'stopped') return { ok: true, backend: { online: false, instanceId: this.instanceId, sdkVersion, deployment, lastSeenAt: this.backendSeenAt || null }, summary: null };
     let summary: Json; let status: Json;
     try {
       status = await this.checkIdentity();
       summary = sanitizeSummary(await this.backend('/api/summary'));
     } catch (error) {
       if (error instanceof RemoteError && error.code === 'rvguarder/backend-unreachable') {
-        return { ok: true, backend: { online: false, instanceId: this.instanceId, sdkVersion, lastSeenAt: this.backendSeenAt || null }, summary: null };
+        return { ok: true, backend: { online: false, instanceId: this.instanceId, sdkVersion, deployment: { ...deployment, state: 'failed', reason: 'backend-unreachable' }, lastSeenAt: this.backendSeenAt || null }, summary: null };
       }
       throw error;
     }
-    return { ok: true, backend: { online: true, instanceId: this.instanceId, sdkVersion, lastSeenAt: this.backendSeenAt, recoveryRequired: status.recovery_required === true }, summary };
+    return { ok: true, backend: { online: true, instanceId: this.instanceId, sdkVersion, deployment, lastSeenAt: this.backendSeenAt, recoveryRequired: status.recovery_required === true }, summary };
   }
 
   /** 动作详情（只读）。 */

@@ -1,6 +1,6 @@
 {
   "name": "dsh-rvguarder",
-  "version": "0.2.0-rc.4",
+  "version": "0.2.0-rc.5",
   "private": true,
   "type": "module",
   "description": "DSH 0.2.1-rc.2 / rc.3 的 RVguarder 适配插件：核心守卫 + 宿主内嵌管理界面",

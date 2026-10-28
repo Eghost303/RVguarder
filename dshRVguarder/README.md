@@ -1,10 +1,10 @@
 # dshRVguarder
 
-DSH **0.2.1-rc.2 / 0.2.1-rc.3** 的 RVguarder 适配插件，当前为 **0.2.0-rc.4 本地开发候选**（未发布）。rc.4 新增包含 Python 与依赖的 Windows x64 平台整包，由宿主自动启停后端，新安装主路径已在真实 rc.3 验证。使用、构建与历史迁移限制见 [部署指南](docs/deployment.md) 和 [DEP-01 实现](docs/deployment-implementation-2026-10-28.md)。
+DSH **0.2.1-rc.2 / 0.2.1-rc.3** 的 RVguarder 适配插件，当前为 **0.2.0-rc.5 本地开发候选**（未发布）。Windows x64 整包自带 Python、UI 和运行依赖，由宿主自动启停后端；新增私有内容哈希运行时缓存与保历史离线迁移。下载安装、迁移和回滚见 [rc.5 部署指南](docs/deployment-rc5.md)，验收范围与剩余问题见 [复验表](docs/rc5-revalidation-2026-10-29.md)。
 
 Python 后端支持 **Windows 原生 Python 和 Linux/WSL Python**，要求 Python 3.13+ 及兼容依赖，不限定 Windows 上 Python 的安装渠道。Windows 原生 Python + 当前桌面 rc.3 的部署入口见 [原生开发指南](docs/windows-native-rc3.md)，无需启动 WSL 或另装 rc.2。
 
-插件页显示真实 bundle，“设置 → RVguarder”经宿主 owner 通道管理，浏览器不接触桥接令牌。原 rc.3 交付有未通过项，逐项结论与 rc.4 整改见 [独立审查](docs/ui-review-2026-10-28.md)。主题/语言/焦点、故障/生命周期/迁移矩阵、rc.2 UI 仍待验收；POL-01/02 未改规则、未称解决。
+插件页显示真实 bundle，“设置 → RVguarder”经宿主 owner 通道管理，浏览器不接触桥接令牌。原 rc.3 交付的 [独立审查](docs/ui-review-2026-10-28.md) 结论保留；rc.5 对语言/主题订阅、挂载隔离、重连、故障呈现与迁移单列复验。rc.2 UI、Linux 整包不计通过；POL-01/02 未改规则、未称解决。
 
 平台整包：取得匹配平台 tgz 并校验 SHA-256 → DSH 安装 → 重新启用/重启宿主 → 设置页管理。普通源码 `npm pack` 仍为轻量外部模式，需要准备 Python、初始化连接与单独启动后端。已有外部配置不被静默覆盖或清空历史迁移。提交源码/PR 不需要 GitHub Release。
 

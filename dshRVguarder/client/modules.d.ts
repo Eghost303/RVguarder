@@ -5,7 +5,7 @@ declare module '*/rvguarder-embedded.mjs' {
     instanceId?: string;
     language?: string;
     initialView?: string;
-  }): { dispose(): void };
+  }): { dispose(): void; update(options: {language?: string; theme?: string}): void };
 }
 /** @deepseek-ai/dsh-typert-protocol/remote-info 的客户端形状（打包进客户端）。 */
 declare module '@deepseek-ai/dsh-typert-protocol/remote-info' {

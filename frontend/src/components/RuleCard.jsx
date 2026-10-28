@@ -1,6 +1,8 @@
+import { useT } from '../i18n';
 import { esc } from '../i18n';
 
 export function RuleCard({ rule }) {
+  const t = useT();
   return (
     <article class="rule-card">
       <span class="rule-id">{esc(rule.ruleId)}</span>
@@ -12,7 +14,7 @@ export function RuleCard({ rule }) {
         {rule.at.map((a) => (
           <span class="rule-tag" key={a}>{a}</span>
         ))}
-        {rule.grp === 'office' && <span class="rule-tag office">办公策略</span>}
+        {rule.grp === 'office' && <span class="rule-tag office">{t("办公策略")}</span>}
         <span class="rule-tag">{rule.grp}</span>
       </div>
     </article>

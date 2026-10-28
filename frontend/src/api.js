@@ -3,6 +3,7 @@
  * 独立工作台走 HTTP，DSH 内嵌走宿主认证 Remote 通道。
  */
 import { getTransport } from './transport';
+import { useGuardSession } from './session';
 
 /** 通用 fetch wrapper —— 非 2xx → throw（独立工作台内部使用） */
 export async function api(path, opts = {}) {
@@ -100,6 +101,7 @@ export async function runBaseline() {
 
 /** 审计导出：返回 ArrayBuffer（两种传输统一行为）。 */
 export async function exportAudit(format = 'json') {
+  if (getTransport().kind === 'http') return api('/api/audit/export', { method: 'POST' });
   return getTransport().download('auditExport', { format });
 }
 
@@ -116,3 +118,38 @@ export async function upsertSkill(name, enabled) {
     body: JSON.stringify({ name, enabled }),
   });
 }
+
+/** 创建只使用给定会话传输的业务 API，内嵌模式不向宿主 URL 直连 fetch。 */
+export function createScopedApi(transport, store) {
+  const scopedCall = (method, args) => transport.call(method, args);
+  const routes = { '/api/dsh/policy': 'policy', '/api/rv/status': 'rvStatus', '/api/dsh/audit': 'audit' };
+  return {
+    api(path) {
+      if (!routes[path]) return Promise.reject(new Error('此操作不支持宿主内嵌模式'));
+      return scopedCall(routes[path]);
+    },
+    async fetchSummary() {
+      const value = await scopedCall('overview');
+      store?.setState({ backendStatus: value?.backend ?? null });
+      if (value?.backend?.recoveryRequired) throw Object.assign(new Error('Guard 恢复锁定：上次执行尚未完成核对，请检查实例历史。'), { code: 'rvguarder/recovery-required' });
+      if (value?.summary) return value.summary;
+      const state = value?.backend?.deployment?.state;
+      throw Object.assign(new Error(state === 'starting' ? 'Guard 后端正在启动' : state === 'failed' ? 'Guard 运行时启动失败，请检查插件状态' : '后端未连接'), { code: 'rvguarder/' + (state || 'backend-unreachable') });
+    },
+    fetchRvStatus: () => scopedCall('rvStatus'),
+    fetchAction: async id => (await scopedCall('actionDetail', { actionId: id })).action,
+    rvToggle: enabled => scopedCall('rvToggle', { enabled }),
+    runBaseline: () => scopedCall('runScan'),
+    exportAudit: (format = 'json') => transport.download('auditExport', { format }),
+    downloadReport: format => transport.download('report', { format }),
+    approveAction: () => Promise.reject(new Error('审批由宿主处理')),
+    rejectAction: () => Promise.reject(new Error('审批由宿主处理')),
+    clearActions: () => Promise.reject(new Error('此操作不支持宿主内嵌模式')),
+    fetchApprovalTrust: () => Promise.reject(new Error('此操作不支持宿主内嵌模式')),
+    revokeApprovalTrust: () => Promise.reject(new Error('此操作不支持宿主内嵌模式')),
+    upsertSkill: () => Promise.reject(new Error('此操作不支持宿主内嵌模式')),
+  };
+}
+
+const defaultApi = { api, fetchSummary, fetchRvStatus, fetchAction, rvToggle, runBaseline, exportAudit, downloadReport, approveAction, rejectAction, clearActions, fetchApprovalTrust, revokeApprovalTrust, upsertSkill };
+export function useApi() { return useGuardSession()?.api ?? defaultApi; }

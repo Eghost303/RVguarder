@@ -1145,7 +1145,13 @@ class SQLiteStore(DBStoreInterface):
         self.sqlite_path.parent.mkdir(parents=True, exist_ok=True)
         self._lock = threading.RLock()
         self._conn: sqlite3.Connection | None = None
+        self._reuse_connection = False
         self._init_db()
+
+    def enable_connection_reuse(self) -> None:
+        """允许独占实例复用串行连接，保持默认 FULL 同步级别与逐事务提交。"""
+        with self._lock:
+            self._reuse_connection = True
 
     def _init_db(self) -> None:
         with self._lock:
@@ -1171,6 +1177,16 @@ class SQLiteStore(DBStoreInterface):
 
     @contextmanager
     def _get_connection(self) -> Iterator[sqlite3.Connection]:
+        if self._reuse_connection:
+            with self._lock:
+                if self._conn is None:
+                    self._conn = sqlite3.connect(self.sqlite_path, timeout=30.0, check_same_thread=False)
+                try:
+                    yield self._conn
+                except BaseException:
+                    self._conn.rollback()
+                    raise
+            return
         self.sqlite_path.parent.mkdir(parents=True, exist_ok=True)
         conn = sqlite3.connect(self.sqlite_path, timeout=30.0)
         try:

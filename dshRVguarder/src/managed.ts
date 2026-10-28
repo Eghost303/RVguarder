@@ -1,14 +1,17 @@
 /** 随插件分发的原生后端：校验平台及内容，托管单一子进程，不下载或执行外部脚本。 */
-import { spawn, type ChildProcess } from 'node:child_process';
+import { spawn, execFile, type ChildProcess } from 'node:child_process';
+import { promisify } from 'node:util';
 import { createHash } from 'node:crypto';
 import { lstatSync, readFileSync, readdirSync, realpathSync } from 'node:fs';
 import { dirname, isAbsolute, join, relative, resolve, toNamespacedPath } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { Context } from '@deepseek-ai/cordis';
 
-export interface ManagedConfig { backendMode?: 'managed' | 'external'; }
+export interface ManagedBinding { projectDir: string; instanceId: string; stateDir: string; }
+export interface ManagedConfig { backendMode?: 'managed' | 'external'; managedBinding?: ManagedBinding; }
+export interface DeploymentStatus { mode: 'managed' | 'external'; state: 'starting' | 'ready' | 'failed' | 'stopped'; reason?: string; }
 export interface Connection { backendUrl: string; tokenFile: string; instanceId: string; stateDir: string; }
-export interface Deployment { directory: string; workspace: string; home: string; profile: string; instanceId: string; }
+export interface Deployment { directory: string; workspace: string; home: string; profile: string; instanceId: string; stateDir?: string; }
 interface Manifest { schema: number; platform: string; arch: string; executable: string; files: Record<string, string>; }
 const packageRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -37,15 +40,34 @@ export function verifyBackend(root = join(packageRoot, 'backend')): string {
 }
 
 /** 只使用宿主注入的 profile 事实与工作区默认值，不读工具参数或浏览器输入。 */
-export function deploymentFor(ctx: Context): Deployment {
+export function deploymentFor(ctx: Context, binding?: ManagedBinding): Deployment {
   const profile = ctx.get('profileContext') as { home: string; name: string; cwd: string } | undefined;
   if (!profile || !isAbsolute(profile.home) || !/^[a-zA-Z0-9_.-]{1,128}$/.test(profile.name) || ['.', '..'].includes(profile.name)) throw new Error('Managed backend requires trusted DSH profileContext');
   const workspace = resolve(ctx.workingDirectory?.defaultDirectory || profile.cwd);
   const id = 'dsh-' + createHash('sha256').update(resolve(profile.home) + '\0' + profile.name).digest('hex').slice(0, 24);
-  const directory = join(resolve(profile.home), 'rvguarder', id);
+  if (binding && (!isAbsolute(binding.projectDir) || !isAbsolute(binding.stateDir) || !/^[a-zA-Z0-9_.-]{1,128}$/.test(binding.instanceId))) throw new Error('Invalid managedBinding');
+  const directory = binding ? resolve(binding.projectDir) : join(resolve(profile.home), 'rvguarder', id);
   const local = relative(workspace, directory);
   if (local === '' || (!local.startsWith('..') && !isAbsolute(local))) throw new Error('Guard data must be outside Agent workspace');
-  return { directory, workspace, home: resolve(profile.home), profile: profile.name, instanceId: id };
+  if (binding) {
+    const state = relative(workspace, resolve(binding.stateDir));
+    if (state === '' || (!state.startsWith('..') && !isAbsolute(state))) throw new Error('Plugin state must be outside Agent workspace');
+  }
+  return { directory, workspace, home: resolve(profile.home), profile: profile.name, instanceId: binding?.instanceId ?? id, stateDir: binding?.stateDir };
+}
+
+/** 用短命自举进程部署缓存，常驻进程不持有 npm 包内 executable/DLL。 */
+async function cachedBackend(deployment: Deployment): Promise<ManagedBackend> {
+  const source = verifyBackend();
+  const cache = join(deployment.home, 'rvguarder', 'runtimes');
+  const result = await promisify(execFile)(toNamespacedPath(source), ['runtime-stage', '--cache', cache, '--workspace', deployment.workspace], {
+    windowsHide: true, timeout: 60000, maxBuffer: 65536, encoding: 'utf8', cwd: dirname(toNamespacedPath(source)),
+    env: { ...process.env, PYTHONPATH: '', PYTHONHOME: '', PYTHONNOUSERSITE: '1' },
+  });
+  const executable = String(JSON.parse(result.stdout).executable);
+  const local = relative(resolve(cache), resolve(executable));
+  if (local.startsWith('..') || isAbsolute(local) || verifyBackend(dirname(executable)) !== realpathSync(executable)) throw new Error('Runtime cache verification failed');
+  return new ManagedBackend(deployment, executable);
 }
 
 /** 启动后端并等待其认证就绪；stdin EOF 使子进程随宿主退出，不接管外部服务。 */
@@ -54,6 +76,8 @@ export class ManagedBackend {
   private child: ChildProcess;
   private stopped = false;
   private closing?: Promise<void>;
+  /** 只反映本对象所持进程的存活状态，不探测或接管外部进程。 */
+  alive(): boolean { return !this.stopped && this.child.exitCode === null && this.child.signalCode === null; }
   constructor(deployment: Deployment, executable = verifyBackend()) {
     // pnpm 的真实安装路径可能超过 MAX_PATH，CreateProcess 需要 Windows 命名空间路径。
     const nativeExecutable = toNamespacedPath(executable);
@@ -70,7 +94,8 @@ export class ManagedBackend {
         settled = true; clearTimeout(timer);
         const diagnostic = startupError.split('\n').filter(line => /^(ModuleNotFoundError|ImportError|ValueError|OSError|PermissionError|RuntimeError|FileNotFoundError):/.test(line)).pop();
         console.error(`RVguarder backend startup failed (${this.child.exitCode ?? 'timeout/spawn'}): ${diagnostic ?? 'see platform installation and instance binding'}`);
-        reject(new Error('RVguarder bundled backend failed to start; guard remains closed'));
+        const reason = /dsh_state_binding_mismatch/.test(startupError) ? 'instance-mismatch' : /already.owned|already.locked|instance.already|PermissionError.*dsh-owner/i.test(startupError) ? 'instance-conflict' : /ModuleNotFoundError|ImportError/.test(startupError) ? 'runtime-damaged' : 'startup-failed';
+        reject(Object.assign(new Error('RVguarder bundled backend failed to start; guard remains closed'), { reason }));
       } };
       const timer = setTimeout(() => { fail(); void this.close(); }, 60000);
       this.child.once('error', (error) => { console.error('RVguarder backend spawn:', (error as NodeJS.ErrnoException).code); fail(); });
@@ -94,7 +119,7 @@ export class ManagedBackend {
             const response = await fetch(url.origin + '/api/dsh/status', { headers: { 'x-rvguarder-token': token }, redirect: 'error', signal: AbortSignal.timeout(5000) });
             const status = await response.json() as Record<string, unknown>;
             if (!response.ok || status.protocol !== 'dsh-guard-v2' || status.instance_id !== deployment.instanceId || this.stopped || this.child.exitCode !== null) throw new Error('Bundled backend authentication failed');
-            accept({ backendUrl: url.origin, tokenFile, instanceId: deployment.instanceId, stateDir: join(deployment.directory, 'runtime', 'plugin-state') });
+            accept({ backendUrl: url.origin, tokenFile, instanceId: deployment.instanceId, stateDir: deployment.stateDir ?? join(deployment.directory, 'runtime', 'plugin-state') });
           })().catch((error: unknown) => { reject(error); void this.close(); });
         }
       });
@@ -116,28 +141,34 @@ export class ManagedBackend {
   }
 }
 
-const sessions = new Map<string, { backend: Promise<ManagedBackend>; references: number }>();
+const sessions = new Map<string, { backend: Promise<ManagedBackend>; references: number; fingerprint: string; status: DeploymentStatus }>();
 const shutdowns = new Map<string, Promise<void>>();
 
 /** 核心与管理入口共享一个进程；最后一个宿主 fiber 卸载时关闭。 */
-export function acquireManaged(ctx: Context, factory: (deployment: Deployment) => ManagedBackend = deployment => new ManagedBackend(deployment)): { ready: Promise<Connection>; release(): Promise<void> } {
-  const deployment = deploymentFor(ctx);
+export function acquireManaged(ctx: Context, factory: (deployment: Deployment) => ManagedBackend | Promise<ManagedBackend> = cachedBackend, binding?: ManagedBinding): { ready: Promise<Connection>; status(): DeploymentStatus; release(): Promise<void> } {
+  const deployment = deploymentFor(ctx, binding);
+  const fingerprint = JSON.stringify(deployment);
   let session = sessions.get(deployment.directory);
+  if (session && session.fingerprint !== fingerprint) throw new Error('Conflicting managed instance binding');
   if (!session) {
     // 快速禁用/启用时先等待旧进程释放目录锁，不能复用正在退出的连接。
-    session = { backend: (shutdowns.get(deployment.directory) ?? Promise.resolve()).then(() => factory(deployment)), references: 0 };
+    session = { backend: (shutdowns.get(deployment.directory) ?? Promise.resolve()).then(() => factory(deployment)), references: 0, fingerprint, status: { mode: 'managed', state: 'starting' } };
     sessions.set(deployment.directory, session);
   }
   session.references++;
   const owned = session; let released = false;
-  return { ready: owned.backend.then(backend => backend.ready), async release() {
+  let runtime: ManagedBackend | undefined;
+  void owned.backend.then(backend => { runtime = backend; }, () => {});
+  const ready = owned.backend.then(backend => backend.ready);
+  void ready.then(() => { owned.status = { mode: 'managed', state: 'ready' }; }, (error: unknown) => { owned.status = { mode: 'managed', state: 'failed', reason: String((error as {reason?: string})?.reason || (/manifest|integrity|inventory|platform|cache/i.test(String(error)) ? 'runtime-damaged' : 'startup-failed')) }; });
+  return { ready, status: () => owned.status.state === 'ready' && runtime && !runtime.alive() ? { mode: 'managed', state: 'failed', reason: 'backend-exited' } : ({ ...owned.status }), async release() {
     if (released) return; released = true;
     if (--owned.references === 0) {
       if (sessions.get(deployment.directory) === owned) sessions.delete(deployment.directory);
       const stopping = owned.backend.then(backend => backend.close(), () => {});
       shutdowns.set(deployment.directory, stopping);
       try { await stopping; }
-      finally { if (shutdowns.get(deployment.directory) === stopping) shutdowns.delete(deployment.directory); }
+      finally { owned.status = { mode: 'managed', state: 'stopped' }; if (shutdowns.get(deployment.directory) === stopping) shutdowns.delete(deployment.directory); }
     }
   } };
 }

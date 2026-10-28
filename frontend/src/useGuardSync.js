@@ -1,10 +1,13 @@
 import { useEffect } from 'preact/hooks';
-import { useStore } from './store';
-import { fetchSummary, fetchRvStatus, fetchAction, apiErrorMessage } from './api';
+import { useStore, useGuardStore } from './store';
+import { useApi, apiErrorMessage } from './api';
 import { t } from './i18n';
 
 /* ── Polling hook ── */
 export function useGuardSync() {
+  const { fetchSummary, fetchRvStatus, fetchAction } = useApi();
+  const store = useGuardStore();
+
   const setSummary = useStore((s) => s.setSummary);
   const setRvStatus = useStore((s) => s.setRvStatus);
   const upsertAction = useStore((s) => s.upsertAction);
@@ -16,12 +19,15 @@ export function useGuardSync() {
     let timer;
     let source;
     let disposed = false;
+    let running = false;
     const poll = async () => {
+      if (running || disposed) return;
+      running = true;
       try {
-        const revision = useStore.getState()._actionRevision;
+        const revision = store.getState()._actionRevision;
         const s = await fetchSummary({ compact: true });
-        if (!disposed && revision === useStore.getState()._actionRevision) setSummary(s);
-        if (!disposed) { setBackendOnline(true); useStore.getState().setBackendError(''); }
+        if (!disposed && revision === store.getState()._actionRevision) setSummary(s);
+        if (!disposed) { setBackendOnline(true); store.getState().setBackendError(''); store.setState({ backendErrorCode: '' }); }
         if (rvMode) {
           const rv = await fetchRvStatus();
           if (!disposed) setRvStatus(rv);
@@ -29,15 +35,16 @@ export function useGuardSync() {
       } catch (error) {
         if (!disposed) {
           setBackendOnline(false);
-          useStore.getState().setBackendError(apiErrorMessage(error, t('error_default')));
+          store.getState().setBackendError(apiErrorMessage(error, t('error_default')));
+          store.setState({ backendErrorCode: error.code || 'request-failed' });
           // 内嵌模式离线横幅负责呈现；独立工作台保留 toast。
-          if (!useStore.getState().embedded) showToast(apiErrorMessage(error, t('error_default')));
+          if (!store.getState().embedded) showToast(apiErrorMessage(error, t('error_default')));
         }
-      }
+      } finally { running = false; }
     };
     poll();
     // 内嵌模式走宿主认证通道，浏览器 EventSource 不可用；使用有界轮询。
-    if (!useStore.getState().embedded && typeof EventSource !== 'undefined') {
+    if (!store.getState().embedded && typeof EventSource !== 'undefined') {
       source = new EventSource('/api/events');
       const handleEvent = async (event) => {
         try {

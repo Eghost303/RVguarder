@@ -1,8 +1,12 @@
+import { useT } from '../i18n';
 import { useStore } from '../store';
 import { esc } from '../i18n';
-import { upsertSkill, fetchSummary, apiErrorMessage } from '../api';
+import { useApi, apiErrorMessage } from '../api';
 
 export function SkillCard({ skill }) {
+  const t = useT();
+  const { upsertSkill, fetchSummary } = useApi();
+
   const showToast = useStore((s) => s.showToast);
   const setSummary = useStore((s) => s.setSummary);
   const enabled = !!skill.enabled;
@@ -11,7 +15,7 @@ export function SkillCard({ skill }) {
     const target = !enabled;
     try {
       await upsertSkill(skill.name, target);
-      showToast(target ? '✅ 已启用 skill' : '⏸ 已停用 skill');
+      showToast(target ? t("✅ 已启用 skill") : t("⏸ 已停用 skill"));
       const s = await fetchSummary();
       setSummary(s);
     } catch (error) {
@@ -32,7 +36,7 @@ export function SkillCard({ skill }) {
           data-enabled={enabled ? '1' : '0'}
           onClick={handleToggle}
         >
-          {enabled ? '已启用' : '已停用'}
+          {enabled ? t("已启用") : t("已停用")}
         </button>
       </div>
       {(skill.permissions || []).length > 0 && (

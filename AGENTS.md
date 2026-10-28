@@ -164,6 +164,8 @@ cd e2e && npm install && npm run install:browsers && npm test
 
 ### DSH 适配工程
 
+- **2026-10-29 rc.5 更新**：Windows x64 平台整包提供宿主托管后端、私有内容哈希运行时缓存及冻结 `migrate inspect/apply/rollback`。旧实例通过 `managedBinding` 沿用数据/instanceId/stateDir，不清空历史。用户安装整包后无需另装或手动启动 Python；外部轻量包仍需外部服务。准确命令见 [rc.5 部署](dshRVguarder/docs/deployment-rc5.md)，独立复验/未关闭项见 [rc.5 复验表](dshRVguarder/docs/rc5-revalidation-2026-10-29.md)。下方 rc.3/手动部署描述为历史节点；rc.2 UI、Linux 整包不计通过，POL-01/02 不在本轮修复范围。
+
 - 独立目录统一命名 `dshRVguarder/`，npm 包名 `dsh-rvguarder`；当前源码为 `0.2.0-rc.3` 本地开发候选（未发布），支持 DSH `0.2.1-rc.2` / `0.2.1-rc.3`，协议 `dsh-guard-v2`；GitHub 已发布的 `0.2.0-rc.1` 属于历史候选。当前部署和验证见 [Windows 原生开发指南](dshRVguarder/docs/windows-native-rc3.md)；宿主内嵌管理界面（插件页 bundle 展示 + “设置 → RVguarder”）的实现、构建与真实 rc.3 证据见 [UI 实现报告](dshRVguarder/docs/ui-integration-implementation.md)；此前修复、受控字节证据、白名单外发配置及剩余验收见 [v2 修复记录](dshRVguarder/docs/repair-2026-10-21.md)。
 - Python 后端支持 Windows 原生 Python 和 Linux/WSL Python，要求 Python 3.13+ 及兼容依赖，不限定 Windows 的 Python 安装渠道。FastAPI 与基础 Uvicorn 为必需依赖，`uvicorn[standard]` 仅在显式安装 `.[performance]` 时启用，不是默认运行前提。
 - 首个完整版本含 PMKB、RV、LLM 增强、基线扫描、Dashboard 与审计；建议 TS 适配 + Python 共享核心 + Preact，Phase 0 实测后定稿。

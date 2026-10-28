@@ -19,27 +19,9 @@ try {
         Start-Sleep -Milliseconds 500
     }
     if (-not $launchToken) { throw 'no token' }
-    $session = New-Object Microsoft.PowerShell.Commands.WebRequestSession
-    try { Invoke-WebRequest -Uri "http://127.0.0.1:8791/connect?token=$launchToken" -WebSession $session -Method GET -UseBasicParsing -MaximumRedirection 0 -ErrorAction Stop | Out-Null } catch { }
     Start-Sleep -Seconds 3
-    $page = Invoke-WebRequest -Uri "http://127.0.0.1:8791/?token=$launchToken" -WebSession $session -Method GET -UseBasicParsing
-    $html = if ($page.Content -is [byte[]]) { [Text.Encoding]::UTF8.GetString($page.Content) } else { [string]$page.Content }
-    $hasRvg = [bool]($html -match 'dsh-rvguarder/client\.js')
-    Write-Host "boot graph includes dsh-rvguarder client: $hasRvg"
-    if (!$hasRvg) { throw 'Authenticated host HTML does not include the RVguarder client boot entry.' }
-    if ($hasRvg) {
-        # 拉取该客户端 bundle（combo URL）
-        if ($html -match 'plugins/\?\?dsh-rvguarder/client\.js[^"\\'']+') {
-            $rel = $Matches[0]
-            Write-Host "bundle url: $rel"
-            $bundle = Invoke-WebRequest -Uri "http://127.0.0.1:8791/$($rel -replace '&amp;','&')" -WebSession $session -Method GET -UseBasicParsing
-            Write-Host ("client bundle bytes: " + $bundle.Content.Length)
-            $clientText = if ($bundle.Content -is [byte[]]) { [Text.Encoding]::UTF8.GetString($bundle.Content) } else { [string]$bundle.Content }
-            $registered = $clientText -match '__ModuleLoader__\.load'
-            Write-Host ("client bundle registers: " + $registered)
-            if (!$registered) { throw 'Client resource did not register the DSH module loader.' }
-        } else { throw 'RVguarder client combo resource URL not found.' }
-    }
+    & node (Join-Path $PSScriptRoot 'verify-boot.mjs') --url 'http://127.0.0.1:8791' --log (Join-Path $Stage 'dbg.out.log') --output (Join-Path $Stage 'client-result.json')
+    if ($LASTEXITCODE -ne 0) { throw 'Authenticated client boot graph verification failed.' }
 } finally {
     taskkill /PID $hostProc.Id /T /F 2>$null | Out-Null
     Start-Sleep -Seconds 2

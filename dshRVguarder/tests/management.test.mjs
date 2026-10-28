@@ -147,3 +147,18 @@ test('large UTF-8 JSON is limited by bytes', async (t) => {
   const { service } = await admin(t, { backend: { body: { message: '中'.repeat(1500000) } } });
   await assert.rejects(() => service.overview(), (error) => error.code === 'rvguarder/response-too-large');
 });
+
+test('startup overview remains bounded while runtime initialization is pending', async t => {
+  const f = fixture(t); await f.ready;
+  const ctx = new Context(); t.after(() => ctx.fiber.dispose());
+  const service = new RvguarderAdmin(ctx, { backendUrl: 'http://127.0.0.1:1', tokenFile: '', instanceId: 'starting-instance', connectionReady: new Promise(() => {}), deploymentStatus: () => ({ mode: 'managed', state: 'starting' }) });
+  const result = await service.overview();
+  assert.equal(result.backend.online, false); assert.equal(result.backend.deployment.state, 'starting'); assert.equal(result.backend.instanceId, 'starting-instance');
+});
+
+test('invalid JSON shape and HTTP 403 have distinct visible failure codes', async t => {
+  const malformed = await admin(t, { backend: { body: ['not-an-object'] } });
+  await assert.rejects(() => malformed.service.overview(), error => error.code === 'rvguarder/backend-protocol');
+  const forbidden = await admin(t, { backend: { status: 403 } });
+  await assert.rejects(() => forbidden.service.overview(), error => error.code === 'rvguarder/backend-error' && error.details.status === 403);
+});

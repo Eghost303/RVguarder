@@ -46,6 +46,10 @@ test('trusted profile binding separates homes and profile names', () => {
   assert.notEqual(deploymentFor(ctx('one')).instanceId, deploymentFor(ctx('two')).instanceId);
   assert.notEqual(deploymentFor(ctx('one')).instanceId, deploymentFor(ctx('one', home + '-2')).instanceId);
   assert.throws(() => deploymentFor(ctx('..')), /trusted/);
+  const binding = { projectDir: join(home, 'legacy-data'), instanceId: 'old-id', stateDir: join(home, 'legacy-plugin-state') };
+  const migrated = deploymentFor(ctx('one'), binding);
+  assert.equal(migrated.instanceId, 'old-id'); assert.equal(migrated.directory, binding.projectDir); assert.equal(migrated.stateDir, binding.stateDir);
+  assert.throws(() => deploymentFor(ctx('one'), { ...binding, projectDir: workspace }), /outside/);
 });
 
 test('frozen backend authenticates, stops on pipe close and preserves identity', {

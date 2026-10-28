@@ -1,11 +1,14 @@
 import { useEffect, useState } from 'preact/hooks';
-import { api } from '../api';
+import { useApi, apiErrorMessage } from '../api';
 import { useStore } from '../store';
-import { t } from '../i18n';
+import { useT } from '../i18n';
 import { RuleCard } from '../components/RuleCard';
 import { BUILTIN_RULES } from '../rules-data';
 
 export function Rules() {
+  const t = useT();
+  const { api } = useApi();
+
   const rulesSearch = useStore((s) => s.rulesSearch);
   const setRulesSearch = useStore((s) => s.setRulesSearch);
 

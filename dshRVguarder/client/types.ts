@@ -7,7 +7,8 @@ export interface ClientContext {
   locale: {
     register(ns: string, dict: { zh: Record<string, string>; en: Record<string, string> }): unknown;
     bind(ns: string): (key: string) => string;
-    getSnapshot?(): { language?: string };
+    getSnapshot?(): { active?: string };
+    subscribe?(listener: () => void): () => void;
     resolveText?(text: unknown): string;
   };
   slots: {
@@ -19,4 +20,5 @@ export interface ClientContext {
     $on(event: string, listener: (...args: unknown[]) => void): unknown;
   };
   get<T = unknown>(key: string): T | undefined;
+  on?(event: string, listener: (...args: unknown[]) => void): () => void;
 }

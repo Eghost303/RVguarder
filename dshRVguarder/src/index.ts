@@ -28,7 +28,7 @@ export function apply(ctx:Context,config:Config) {
   ctx.tools.guard(() => initialized ? undefined : reason);
   ctx.on('tools/pre-execute', (_exec, next) => initialized ? next() : Promise.resolve({ kind: 'deny' as const, reason }));
   let managed: ReturnType<typeof acquireManaged>;
-  try { managed = acquireManaged(ctx); }
+  try { managed = acquireManaged(ctx, undefined, config.managedBinding); }
   catch (error) { console.error(`RVguarder managed initialization: ${error instanceof Error ? error.message : 'failed'}`); reason = 'RVguarder 整包后端缺失、损坏或平台不匹配；请重新安装对应平台整包。'; return; }
   ctx.effect(() => async () => { stopped = true; await managed.release(); }, 'rvguarder-managed-backend');
   void managed.ready.then(connection => {
@@ -56,9 +56,9 @@ function applyCore(ctx:Context,config:Config) {
   const identities=new Map<object,GuardCall>();
   const degradedCalls=new Map<object,GuardCall>();
   let failure:unknown=outbox.recoveryRequired ? new Error("Unconfirmed execution from previous process") : undefined;
-  async function ready() {
+  async function ready(forceHello = false) {
     if(failure) throw new Error('Guard persistence failure requires reconciliation');
-    await outbox.flush(client); await client.hello(config.instanceId);
+    await outbox.flush(client); await client.hello(config.instanceId, forceHello);
     await degraded.flush(client).catch(()=>{process.emitWarning("RVguarder degraded audit pending");});
   }
   ctx.on('tools/pre-execute',async(exec,next):Promise<PreToolDecision>=>{
@@ -137,7 +137,7 @@ function applyCore(ctx:Context,config:Config) {
   let stopped=false;let heartbeatRun:Promise<void>|undefined;
   const heartbeat=()=>{
     if(stopped)return Promise.resolve();if(heartbeatRun)return heartbeatRun;
-    heartbeatRun=(async()=>{await ready();await client.hello(config.instanceId,true);if(!stopped)await client.post('probe',hostProbe(ctx,config.instanceId,stateDir,degraded.gap));})().finally(()=>{heartbeatRun=undefined;});
+    heartbeatRun=(async()=>{await ready(true);if(!stopped)await client.post('probe',hostProbe(ctx,config.instanceId,stateDir,degraded.gap));})().finally(()=>{heartbeatRun=undefined;});
     return heartbeatRun;
   };
   const timer=setInterval(()=>{void heartbeat().catch(()=>{});},15000);timer.unref();

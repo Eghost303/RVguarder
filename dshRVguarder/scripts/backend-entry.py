@@ -10,4 +10,10 @@ for stream in (sys.stdout, sys.stderr):
 from clawRVguarder.hosts.dsh.server import main
 
 if __name__ == "__main__":
+    if len(sys.argv) > 1 and sys.argv[1] == "migrate":
+        from clawRVguarder.hosts.dsh.migration import main as migrate
+        raise SystemExit(migrate(sys.argv[2:]))
+    if len(sys.argv) > 1 and sys.argv[1] == "runtime-stage":
+        from clawRVguarder.hosts.dsh.runtime_bundle import main as stage
+        raise SystemExit(stage(sys.argv[2:]))
     raise SystemExit(main())

@@ -4,6 +4,8 @@
  * 保持与旧版完全相同的 key 和中文文本。
  */
 
+import { useStore } from './store';
+import { EN } from './english';
 const T = {
   appName: 'RVguarder',
   appSub: 'OpenClaw Agent 安全插件',
@@ -81,6 +83,12 @@ const T = {
 
 export function t(k) {
   return T[k] || k;
+}
+
+/** 随挂载语言更新翻译函数，独立工作台默认中文。 */
+export function useT() {
+  const language = useStore(state => state.language);
+  return key => language === 'en' ? (EN[key] ?? EN[T[key]] ?? T[key] ?? key) : (T[key] ?? key);
 }
 
 export const SCENE_ZH = {
