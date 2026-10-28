@@ -2,18 +2,24 @@
 import { spawn, execFile, type ChildProcess } from 'node:child_process';
 import { promisify } from 'node:util';
 import { createHash } from 'node:crypto';
-import { lstatSync, readFileSync, readdirSync, realpathSync } from 'node:fs';
+import { lstatSync, mkdirSync, readFileSync, readdirSync, realpathSync } from 'node:fs';
 import { dirname, isAbsolute, join, relative, resolve, toNamespacedPath } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { Context } from '@deepseek-ai/cordis';
 
 export interface ManagedBinding { projectDir: string; instanceId: string; stateDir: string; }
-export interface ManagedConfig { backendMode?: 'managed' | 'external'; managedBinding?: ManagedBinding; }
+export interface ManagedConfig { backendMode?: 'managed' | 'external'; managedBinding?: ManagedBinding; resourceWorkspace?: string; }
 export interface DeploymentStatus { mode: 'managed' | 'external'; state: 'starting' | 'ready' | 'failed' | 'stopped'; reason?: string; }
 export interface Connection { backendUrl: string; tokenFile: string; instanceId: string; stateDir: string; }
 export interface Deployment { directory: string; workspace: string; home: string; profile: string; instanceId: string; stateDir?: string; }
 interface Manifest { schema: number; platform: string; arch: string; executable: string; files: Record<string, string>; }
 const packageRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
+
+/** 任一方向的包含都属于资源根与私有存储重叠。 */
+function overlaps(left: string, right: string): boolean {
+  const contains = (parent: string, child: string) => { const path = relative(parent, child); return path === '' || (!path.startsWith('..') && !isAbsolute(path)); };
+  return contains(left, right) || contains(right, left);
+}
 
 /** 拒绝路径逃逸、链接、缺失及篡改；manifest 是随平台包交付的完整文件清单。 */
 export function verifyBackend(root = join(packageRoot, 'backend')): string {
@@ -40,24 +46,38 @@ export function verifyBackend(root = join(packageRoot, 'backend')): string {
 }
 
 /** 只使用宿主注入的 profile 事实与工作区默认值，不读工具参数或浏览器输入。 */
-export function deploymentFor(ctx: Context, binding?: ManagedBinding): Deployment {
+export function deploymentFor(ctx: Context, binding?: ManagedBinding, resourceWorkspace?: string): Deployment {
   const profile = ctx.get('profileContext') as { home: string; name: string; cwd: string } | undefined;
   if (!profile || !isAbsolute(profile.home) || !/^[a-zA-Z0-9_.-]{1,128}$/.test(profile.name) || ['.', '..'].includes(profile.name)) throw new Error('Managed backend requires trusted DSH profileContext');
-  const workspace = resolve(ctx.workingDirectory?.defaultDirectory || profile.cwd);
+  // 服务的受控资源命名空间属于 profile 配置，不以启动终端或任一会话的 cwd 作为实例绑定。
+  // 工具调用的真实 cwd 仍由 SDK 随每次调用发送；此处不修改 workingDirectory 服务。
+  if (resourceWorkspace !== undefined && !isAbsolute(resourceWorkspace)) throw new Error('Invalid managed resource workspace');
+  const workspace = resolve(resourceWorkspace ?? (binding ? ctx.workingDirectory?.defaultDirectory || profile.cwd : join(resolve(profile.home), 'workspaces', profile.name)));
   const id = 'dsh-' + createHash('sha256').update(resolve(profile.home) + '\0' + profile.name).digest('hex').slice(0, 24);
   if (binding && (!isAbsolute(binding.projectDir) || !isAbsolute(binding.stateDir) || !/^[a-zA-Z0-9_.-]{1,128}$/.test(binding.instanceId))) throw new Error('Invalid managedBinding');
   const directory = binding ? resolve(binding.projectDir) : join(resolve(profile.home), 'rvguarder', id);
-  const local = relative(workspace, directory);
-  if (local === '' || (!local.startsWith('..') && !isAbsolute(local))) throw new Error('Guard data must be outside Agent workspace');
+  if (overlaps(workspace, directory) || overlaps(workspace, join(resolve(profile.home), 'rvguarder', 'runtimes'))) throw new Error('Guard data must be outside managed resource workspace');
   if (binding) {
-    const state = relative(workspace, resolve(binding.stateDir));
-    if (state === '' || (!state.startsWith('..') && !isAbsolute(state))) throw new Error('Plugin state must be outside Agent workspace');
+    if (overlaps(workspace, resolve(binding.stateDir))) throw new Error('Plugin state must be outside managed resource workspace');
   }
   return { directory, workspace, home: resolve(profile.home), profile: profile.name, instanceId: binding?.instanceId ?? id, stateDir: binding?.stateDir };
 }
 
+/** 创建受控资源根并核对真实路径，防止链接或私有目录重叠。 */
+export function prepareResourceWorkspace(deployment: Deployment): void {
+  mkdirSync(deployment.workspace, { recursive: true, mode: 0o700 });
+  // 核对真实路径；不能通过资源根目录的链接将 Guard 私有数据纳入资源命名空间。
+  const workspace = realpathSync(deployment.workspace);
+  for (const path of [deployment.directory, deployment.stateDir, join(deployment.home, 'rvguarder', 'runtimes')]) {
+    if (!path) continue;
+    const target = (() => { try { return realpathSync(path); } catch (error) { if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error; return resolve(path); } })();
+    if (overlaps(workspace, target)) throw Object.assign(new Error('Guard private paths overlap managed resource workspace'), { reason: 'workspace-conflict' });
+  }
+}
+
 /** 用短命自举进程部署缓存，常驻进程不持有 npm 包内 executable/DLL。 */
 async function cachedBackend(deployment: Deployment): Promise<ManagedBackend> {
+  prepareResourceWorkspace(deployment);
   const source = verifyBackend();
   const cache = join(deployment.home, 'rvguarder', 'runtimes');
   const result = await promisify(execFile)(toNamespacedPath(source), ['runtime-stage', '--cache', cache, '--workspace', deployment.workspace], {
@@ -151,12 +171,22 @@ export function coreFailureReason(error: unknown): CoreFailure {
   return 'startup-failed';
 }
 
+/** 同步配置故障和异步启动故障使用固定分类，不把文件路径带进管理响应。 */
+export function deploymentFailureReason(error: unknown): string {
+  const reason = (error as {reason?: unknown})?.reason;
+  if (typeof reason === 'string' && ['instance-mismatch', 'instance-conflict', 'runtime-damaged', 'startup-failed', 'workspace-conflict'].includes(reason)) return reason;
+  const message = error instanceof Error ? error.message : '';
+  if (/workspace|namespace/i.test(message)) return 'workspace-conflict';
+  if (/profileContext|managedBinding/i.test(message)) return 'configuration-invalid';
+  return /manifest|integrity|inventory|platform|cache/i.test(message) ? 'runtime-damaged' : 'startup-failed';
+}
+
 const sessions = new Map<string, { backend: Promise<ManagedBackend>; references: number; fingerprint: string; status: DeploymentStatus; coreFailure?: CoreFailure }>();
 const shutdowns = new Map<string, Promise<void>>();
 
 /** 核心与管理入口共享一个进程；最后一个宿主 fiber 卸载时关闭。 */
-export function acquireManaged(ctx: Context, factory: (deployment: Deployment) => ManagedBackend | Promise<ManagedBackend> = cachedBackend, binding?: ManagedBinding): { ready: Promise<Connection>; status(): DeploymentStatus; reportFailure(reason: CoreFailure): void; release(): Promise<void> } {
-  const deployment = deploymentFor(ctx, binding);
+export function acquireManaged(ctx: Context, factory: (deployment: Deployment) => ManagedBackend | Promise<ManagedBackend> = cachedBackend, binding?: ManagedBinding, resourceWorkspace?: string): { ready: Promise<Connection>; status(): DeploymentStatus; reportFailure(reason: CoreFailure): void; release(): Promise<void> } {
+  const deployment = deploymentFor(ctx, binding, resourceWorkspace);
   const fingerprint = JSON.stringify(deployment);
   let session = sessions.get(deployment.directory);
   if (session && session.fingerprint !== fingerprint) throw new Error('Conflicting managed instance binding');
@@ -170,7 +200,7 @@ export function acquireManaged(ctx: Context, factory: (deployment: Deployment) =
   let runtime: ManagedBackend | undefined;
   void owned.backend.then(backend => { runtime = backend; }, () => {});
   const ready = owned.backend.then(backend => backend.ready);
-  void ready.then(() => { owned.status = { mode: 'managed', state: 'ready' }; }, (error: unknown) => { owned.status = { mode: 'managed', state: 'failed', reason: String((error as {reason?: string})?.reason || (/manifest|integrity|inventory|platform|cache/i.test(String(error)) ? 'runtime-damaged' : 'startup-failed')) }; });
+  void ready.then(() => { owned.status = { mode: 'managed', state: 'ready' }; }, (error: unknown) => { owned.status = { mode: 'managed', state: 'failed', reason: deploymentFailureReason(error) }; });
   return { ready, reportFailure(reason) { if (!released) owned.coreFailure = reason; }, status: () => owned.status.state === 'stopped' ? ({ ...owned.status }) : owned.coreFailure ? { mode: 'managed', state: 'failed', reason: owned.coreFailure } : owned.status.state === 'ready' && runtime && !runtime.alive() ? { mode: 'managed', state: 'failed', reason: 'backend-exited' } : ({ ...owned.status }), async release() {
     if (released) return; released = true;
     if (--owned.references === 0) {

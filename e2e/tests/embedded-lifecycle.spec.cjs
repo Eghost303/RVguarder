@@ -16,6 +16,7 @@ test.beforeEach(async ({ page }) => {
       window.faults[id] = fault;
       const transport = { call: async method => {
         window.counts[id] = (window.counts[id] || 0) + 1;
+        if (window.faults[id]?.backend) return window.faults[id];
         if (window.faults[id]) throw Object.assign(new Error(window.faults[id]), { code: window.faults[id] });
         if (method === 'overview') return { backend: { online: true, instanceId: id }, summary: { host: { kind: 'dsh', instance_id: id }, hook: { active: true }, actions: { counts: {}, items: [] }, semantic: { last_llm_status: 'not_run' }, capabilities: {} } };
         return method === 'policy' ? { version: 'fixture', rules: [{ id: 'contrast-rule', source: 'Readable rule description', effect: 'block', match: { operation: 'file.read' } }] } : { items: [], chain: { ok: true } };
@@ -122,3 +123,14 @@ test('repeated mounting leaves no polling timers or styles', async ({ page }) =>
     await expect(page.locator('#rvguarder-embedded-styles')).toHaveCount(0);
   }
 });
+
+for (const reason of ['workspace-conflict', 'configuration-invalid']) {
+  test('managed bootstrap fault retains its specific classification: ' + reason, async ({ page }) => {
+    await page.evaluate(reason => add('bootstrap', { backend: { online: false, instanceId: 'test', deployment: { mode: 'managed', state: 'failed', reason } }, summary: null }), reason);
+    await expect(page.locator('#bootstrap .rvg-embed')).toHaveAttribute('data-error-code', 'rvguarder/' + reason);
+    await expect(page.locator('#bootstrap')).not.toContainText('backend-unreachable');
+    await expect(page.getByRole('button', { name: '重新连接' })).toBeVisible();
+    await page.evaluate(() => handles.bootstrap.update({ language: 'en' }));
+    await expect(page.locator('#bootstrap')).toContainText(reason === 'workspace-conflict' ? 'overlaps private data' : 'configuration is invalid');
+  });
+}

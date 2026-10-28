@@ -2,10 +2,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync, readFileSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync, readFileSync, symlinkSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
-import { verifyBackend, deploymentFor, ManagedBackend, acquireManaged, coreFailureReason } from '../dist/managed.js';
+import { verifyBackend, deploymentFor, ManagedBackend, acquireManaged, coreFailureReason, deploymentFailureReason, prepareResourceWorkspace } from '../dist/managed.js';
 
 function fixture(t) {
   const root = mkdtempSync(join(tmpdir(), 'rvg-package-'));
@@ -68,6 +68,46 @@ test('core recovery failure stays visible across concurrent admin readiness', as
   assert.deepEqual(admin.status(), { mode: 'managed', state: 'failed', reason: 'recovery-required' });
   assert.equal(coreFailureReason(new Error('DSH plugin state directory already owned')), 'instance-conflict');
   assert.equal(coreFailureReason(new Error('Unconfirmed execution from previous process')), 'recovery-required');
+});
+
+test('managed profile storage and resource roots do not depend on launcher cwd', () => {
+  const user = join(tmpdir(), 'user');
+  const home = join(user, '.dsh');
+  const choices = [user, home, join(home, 'rvguarder'), join(user, 'project'), process.platform === 'win32' ? 'C:\\' : '/'];
+  let expected;
+  for (const cwd of choices) {
+    const workingDirectory = { defaultDirectory: cwd };
+    const ctx = { get: () => ({ home, name: 'rvguarder-dev', cwd }), workingDirectory };
+    const deployment = deploymentFor(ctx);
+    assert.equal(deployment.workspace, join(home, 'workspaces', 'rvguarder-dev'));
+    assert.equal(workingDirectory.defaultDirectory, cwd, 'must not change the host workspace');
+    if (expected) assert.deepEqual(deployment, expected);
+    expected = deployment;
+  }
+  const ctx = { get: () => ({ home, name: 'rvguarder-dev', cwd: user }), workingDirectory: { defaultDirectory: user } };
+  assert.throws(() => deploymentFor(ctx, undefined, user), /outside managed resource workspace/);
+  assert.throws(() => deploymentFor(ctx, undefined, join(expected.directory, 'resources')), /outside managed resource workspace/);
+  assert.throws(() => deploymentFor(ctx, undefined, '.'), /Invalid managed resource workspace/);
+  assert.equal(deploymentFailureReason(new Error('Guard data must be outside managed resource workspace')), 'workspace-conflict');
+  assert.equal(deploymentFailureReason(new Error('Managed backend requires trusted DSH profileContext')), 'configuration-invalid');
+});
+
+test('a resource-root junction cannot include private state through an alias', t => {
+  const root = mkdtempSync(join(tmpdir(), 'rvg-resource-alias-'));
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  const privateRoot = join(root, 'private'), alias = join(root, 'resources');
+  mkdirSync(privateRoot); symlinkSync(privateRoot, alias, process.platform === 'win32' ? 'junction' : 'dir');
+  assert.throws(() => prepareResourceWorkspace({ directory: join(privateRoot, 'data'), workspace: alias, home: join(root, 'home'), profile: 'rvguarder-dev', instanceId: 'test' }), error => error.reason === 'workspace-conflict');
+});
+
+test('two owners with different default directories share the same managed backend', async t => {
+  const root = mkdtempSync(join(tmpdir(), 'rvg-cwd-'));
+  const home = join(root, 'home'); let starts = 0;
+  const ctx = cwd => ({ get: () => ({ home, name: 'rvguarder-dev', cwd }), workingDirectory: { defaultDirectory: cwd } });
+  const factory = () => { starts++; return { ready: Promise.resolve({ backendUrl: 'http://127.0.0.1:1', tokenFile: 'private', instanceId: 'test', stateDir: root }), alive: () => true, close: async () => {} }; };
+  const core = acquireManaged(ctx(root), factory), admin = acquireManaged(ctx(join(root, 'project')), factory);
+  t.after(async () => { await core.release(); await admin.release(); rmSync(root, { recursive: true, force: true }); });
+  assert.deepEqual(await core.ready, await admin.ready); assert.equal(starts, 1);
 });
 
 test('frozen backend authenticates, stops on pipe close and preserves identity', {

@@ -28,7 +28,7 @@ export function apply(ctx:Context,config:Config) {
   ctx.tools.guard(() => initialized ? undefined : reason);
   ctx.on('tools/pre-execute', (_exec, next) => initialized ? next() : Promise.resolve({ kind: 'deny' as const, reason }));
   let managed: ReturnType<typeof acquireManaged>;
-  try { managed = acquireManaged(ctx, undefined, config.managedBinding); }
+  try { managed = acquireManaged(ctx, undefined, config.managedBinding, config.resourceWorkspace); }
   catch (error) { console.error(`RVguarder managed initialization: ${error instanceof Error ? error.message : 'failed'}`); reason = 'RVguarder 整包后端缺失、损坏或平台不匹配；请重新安装对应平台整包。'; return; }
   ctx.effect(() => async () => { stopped = true; await managed.release(); }, 'rvguarder-managed-backend');
   void managed.ready.then(connection => {

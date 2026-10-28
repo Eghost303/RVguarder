@@ -134,6 +134,8 @@ export function createScopedApi(transport, store) {
       if (value?.backend?.recoveryRequired) throw Object.assign(new Error('Guard 恢复锁定：上次执行尚未完成核对，请检查实例历史。'), { code: 'rvguarder/recovery-required' });
       if (value?.summary) return value.summary;
       const state = value?.backend?.deployment?.state;
+      if (value?.backend?.deployment?.reason === 'workspace-conflict') throw Object.assign(new Error('Guard 资源目录与私有数据目录冲突，请检查插件配置'), { code: 'rvguarder/workspace-conflict' });
+      if (value?.backend?.deployment?.reason === 'configuration-invalid') throw Object.assign(new Error('Guard 插件配置无效，请检查宿主 profile 配置'), { code: 'rvguarder/configuration-invalid' });
       throw Object.assign(new Error(state === 'starting' ? 'Guard 后端正在启动' : state === 'failed' ? 'Guard 运行时启动失败，请检查插件状态' : '后端未连接'), { code: 'rvguarder/' + (state || 'backend-unreachable') });
     },
     fetchRvStatus: () => scopedCall('rvStatus'),

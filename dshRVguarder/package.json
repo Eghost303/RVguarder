@@ -1,9 +1,9 @@
 {
   "name": "dsh-rvguarder",
-  "version": "0.2.0-rc.5",
+  "version": "0.2.0-rc.6",
   "private": true,
   "type": "module",
-  "description": "DSH 0.2.1-rc.2 / rc.3 的 RVguarder 适配插件：核心守卫 + 宿主内嵌管理界面",
+  "description": "DSH 0.2.1-rc.2 / rc.3 \u7684 RVguarder \u9002\u914d\u63d2\u4ef6\uff1a\u6838\u5fc3\u5b88\u536b + \u5bbf\u4e3b\u5185\u5d4c\u7ba1\u7406\u754c\u9762",
   "scripts": {
     "check": "tsc --noEmit && tsc --noEmit -p tsconfig.client.json && node scripts/verify-client-shape.mjs",
     "build": "tsc",

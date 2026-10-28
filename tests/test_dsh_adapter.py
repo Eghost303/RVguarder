@@ -60,6 +60,19 @@ def test_supported_sdk_version_handshake(dsh, version):
     assert client.post("/api/dsh/hello", json={"protocol": "dsh-guard-v2", "instance_id": "dsh-local", "sdk_version": "0.2.1-rc.4"}).status_code == 409
 
 
+def test_authenticated_call_cwd_is_not_the_managed_resource_namespace(dsh, tmp_path):
+    """后台资源根固定时，普通调用仍使用宿主签发的真实cwd，拒绝参数冒充。"""
+    manager, _, resource_root = dsh
+    actual = tmp_path / "another-session-project"
+    actual.mkdir()
+    request = call(actual, arguments={"file_path": "data.txt", "cwd": str(resource_root)})
+    payload = manager.host_adapter.payload(request)
+    assert payload["params"]["cwd"] == str(actual)
+    event = manager.host_adapter.build_event(payload, manager.context)
+    assert event.metadata["host_workspace"] == str(actual)
+    assert event.metadata["resource_workspace"] == str(resource_root)
+
+
 def test_read_is_allowed_then_success_commits_once(dsh):
     manager, client, workspace = dsh
     request = call(workspace)

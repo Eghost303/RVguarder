@@ -92,11 +92,14 @@ class DshAdapter:
 
     def build_event(self, payload: dict[str, Any], context: AppContext):
         """共享归一化后写入宿主签发的身份与作用域，不提升未知工具的权限。"""
-        event = build_hook_event(payload, managed_project_root=self.workspace)
+        # 每次工具调用的工作区来自已认证宿主上下文；后台固定资源根不是会话 cwd。
+        working_directory = Path(local_path(payload["_dsh"]["cwd"]))
+        event = build_hook_event(payload, managed_project_root=working_directory)
         event.process_name = event.user = "dsh"
         event.source = "dsh-before-tool-call"
         event.metadata.update({"host": "dsh", "instance_id": self.instance_id,
-                               "host_workspace": str(self.workspace), "dsh": payload["_dsh"]})
+                               "host_workspace": str(working_directory), "resource_workspace": str(self.workspace),
+                               "dsh": payload["_dsh"]})
         event.metadata["tool_origin"] = "dsh_native" if payload["_dsh"]["tool_name"] in TOOL_ALIASES else "host_mapped" if payload["_dsh"]["tool_name"] in self.mappings else "unknown"
         event.metadata["trusted_identity"] = {
             "principal_id": f"dsh:{self.binding}", "principal_type": "agent",

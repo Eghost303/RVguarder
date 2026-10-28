@@ -173,15 +173,15 @@ export DEEPSEEK_API_KEY=...
 
 ### DSH 插件
 
-**0.2.0-rc.5 · Windows x64 · DSH 0.2.1-rc.3**
+**0.2.0-rc.6 · Windows x64 · DSH 0.2.1-rc.3**
 
 ```powershell
-dsh plugin --profile desktop add dsh-rvguarder@0.2.0-rc.5
+dsh plugin --profile desktop add dsh-rvguarder@0.2.0-rc.6
 ```
 
 重新启动 DSH，在 **插件 → 已安装** 中启用 RVguarder，再打开 **设置 → RVguarder**。整包自带运行环境，**无需安装 Python 或单独启动后端**。
 
-[下载安装与使用说明](docs/deployment/dsh.md)提供 npm 安装、GitHub Release 下载及日常操作。本版本为预发布版本，[验证范围与已知问题](dshRVguarder/docs/rc5-revalidation-2026-10-29.md)请在使用前阅读。
+[下载安装与使用说明](docs/deployment/dsh.md)提供 npm 安装、GitHub Release 下载及日常操作。本版本为预发布版本，[验证范围与已知问题](dshRVguarder/docs/rc6-startup-verification-2026-10-29.md)请在使用前阅读。
 
 ---
 
@@ -244,7 +244,7 @@ ChainRule DSL 监视器触发：
 
 ```
 clawRVguarder/        Python 后端与 CLI（FastAPI、PMKB、RV、审计、OpenClaw 集成）
-dshRVguarder/         DSH 0.2.1-rc.2 / rc.3 适配插件（0.2.0-rc.5：内嵌管理界面与托管运行环境）
+dshRVguarder/         DSH 0.2.1-rc.2 / rc.3 适配插件（0.2.0-rc.6：内嵌管理界面与托管运行环境）
 frontend/              Preact 工作台（Vite 构建，产物输出 runtime/ui/）
 policies/permissions/  PMKB 单一源（schema、operations、rules、traces、relations、vectors）
 tests/                 后端测试与文档/发布契约

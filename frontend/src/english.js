@@ -32,4 +32,6 @@ export const EN = {
   'OpenClaw 中选择“始终允许”后，Guard 只会复用完全相同的工具、参数、工作目录和 agent/principal。': 'OpenClaw persistent grants apply only to the exact tool, arguments, directory and principal.', '精确命令': 'Exact command', '有效至': 'Expires', '撤销': 'Revoke', '当前没有持久授权。': 'No persistent grants.', 'DSH 插件由宿主 profile 管理。': 'DSH manages plugins in its profile.', '搜索 skill…': 'Search skills…',
   '无法读取审计记录': 'Cannot read audit', '审计导出失败': 'Audit export failed', '正在读取审计记录…': 'Loading audit…', '审计链完整性': 'Audit integrity', '链完整': 'Chain valid', '存在断链': 'Chain broken', '断链记录：': 'Broken records: ', '未知': 'Unknown', '；请核对导出记录。': '; review the exported records.', '导出 JSON': 'Export JSON', '导出 CSV': 'Export CSV', '近期审计记录（': 'Recent audit (', '暂无审计记录。': 'No audit records.', '· 哈希': '· Hash',
   'Guard 后端正在启动': 'Guard backend is starting', 'Guard 运行时启动失败，请检查插件状态': 'Guard runtime failed to start. Check plugin status.', '后端未连接': 'Backend disconnected', 'Guard 恢复锁定：上次执行尚未完成核对，请检查实例历史。': 'Guard recovery locked: reconcile the interrupted execution history.',
+  'Guard 资源目录与私有数据目录冲突，请检查插件配置': 'Guard resource directory overlaps private data. Check plugin configuration.',
+  'Guard 插件配置无效，请检查宿主 profile 配置': 'Guard configuration is invalid. Check the host profile.',
 };

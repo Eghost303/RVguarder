@@ -8,6 +8,7 @@ import { createServer } from 'node:http';
 import { once } from 'node:events';
 import { Context } from '@deepseek-ai/cordis';
 import { RvguarderAdmin } from '../dist/management.js';
+import { apply as applyAdmin } from '../dist/admin.js';
 
 function fixture(t, { status = 200, body = { ok: true }, identity = 'test', protocol = 'dsh-guard-v2' } = {}) {
   const temp = mkdtempSync(join(tmpdir(), 'rvg-admin-'));
@@ -170,4 +171,16 @@ test('core recovery lock is reported even when the backend process is ready', as
   assert.equal(value.backend.recoveryRequired, true);
   assert.equal(value.backend.online, false);
   assert.equal(value.backend.deployment.reason, 'recovery-required');
+});
+
+test('synchronous managed workspace configuration errors stay visible without paths', async t => {
+  const ctx = new Context(); t.after(() => ctx.fiber.dispose());
+  const home = join(tmpdir(), 'rvg-invalid-config-home');
+  ctx.provide('profileContext', { home, name: 'rvguarder-dev', cwd: home });
+  applyAdmin(ctx, { backendMode: 'managed', resourceWorkspace: home });
+  const service = ctx.get('rvguarderAdmin');
+  const result = await service.overview();
+  assert.equal(result.backend.online, false);
+  assert.equal(result.backend.deployment.reason, 'workspace-conflict');
+  assert.equal(JSON.stringify(result).includes(home), false);
 });

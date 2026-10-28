@@ -180,15 +180,15 @@ Without it, the local-rule mode is used: lower latency, same availability.
 
 ### DSH plugin
 
-**0.2.0-rc.5 · Windows x64 · DSH 0.2.1-rc.3**
+**0.2.0-rc.6 · Windows x64 · DSH 0.2.1-rc.3**
 
 ```powershell
-dsh plugin --profile desktop add dsh-rvguarder@0.2.0-rc.5
+dsh plugin --profile desktop add dsh-rvguarder@0.2.0-rc.6
 ```
 
 Restart DSH, enable RVguarder under **Plugins → Installed**, then open **Settings → RVguarder**. The package includes its runtime; no separate Python installation or backend process is required.
 
-See [download and installation](docs/deployment/dsh.md) for npm, GitHub Release downloads, and daily use. This is a pre-release; see the [verified scope and known issues](dshRVguarder/docs/rc5-revalidation-2026-10-29.md).
+See [download and installation](docs/deployment/dsh.md) for npm, GitHub Release downloads, and daily use. This is a pre-release; see the [verified scope and known issues](dshRVguarder/docs/rc6-startup-verification-2026-10-29.md).
 
 ---
 
@@ -254,7 +254,7 @@ State is stored in `runtime/rv-state.json`, bounded by TTL and size limits.
 
 ```
 clawRVguarder/        Python backend and CLI (FastAPI, PMKB, RV, audit, OpenClaw integration)
-dshRVguarder/         DSH 0.2.1-rc.2 / rc.3 adapter plugin (local development candidate 0.2.0-rc.5: embedded management UI and managed runtime)
+dshRVguarder/         DSH 0.2.1-rc.2 / rc.3 adapter plugin (local development candidate 0.2.0-rc.6: embedded management UI and managed runtime)
 frontend/             Preact workbench (Vite build, output to runtime/ui/)
 policies/permissions/ PMKB single source (schema, operations, rules, traces, relations, vectors)
 tests/                Backend tests and documentation/release contracts
