@@ -148,14 +148,19 @@ test('managed bundle disable and enable preserve identity and business history',
   const before = await rpc('rvguarderAdmin', 'overview');
   expect(before.backend.online).toBe(true);
   await rpc('pluginManager', 'setBundleEnabled', { name: 'dsh-rvguarder', enabled: false });
-  await expect.poll(async () => (await rpc('pluginInventory', 'list')).entries.filter(e => ['rvguarder-dsh', 'rvguarder-admin'].includes(e.entryId)).every(e => e.fiberPhase !== 'active'), { timeout: 15000 }).toBe(true);
+  const own = entries => entries.filter(e => ['dsh-rvguarder', 'dsh-rvguarder/admin'].includes(e.moduleName));
+  await expect.poll(async () => {
+    const bundle = (await rpc('pluginManager', 'listBundles')).find(bundle => bundle.name === 'dsh-rvguarder');
+    const entries = own((await rpc('pluginInventory', 'list')).entries);
+    return bundle?.enabled === false && entries.every(e => e.fiberPhase !== 'active');
+  }, { timeout: 15000 }).toBe(true);
   await rpc('pluginManager', 'setBundleEnabled', { name: 'dsh-rvguarder', enabled: true });
   await expect.poll(async () => { try { return (await rpc('rvguarderAdmin', 'overview')).backend.online; } catch { return false; } }, { timeout: 60000 }).toBe(true);
   const after = await rpc('rvguarderAdmin', 'overview');
   expect(after.backend.instanceId).toBe(before.backend.instanceId);
   const entries = (await rpc('pluginInventory', 'list')).entries;
-  expect(entries.filter(e => e.entryId === 'rvguarder-dsh')).toHaveLength(1);
-  expect(entries.filter(e => e.entryId === 'rvguarder-admin')).toHaveLength(1);
+  expect(entries.filter(e => e.moduleName === 'dsh-rvguarder')).toHaveLength(1);
+  expect(entries.filter(e => e.moduleName === 'dsh-rvguarder/admin')).toHaveLength(1);
 });
 
 test('embedded browser surfaces never receive temporary bridge credentials', async ({ page }) => {

@@ -103,7 +103,7 @@ def main() -> None:
         destination = output / f"{metadata['name']}-{metadata['version']}-{target}-{arch}.tgz"
         shutil.copy2(tgz, destination)
         (output / "SHA256SUMS").write_text(f"{hashlib.sha256(destination.read_bytes()).hexdigest()}  {destination.name}\n", encoding="utf-8")
-        shutil.copy2(root / "dshRVguarder/docs/deployment.md", output / "INSTALL.md")
+        shutil.copy2(root / "dshRVguarder/docs/deployment-rc5.md", output / "INSTALL.md")
     print(output)
 
 
