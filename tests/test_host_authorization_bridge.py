@@ -2,6 +2,8 @@
 from __future__ import annotations
 
 import json
+import os
+import subprocess
 import threading
 import time
 from types import SimpleNamespace
@@ -12,6 +14,7 @@ import pytest
 from clawRVguarder.engine.experiment_components import ExperimentComponents, using
 from clawRVguarder.engine.pipeline import _annotate_event_context, _apply_rv_if_available
 from clawRVguarder.models import DetectionDecision
+from clawRVguarder.storage.private_files import ensure_private_directory
 from clawRVguarder.utils import utc_now_iso
 from clawRVguarder.integrations.host_authorization_bridge import HostAuthorizationBridge
 from clawRVguarder.integrations.tool_hook_bridge import build_hook_event
@@ -136,26 +139,41 @@ def test_pipeline_keeps_one_finite_event_and_does_not_change_effects(configured)
     assert "host_authorization" not in event.metadata["rv_trace"][0]["context"]
 
 
+def _make_public(path) -> None:
+    """把配置变成"公共可读"，用于验证隐私检查确实生效。"""
+    if os.name == "nt":
+        subprocess.run(["icacls.exe", str(path), "/grant", "*S-1-1-0:(R)"],
+                       check=True, capture_output=True)
+    else:
+        path.chmod(0o644)
+
+
 def test_host_config_must_be_private_and_outside_agent_workspace(configured):
     """显式配置不能由Agent工作区文件或可写公共配置取得权威。"""
     workspace, store, bridge, grant = configured
     payload = {"agent_workspaces": [str(workspace)], "state_dir": str(store.state_dir),
                "namespaces": {"office": str(workspace)}, "tool_namespaces": {"office_document_share": "office"}}
     config = store.state_dir / "config.json"
-    config.write_text(json.dumps(payload))
-    config.chmod(0o600)
+    config.write_text(json.dumps(payload), encoding="utf-8")
+    if os.name != "nt":
+        config.chmod(0o600)
     loaded = HostAuthorizationBridge.from_config(config)
     assert loaded.tool_namespaces == bridge.tool_namespaces
     loaded.close()
-    config.chmod(0o644)
+
+    _make_public(config)
     with pytest.raises(HostAuthorizationError):
         HostAuthorizationBridge.from_config(config)
-    workspace.chmod(0o700)
-    config = workspace / "config.json"
-    config.write_text(json.dumps(payload))
-    config.chmod(0o600)
+
+    # 工作区内的目录即使 DACL 私有，也必须只由包含关系拒绝。
+    inner = workspace / "host"
+    ensure_private_directory(inner)
+    inside = inner / "config.json"
+    inside.write_text(json.dumps(payload), encoding="utf-8")
+    if os.name != "nt":
+        inside.chmod(0o600)
     with pytest.raises(HostAuthorizationError):
-        HostAuthorizationBridge.from_config(config)
+        HostAuthorizationBridge.from_config(inside)
 
 
 def test_operation_or_namespace_mismatch_cannot_reuse_tool_contract(configured):

@@ -13,12 +13,12 @@ import threading
 from types import SimpleNamespace
 import os
 from pathlib import Path
-import stat
 from typing import Any
 
 from clawRVguarder.engine.experiment_components import commit_if_current, current, snapshot
 from clawRVguarder.spec.host_authorization import HostAuthorizationError, HostAuthorizationStore
 from clawRVguarder.spec.resource_evidence import HostResourceObserver, ResourceEvidenceError
+from clawRVguarder.storage.private_files import private_file
 
 # 登记具体原生契约；未登记工具不按猜测字段读取资源。
 RESOURCE_FIELDS = {
@@ -70,15 +70,16 @@ class HostAuthorizationBridge:
         for ancestor in (path, *path.parents):
             if ancestor.is_symlink():
                 raise HostAuthorizationError("host config path must not contain symlinks")
-        parent = path.parent.stat()
-        if parent.st_uid != os.getuid() or stat.S_IMODE(parent.st_mode) & 0o077:
+        if not path.parent.is_dir():
             raise HostAuthorizationError("host config directory must be private")
-        fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW)
-        with os.fdopen(fd) as stream:
-            metadata = os.fstat(stream.fileno())
-            if not stat.S_ISREG(metadata.st_mode) or metadata.st_uid != os.getuid() or stat.S_IMODE(metadata.st_mode) & 0o077:
-                raise HostAuthorizationError("host config must be a private regular file")
-            config = json.load(stream)
+        # 宿主配置必须由当前用户独占：POSIX 校验属主/权限位并 O_NOFOLLOW，
+        # Windows 通过真实 DACL（仅当前用户与 SYSTEM）并拒绝重解析点和硬链接。
+        try:
+            with private_file(path, os.O_RDONLY) as fd:
+                with os.fdopen(fd, "rb", closefd=False) as stream:
+                    config = json.load(stream)
+        except (OSError, ValueError) as exc:
+            raise HostAuthorizationError("host config must be a private regular file") from exc
         workspaces = [Path(p) for p in config["agent_workspaces"]]
         if any(path.resolve().is_relative_to(p.resolve()) for p in workspaces):
             raise HostAuthorizationError("host config must be outside agent workspaces")

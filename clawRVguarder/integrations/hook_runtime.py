@@ -102,12 +102,19 @@ def _is_transient_plugin_config_scope(config_path: Path, plugin_dir: Path) -> bo
     return _is_transient_path(plugin_path) and not config_is_project_local
 
 
+_POSIX_TEMP_ROOTS = ("/tmp", "/var/tmp", "/private/tmp")
+
+
 def _is_transient_path(path: Path) -> bool:
     """Return whether a path is below the platform's temporary directory."""
     try:
-        return path.resolve().is_relative_to(Path(tempfile.gettempdir()).resolve())
+        if path.resolve().is_relative_to(Path(tempfile.gettempdir()).resolve()):
+            return True
     except (OSError, RuntimeError, ValueError):
-        return False
+        pass
+    # Windows 把 "/tmp/x" 解析成当前盘符下的相对根，因此还要识别 POSIX 临时根。
+    normalized = str(path).replace("\\", "/").rstrip("/").lower()
+    return any(normalized == root or normalized.startswith(root + "/") for root in _POSIX_TEMP_ROOTS)
 
 
 def _ensure_plugin_config(
@@ -146,9 +153,10 @@ def _ensure_plugin_config(
         # Pytest and temporary integration runs leave stale generated plugin
         # paths in OpenClaw's config. Remove only missing Guard paths below the
         # platform temp directory; preserve all other plugin paths and history.
+        normalized_path_value = path_value.replace("\\", "/").rstrip("/")
         is_stale_tmp_guard_path = (
             path_value != plugin_path
-            and path_value.endswith("/runtime/openclaw-guard-plugin")
+            and normalized_path_value.endswith("/runtime/openclaw-guard-plugin")
             and not Path(path_value).exists()
             and _is_transient_path(Path(path_value))
         )
