@@ -2,6 +2,7 @@ import json
 
 from clawRVguarder.models import BehaviorEvent, DetectionDecision
 from clawRVguarder.engine.approval import build_approval_presentation, canonical_approval_fingerprint
+from tests.platform_support import requires_symlinks
 
 
 def test_approval_presentation_prioritizes_intent_and_redacts_sensitive_parameters():
@@ -223,6 +224,7 @@ def test_sensitive_relative_path_cannot_be_persistently_allowed(tmp_path):
     assert services.approval_trust_summary()["items"] == []
 
 
+@requires_symlinks
 def test_symlink_to_sensitive_path_cannot_be_persistently_allowed(tmp_path):
     from clawRVguarder.services import build_services
 
@@ -245,6 +247,7 @@ def test_symlink_to_sensitive_path_cannot_be_persistently_allowed(tmp_path):
     assert result["allowed_decisions"] == ["allow-once", "deny"]
 
 
+@requires_symlinks
 def test_symlink_outside_working_directory_cannot_be_persistently_allowed(tmp_path):
     from clawRVguarder.services import build_services
 
@@ -477,3 +480,12 @@ def test_hook_response_does_not_echo_raw_payload_or_sensitive_targets(tmp_path):
     assert result["action"] == "require_approval"
     assert result["action_record"]["event"]["raw_payload"] == {}
     assert "SUPERSECRET" not in serialized
+
+
+def test_windows_drive_path_parameter_is_not_a_sensitive_command_target():
+    """盘符路径是文件目标；不能因冒号启发式让整台 Windows 上的永久授权失效。"""
+    from clawRVguarder.engine.approval import _params_have_sensitive_target
+
+    assert _params_have_sensitive_target({"command": "echo safe", "cwd": r"C:\work\project"}) is False
+    assert _params_have_sensitive_target({"cwd": r"C:\Users\me\.ssh"}) is True
+    assert _params_have_sensitive_target({"command": r"C:\bin\tool.exe user:pass"}) is True

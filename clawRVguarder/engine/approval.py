@@ -24,6 +24,7 @@ _SECRET_VALUE = re.compile(
 )
 _URL_VALUE = re.compile(r"[A-Za-z][A-Za-z0-9+.-]*://[^\s'\"<>]+", re.I)
 _URI_PREFIX = re.compile(r"^[A-Za-z][A-Za-z0-9+.-]*://", re.I)
+_WINDOWS_DRIVE_PATH = re.compile(r"^[A-Za-z]:[\\/]")
 _SENSITIVE_PATH_SEGMENTS = frozenset({
     ".git", ".ssh", "credentials", "credential", "secrets", "secret",
     "id_rsa", "id_ed25519", "authorized_keys",
@@ -137,7 +138,14 @@ def _params_have_sensitive_target(value: Any, *, key: str = "") -> bool:
     if isinstance(value, str):
         if _SECRET_KEY.search(key):
             return True
-        return _path_has_sensitive_segment(value) or _command_has_sensitive_target(value, None)
+        if _path_has_sensitive_segment(value):
+            return True
+        # Windows 盘符路径是文件目标而非命令行：shlex 会剥掉反斜杠只留 "C:"，
+        # 冒号启发式会把它误读成远程/凭据分隔符。
+        stripped = value.strip()
+        if _WINDOWS_DRIVE_PATH.match(stripped) and stripped.count(":") == 1:
+            return False
+        return _command_has_sensitive_target(value, None)
     return False
 
 
