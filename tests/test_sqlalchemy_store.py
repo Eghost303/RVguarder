@@ -62,7 +62,6 @@ class SQLAlchemyStoreSQLiteTests(unittest.TestCase):
             t0 = datetime(2020, 1, 1, 0, 0, 0, tzinfo=timezone.utc)
             with patch(
                 "clawRVguarder.storage.db_store.datetime",
-                now=patch.DEFAULT,
             ) as dt:
                 dt.now.side_effect = [t0, t0 + timedelta(seconds=1), t0 + timedelta(seconds=2)]
                 store.append_audit_record("t", {"i": 0})
@@ -87,7 +86,6 @@ class SQLAlchemyStoreSQLiteTests(unittest.TestCase):
 
             with patch(
                 "clawRVguarder.storage.db_store.datetime",
-                now=patch.DEFAULT,
             ) as dt:
                 t0 = datetime(2020, 1, 1, 0, 0, 0, tzinfo=timezone.utc)
                 dt.now.side_effect = [t0, t0 + timedelta(seconds=1)]
@@ -118,7 +116,6 @@ class SQLAlchemyStoreSQLiteTests(unittest.TestCase):
             t0 = datetime(2020, 1, 1, 0, 0, 0, tzinfo=timezone.utc)
             with patch(
                 "clawRVguarder.storage.db_store.datetime",
-                now=patch.DEFAULT,
             ) as dt:
                 dt.now.side_effect = [t0, t0 + timedelta(seconds=1)]
                 self.assertTrue(store.save_action({"action_id": "a1", "status": "pending_approval"}))
@@ -140,7 +137,6 @@ class SQLAlchemyStoreSQLiteTests(unittest.TestCase):
             t0 = datetime(2020, 1, 1, 0, 0, 0, tzinfo=timezone.utc)
             with patch(
                 "clawRVguarder.storage.db_store.datetime",
-                now=patch.DEFAULT,
             ) as dt:
                 dt.now.side_effect = [t0, t0 + timedelta(seconds=1)]
                 self.assertTrue(store.append_runtime_log("e1", "p1", x=1))

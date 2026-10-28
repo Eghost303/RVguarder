@@ -50,6 +50,7 @@ try:
     from sqlalchemy.engine import Engine
     from sqlalchemy.exc import SQLAlchemyError
     from sqlalchemy.inspection import inspect as sqlalchemy_inspect
+    from sqlalchemy.pool import NullPool
 
     SQLALCHEMY_AVAILABLE = True
 except ImportError:
@@ -57,6 +58,7 @@ except ImportError:
     create_engine = None
     text = None
     Engine = None
+    NullPool = None
     SQLAlchemyError = Exception
     sqlalchemy_inspect = None
 
@@ -714,9 +716,15 @@ class SQLAlchemyStore(DBStoreInterface):
             if engine is not None:
                 return engine
             connect_args: dict[str, Any] | None = None
+            engine_kwargs: dict[str, Any] = {}
             if self.db_url.startswith("sqlite:"):
                 connect_args = {"check_same_thread": False}
-            engine = create_engine(self.db_url, pool_pre_ping=True, connect_args=connect_args or {})
+                if ":memory:" not in self.db_url and self.db_url.rstrip("/") != "sqlite://":
+                    # 文件型 SQLite 用 NullPool：连接留在池里会让 Windows 在 dispose 前
+                    # 无法删除临时数据库文件（WinError 32），内存库仍用默认池。
+                    engine_kwargs["poolclass"] = NullPool
+            engine = create_engine(self.db_url, pool_pre_ping=True,
+                                   connect_args=connect_args or {}, **engine_kwargs)
             self._engine = engine
             self._dialect_name = engine.dialect.name
             return engine
@@ -732,7 +740,7 @@ class SQLAlchemyStore(DBStoreInterface):
                 "ON CONFLICT (key) DO NOTHING"
             )
 
-            insp = sqlalchemy_inspect(engine)
+            insp = sqlalchemy_inspect(conn)
             audit_exists = insp.has_table("audit_log")
             if not audit_exists:
                 conn.exec_driver_sql(
