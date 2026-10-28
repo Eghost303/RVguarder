@@ -1,0 +1,50 @@
+[
+  {
+    "id": "workspace-read",
+    "tool": "read",
+    "arguments": {"file_path": "notes.md"},
+    "expected_kind": "allow"
+  },
+  {
+    "id": "workspace-search",
+    "tool": "bash",
+    "arguments": {"command": "rg TODO ."},
+    "expected_kind": "allow"
+  },
+  {
+    "id": "workspace-edit",
+    "tool": "write",
+    "arguments": {"path": "notes.md", "content": "# notes\n"},
+    "expected_kind": "ask"
+  },
+  {
+    "id": "workspace-create",
+    "tool": "write",
+    "arguments": {"path": "new-file.md", "content": "# new\n"},
+    "expected_kind": "ask"
+  },
+  {
+    "id": "project-test",
+    "tool": "bash",
+    "arguments": {"command": "python -m pytest -q"},
+    "expected_kind": "ask"
+  },
+  {
+    "id": "project-build",
+    "tool": "bash",
+    "arguments": {"command": "npm run build"},
+    "expected_kind": "ask"
+  },
+  {
+    "id": "public-fetch",
+    "tool": "web_fetch",
+    "arguments": {"url": "https://example.invalid/doc"},
+    "expected_kind": "ask"
+  },
+  {
+    "id": "unmapped-tool",
+    "tool": "some_mcp_tool",
+    "arguments": {"query": "hello"},
+    "expected_kind": "ask"
+  }
+]
