@@ -7,6 +7,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from clawRVguarder.models import BehaviorEvent, DetectionDecision
+from clawRVguarder.policy import reasons
 from clawRVguarder.policy.catalog import PolicyBundle, default_policy_root
 from clawRVguarder.policy.evaluator import PolicyEvaluator
 from clawRVguarder.policy.models import AuthorizationTrace, CapabilityGrant, PermissionRef, PolicyDecision
@@ -74,27 +75,48 @@ class AuthorizationPolicyEngine:
         )
 
         evaluated = self.policy_evaluator.evaluate(trace)
-        effects = [evaluated.effect, *(item.effect for item in violations)]
+        # 每个候选效果连同产生它的原因码与"具体程度"一起记录（rank 越小越具体）。
+        # 归因只统计真正决定了最终效果的分支，避免次要原因支配统计。
+        sources: list[tuple[str, list[str], int]] = [
+            (evaluated.effect, list(evaluated.reason_codes), 0),
+        ]
+        for item in violations:
+            sources.append((item.effect, [reasons.COMBO_RISK], 1))
         # Least-privilege evidence is a security gate, not advisory telemetry:
         # a request outside the required trace must reach the sole OpenClaw
         # approval owner even when the operation itself has an allow template.
-        if diff.excessive_permissions or diff.coverage_gaps:
-            effects.append("openclaw_approval")
+        if diff.excessive_permissions:
+            sources.append(("openclaw_approval", [reasons.PERMISSION_EXCESS], 2))
+        if diff.coverage_gaps:
+            sources.append(("openclaw_approval", [reasons.MISSING_EVIDENCE], 3))
         if grant_gaps:
-            effects.append("openclaw_approval")
+            sources.append(("openclaw_approval", [reasons.GRANT_INVALID], 4))
         # A native tool profile is only trusted after its parameter contract
         # passes.  Unsafe parameters deliberately downgrade the event to the
         # unknown action type; never let a catalogued tool's default rule turn
         # that coverage gap into a silent allow.
         if event.metadata.get("hook_bridge") is True and event.action_type == "unknown":
-            effects.append("openclaw_approval")
+            sources.append((
+                "openclaw_approval",
+                [reasons.UNKNOWN_TOOL if self._raw_tool_is_unmapped(event) else reasons.MISSING_EVIDENCE],
+                5,
+            ))
         # A scope expansion is reviewable evidence, not a destructive action by
         # itself.  Keep it in the diff and require OpenClaw approval through
         # excessive_permissions, while reserving a hard block for explicit
         # hard-violation types produced by the risk graph/authorization model.
         if any(item != "scope_expansion" for item in diff.hard_violations):
-            effects.append("block")
-        effect = max(effects, key=lambda candidate: _EFFECT_RANK[candidate])
+            sources.append(("block", [reasons.HARD_BLOCK], 0))
+        effect = max((candidate for candidate, _, _ in sources),
+                     key=lambda candidate: _EFFECT_RANK[candidate])
+        deciding = sorted(
+            (rank, code)
+            for candidate, codes, rank in sources
+            if candidate == effect
+            for code in codes
+        )
+        reason_codes = list(dict.fromkeys(code for _, code in deciding))
+        event.metadata["deciding_layer"] = "policy"
         missing_features = list(dict.fromkeys([
             *evaluated.missing_features,
             *trace.coverage.gaps,
@@ -118,10 +140,13 @@ class AuthorizationPolicyEngine:
             "combo_violations": [item.relation_id for item in violations],
             "grant_source": grant_source,
             "grant_validation_gaps": grant_gaps,
+            "reason_codes": reason_codes,
         })
         decision.replay_hash = sha256_text(json.dumps({
             "trace": trace.model_dump(mode="json"),
-            "decision": decision.model_dump(mode="json", exclude={"replay_hash"}),
+            # reason_codes 是由输入派生的归因字段，不参与回放哈希，
+            # 否则新增归因口径会让相同输入的回放哈希漂移。
+            "decision": decision.model_dump(mode="json", exclude={"replay_hash", "reason_codes"}),
         }, ensure_ascii=False, sort_keys=True, separators=(",", ":")))
         return decision
 

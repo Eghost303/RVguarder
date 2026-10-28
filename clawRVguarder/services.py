@@ -598,6 +598,13 @@ class GuardServices:
                 *decision.rule_ids,
                 "RV-PRINCIPAL-CAPABILITY",
             ]))
+            policy_evidence = getattr(decision, "policy_decision", None)
+            if isinstance(policy_evidence, dict):
+                codes = list(policy_evidence.get("reason_codes") or [])
+                if "rv_escalation" not in codes:
+                    codes.append("rv_escalation")
+                policy_evidence["reason_codes"] = codes
+            event.metadata["deciding_layer"] = "principal_rv"
         return decision
 
     def record_executed_principal_action(self, action: ControlledAction) -> str | None:

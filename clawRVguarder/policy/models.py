@@ -172,6 +172,8 @@ class PolicyDecision(GuardBaseModel):
     grant_validation_gaps: list[str] = Field(default_factory=list)
     policy_version: str = ""
     replay_hash: str = ""
+    # 稳定原因码：与规则 ID 解耦，供逐调用归因与统计使用。
+    reason_codes: list[str] = Field(default_factory=list)
 
 
 class PolicyRule(GuardBaseModel):

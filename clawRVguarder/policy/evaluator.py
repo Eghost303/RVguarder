@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from . import reasons
 from .catalog import PolicyBundle
 from .models import AuthorizationTrace, MatchCandidate, PolicyDecision, PolicyRule
 
@@ -123,11 +124,13 @@ class PolicyEvaluator:
         high_impact = (trace.data.classification in {"sensitive", "secret"}
                        or trace.context.recipient_zone in {"external", "unknown"})
         selected: list[str] = []
+        reason_codes: list[str] = []
         synthetic_block = high_impact and trace.data.classification == "secret" and trace.context.recipient_zone == "external"
         if synthetic_block:
             certain = not missing and trace.coverage.status == "complete"
             effect = "block" if certain else "openclaw_approval"
             status = "matched" if certain else (trace.coverage.status if trace.coverage.status != "complete" else "partial")
+            reason_codes.append(reasons.HARD_BLOCK if certain else reasons.MISSING_EVIDENCE)
         elif applicable:
             strongest = max(
                 applicable,
@@ -144,6 +147,7 @@ class PolicyEvaluator:
             if strongest.evidence_trust == "suggested":
                 effect = "openclaw_approval"
                 status = "partial"
+                reason_codes.append(reasons.MISSING_EVIDENCE)
             # Internal, small, classified messages are the calibrated low-impact exception.
             if (trace.operation.family == "message.send" and trace.context.recipient_zone == "internal"
                     and trace.data.classification in {"public", "internal"} and trace.data.quantity <= 10
@@ -151,17 +155,28 @@ class PolicyEvaluator:
                 effect = "auto_allow_audit"
         else:
             effect, status = "openclaw_approval", "unknown"
+            # 没有匹配规则可能是"未知工具"，也可能是已知操作缺少规则覆盖，
+            # 两者的归因与修复方向不同，不能合并成同一个码。
+            reason_codes.append(reasons.UNKNOWN_TOOL if trace.operation.family == "unknown_tool"
+                                else reasons.MISSING_EVIDENCE)
         if trace.coverage.status in {"unknown", "conflict"}:
             status = trace.coverage.status
             effect = "openclaw_approval"
+            reason_codes.append(reasons.MISSING_EVIDENCE)
         if status == "partial":
             effect = "openclaw_approval"
+            reason_codes.append(reasons.MISSING_EVIDENCE)
+        if effect == "block" and not reason_codes:
+            reason_codes.append(reasons.HARD_BLOCK)
+        if effect == "openclaw_approval" and not reason_codes:
+            reason_codes.append(reasons.POLICY_REQUIRES_APPROVAL)
         return PolicyDecision(effect=effect, match_status=status,
                               match_confidence=max((c.score for c in applicable), default=0.0),
                               risk_score=self._risk_score(trace), selected_rule_ids=selected,
                               candidate_rule_ids=[c.rule_id for c in candidates],
                               missing_features=missing, conflicts=list(dict.fromkeys(conflicts)),
-                              policy_version=self.bundle.version)
+                              policy_version=self.bundle.version,
+                              reason_codes=list(dict.fromkeys(reason_codes)))
 
     def _rule_effect(self, rule_id: str) -> str:
         return next(rule.effect for rule in self.bundle.rules if rule.id == rule_id)

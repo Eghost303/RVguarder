@@ -38,6 +38,7 @@ class GuardController:
                 confirmation_word=None,
                 policy_decision=decision.policy_decision,
             )
+            event.metadata["deciding_layer"] = "whitelist"
         status = "proposed"
         if final.action == "ask":
             status = "pending_approval"
