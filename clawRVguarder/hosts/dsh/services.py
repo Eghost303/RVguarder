@@ -321,30 +321,57 @@ class DshServices(DshObservability, GuardServices):
                 if not row or row[3] != sha256_text(json.dumps(request, ensure_ascii=False, sort_keys=True)):
                     raise BridgeConflict("completion_context_mismatch")
                 if row[1] == "completed":
-                    if row[2] != completion:
-                        raise BridgeConflict("completion_outcome_conflict")
-                    return {"ok": True, "duplicate": True}
+                    stored = json.loads(row[2]) if row[2] else {}
+                    # dispatch 超时后客户端会补交 dispatched=false；服务端当时已改写为
+                    # outcome_unknown，重试必须仍被判为同一结果，否则 outbox 永久排不空。
+                    if row[2] == completion or (
+                        stored.get("outcome_unknown") is True
+                        and not dispatched and not succeeded
+                    ):
+                        return {"ok": True, "duplicate": True,
+                                **({"outcome_unknown": True} if stored.get("outcome_unknown") else {})}
+                    raise BridgeConflict("completion_outcome_conflict")
                 if row[1] not in {"pending", "dispatched"}:
                     raise BridgeConflict("interrupted_commit_requires_reconciliation")
                 response = json.loads(row[0])
+                outcome_unknown = False
                 if dispatched != (row[1] == "dispatched"):
-                    raise BridgeConflict("dispatch_evidence_mismatch")
+                    if row[1] == "dispatched" and not dispatched and not succeeded:
+                        # 客户端在 dispatch 超时后才补交。服务端已派发，工具可能已执行；
+                        # 记为 outcome_unknown：不扩充成功历史，但允许客户端排空 outbox。
+                        dispatched, outcome_unknown = True, True
+                    else:
+                        raise BridgeConflict("dispatch_evidence_mismatch")
                 if succeeded and (not dispatched or response["kind"] == "deny"):
                     raise BridgeConflict("success_without_execution_permission")
-                receipt = self.evidence.verify_result(request, evidence, succeeded=succeeded, dispatched=dispatched)
+                if outcome_unknown:
+                    completion = json.dumps({"succeeded": False, "dispatched": True,
+                                             "outcome_unknown": True, "evidence": None}, sort_keys=True)
+                    receipt = None
+                else:
+                    receipt = self.evidence.verify_result(request, evidence, succeeded=succeeded, dispatched=dispatched)
                 db.execute("UPDATE calls SET state='completing' WHERE id=?", (key,))
             try:
                 action = self._find_action(response["action_id"])
                 if action is None:
                     raise BridgeConflict("action_missing")
                 if action.status == "pending_approval":
-                    action.status = "executing" if dispatched else "rejected"
-                    action.decision_state = "allowed" if dispatched else "denied"
-                    action.execution_state = "running" if dispatched else "not_started"
+                    if outcome_unknown:
+                        action.status, action.decision_state = "executing", "allowed"
+                        action.execution_state = "unknown"
+                    else:
+                        action.status = "executing" if dispatched else "rejected"
+                        action.decision_state = "allowed" if dispatched else "denied"
+                        action.execution_state = "running" if dispatched else "not_started"
                     action.sync_state = "synced"
                     self._replace_action(action)
+                if outcome_unknown:
+                    self.audit_store.append("dsh_dispatch_ack_unknown",
+                                            {"action_id": action.action_id, "call_id": request["call_id"]})
+                error = ("dsh_outcome_unknown" if outcome_unknown
+                         else None if succeeded else "dsh_tool_failed_or_cancelled")
                 outcome = self.handle_after_tool_call({**payload, "toolResultFailed": not succeeded,
-                                                      "error": None if succeeded else "dsh_tool_failed_or_cancelled"})
+                                                      "error": error})
                 if not outcome.get("ok"):
                     raise BridgeConflict(str(outcome.get("error")))
                 self.evidence.commit(request, receipt)
@@ -356,7 +383,7 @@ class DshServices(DshObservability, GuardServices):
             if self.recovery_required:
                 self.recovery_required = self._interrupted_calls()
             self.last_seen = time.monotonic()
-            return {"ok": True, "duplicate": False}
+            return {"ok": True, "duplicate": False, **({"outcome_unknown": True} if outcome_unknown else {})}
 
     def bridge_dispatch(self, request: dict[str, Any]) -> dict[str, Any]:
         """宿主原生审批已放行并进入 dispatch 时同步；面板不能调用此操作。"""

@@ -15,11 +15,11 @@ export class GuardClient {
     this.token = readFileSync(tokenFile,'utf8').trim();
     if (this.token.length < 32) throw new Error('Invalid Guard token');
   }
-  async post(path: string, body: unknown, signal?: AbortSignal): Promise<Record<string,unknown>> {
+  async post(path: string, body: unknown, signal?: AbortSignal, budgetMs = this.timeoutMs): Promise<Record<string,unknown>> {
     let response: Response;
     try { response = await fetch(this.base+'/api/dsh/'+path, { method:'POST', redirect:'error',
       headers:{'Content-Type':'application/json','x-rvguarder-token':this.token}, body:JSON.stringify(body),
-      signal:signal ? AbortSignal.any([signal,AbortSignal.timeout(this.timeoutMs)]) : AbortSignal.timeout(this.timeoutMs) }); } catch { this.helloAt=0;throw new BridgeUnavailable('Guard connection unavailable'); }
+      signal:signal ? AbortSignal.any([signal,AbortSignal.timeout(budgetMs)]) : AbortSignal.timeout(budgetMs) }); } catch { this.helloAt=0;throw new BridgeUnavailable('Guard connection unavailable'); }
     if (response.status >= 500) {this.helloAt=0;throw new BridgeUnavailable('Guard service unavailable');}
     if (!response.ok) throw new Error(`Guard bridge returned HTTP ${response.status}`);
     const result = await response.json() as Record<string,unknown>;

@@ -107,7 +107,7 @@ export function apply(ctx:Context,config:Config) {
     if(item) {
       try { outbox.begin(item.call); }
       catch(error) { failure=error;throw error; }
-      const ack=await client.post('dispatch',item.call,exec.signal);
+      const ack=await client.post('dispatch',item.call,exec.signal,30000);
       if(ack.ok!==true) throw new Error('Guard dispatch acknowledgement missing');
       controlled?.permitted(exec.token,ack.permit);
       item.dispatched=true;
