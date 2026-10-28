@@ -24,8 +24,8 @@ export function EmbeddedAudit() {
     if (busy) return; // 防重复点击
     setBusy(true);
     try {
-      const buffer = await getTransport().download('auditExport', { format });
-      const blob = new Blob([buffer], { type: format === 'json' ? 'application/json' : 'text/csv' });
+      const result = await getTransport().download('auditExport', { format });
+      const blob = new Blob([result?.bytes ?? result], { type: format === 'json' ? 'application/json' : 'text/csv' });
       const url = URL.createObjectURL(blob);
       const anchor = document.createElement('a');
       anchor.href = url;

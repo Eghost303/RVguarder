@@ -1,10 +1,42 @@
 # DSH 本地部署
 
+## 2026-10-28：平台整包候选（DEP-01）
+
+当前开发候选为 `dsh-rvguarder@0.2.0-rc.4`。新增按操作系统/架构分发的整包，Windows x64 在本机验收；Linux 构建入口已提供但未实测，rc.2 内嵌 UI 仍未验收。rc.3 已有插件页与设置页入口。下方手工 wheel/tgz 说明属于**外部后端模式**，不代表平台整包的安装步骤。
+
+终端用户取得与平台匹配的 `dsh-rvguarder-0.2.0-rc.4-win32-x64.tgz` 和同批 `SHA256SUMS` 后，核对 SHA-256，在 DSH 的插件安装入口选择该文件；也可在已准备的 profile 中执行：
+
+```powershell
+Get-FileHash .\dsh-rvguarder-0.2.0-rc.4-win32-x64.tgz -Algorithm SHA256
+dsh.cmd plugin --profile <你的profile> add .\dsh-rvguarder-0.2.0-rc.4-win32-x64.tgz
+```
+
+重新启用插件或重启 DSH 后，进入“设置 → RVguarder”。整包自带 Python 3.13 与基础依赖、UI、PMKB/RV；无需源码仓库、pip、WSL、Vite 或单独启动后端。包安装仍使用 DSH 自身的包管理器；当前验证的离线含义是**运行时无下载**，不是断网条件下整个宿主包管理缓存均已验证。
+
+整包的 bundle 两个条目都使用 `backendMode: managed`。宿主的 `profileContext` 和工作目录服务确定实例，私有数据保存在 `<DSH_HOME>/rvguarder/dsh-<home/profile哈希>/`；Python 现有 ACL/目录独占与历史绑定检查保持。端口由系统分配，仅绑定 127.0.0.1；令牌初始化、状态认证和进程就绪检查在宿主完成，浏览器仍只使用 owner Remote。核心与管理入口共用一个子进程，启动期间拒绝工具，缺包/错误平台/哈希损坏/状态冲突时拒绝执行并呈现连接错误；不清除历史修复故障，不接管外部后端。
+
+正常禁用/卸载时关闭托管进程并保留实例、令牌、审批/完成记录和审计。宿主意外退出导致 stdin EOF 时，后端退出；工具调用中断仍沿用现有恢复锁定，不自动重放或删除 `owner.lock`。重新启用前需要核对不确定执行的历史。直接删除插件包不会删除数据。
+
+**旧 profile 升级**：原有用户层 config 会覆盖 bundle 默认值，整包不会静默迁移已有实例。继续沿用原配置时仍是外部后端模式。先停止 DSH/后端并备份 profile 与数据；只有在完成队列已对账后，才可在宿主原生配置中把核心与管理两行改成 `backendMode: managed`，这会使用新的 home/profile 绑定实例，旧数据保留作证据。需要沿用旧实例时继续使用外部模式，不能把新空实例称为历史迁移成功。回滚恢复备份配置及原匹配包，不能混用新旧实例或删除队列；持久 schema 未改变。
+
+构建者在目标 Windows/Linux 平台准备 Python 3.13+、Node 24 和锁定 SDK（沿用原生开发指南），安装构建依赖后：
+
+```powershell
+python -m pip install -r dshRVguarder/requirements-standalone.txt
+python dshRVguarder/scripts/build-standalone.py --output dist/dsh-rvguarder-0.2.0-rc.4-platform
+```
+
+该命令构建两份前端、类型检查、客户端、PyInstaller onedir 后端，再在临时目录打包，无安装期脚本。输出平台 tgz、SHA256SUMS 与安装说明；包内 `backend/manifest.json` 校验完整文件清单，`build-info.json` 记录 Python/依赖版本与源码基线，`licenses/` 包含 Python 与第三方许可证。哈希用于完整性校验，不能替代可信发布渠道或签名。源码普通 `npm pack` 仍生成轻量**外部后端**包，两类文件名必须区分。
+
+验收与已知缺口见 [独立审查](ui-review-2026-10-28.md) 和 [DEP-01 实现记录](deployment-implementation-2026-10-28.md)。POL-01/02 未改规则，仍待逐调用定位；本轮没有发布到远程。
+
+## 外部后端模式与历史部署记录
+
 2026-10-26：源码支持 DSH rc.3，以及 **Windows 原生 Python 和 Linux/WSL Python** 双平台后端；Windows 支持不限定 Python 的安装渠道，均要求 Python 3.13+ 及兼容依赖。当前为插件 0.2.0-rc.2 本地开发候选。Windows 桌面安装请使用 [原生开发指南](windows-native-rc3.md)；下方 rc.2/WSL 命令保留为另一种部署路径和历史参考，WSL 不是 Windows 部署的必需组件。
 
 此插件在 `RVguarder/dshRVguarder/` 开发，调用 `clawRVguarder.hosts.dsh` 的共享 Python 服务，工作台复用现有 Preact 前端。支持 Node 24 与明确列出的 DSH 0.2.1-rc.2/rc.3；其他版本须重新做兼容验证。
 
-当前用户已验证后端启动、新 profile 对接和基础拦截；插件页未展示、独立工作台、手动部署和规则行为问题见 [阶段交接与已知问题](../../docs/dev/dsh-progress-2026-10-26.md)。工作台尚未嵌入 DSH，插件不自动启动 Python。
+原手工部署支持独立后端；rc.3 已完成 bundle 插件入口与内嵌工作台，独立工作台继续保留。旧阶段现象与规则问题见 [阶段交接与已知问题](../../docs/dev/dsh-progress-2026-10-26.md)。外部后端模式不自动启动 Python。
 
 一般顺序：准备依赖 → 构建 UI/插件或取得同批次 wheel/tgz → 初始化实例和安装新 profile → 单独运行后端 → 启动 DSH profile → 登录独立工作台。首次初始化可以使用 `--prepare-only`，因此无须为了生成令牌而保持后端运行；实际工具接入前仍须启动长期后端。
 

@@ -13,12 +13,32 @@ import {DegradedOutbox} from './durable.js';
 import {hostProbe} from './probe.js';
 import { Outbox } from './outbox.js';
 import { protocol,type GuardCall,type GuardDecision } from './protocol.js';
+import { acquireManaged, type ManagedConfig } from './managed.js';
 export const name='dsh-rvguarder';
 export const inject=['tools','workingDirectory'];
-export interface Config { backendUrl:string; tokenFile:string; instanceId:string; stateDir?:string; timeoutMs?:number; failMode?:'closed'|'open'; evidenceKeyFile?:string; egressAllowlist?:string[]; egressCaFile?:string; }
+export interface Config extends ManagedConfig { backendUrl:string; tokenFile:string; instanceId:string; stateDir?:string; timeoutMs?:number; failMode?:'closed'|'open'; evidenceKeyFile?:string; egressAllowlist?:string[]; egressCaFile?:string; }
 interface Pending { call:GuardCall; decision:GuardDecision; dispatched:boolean; }
 /** 注册真实 SDK 事件；策略引擎只保留在共享 Python 核心。 */
 export function apply(ctx:Context,config:Config) {
+  if (config?.backendMode !== undefined && !['managed', 'external'].includes(config.backendMode)) throw new Error('Invalid backendMode');
+  if (config?.backendMode !== 'managed') return applyCore(ctx, config);
+  // 启动期间与启动失败后均保持实际执行守卫，不能因异步初始化失败而卸载整个防线。
+  let initialized = false; let stopped = false;
+  let reason = 'RVguarder 整包后端正在启动；暂不执行工具。';
+  ctx.tools.guard(() => initialized ? undefined : reason);
+  ctx.on('tools/pre-execute', (_exec, next) => initialized ? next() : Promise.resolve({ kind: 'deny' as const, reason }));
+  let managed: ReturnType<typeof acquireManaged>;
+  try { managed = acquireManaged(ctx); }
+  catch (error) { console.error(`RVguarder managed initialization: ${error instanceof Error ? error.message : 'failed'}`); reason = 'RVguarder 整包后端缺失、损坏或平台不匹配；请重新安装对应平台整包。'; return; }
+  ctx.effect(() => async () => { stopped = true; await managed.release(); }, 'rvguarder-managed-backend');
+  void managed.ready.then(connection => {
+    if (stopped) return;
+    applyCore(ctx, { ...config, ...connection }); initialized = true;
+  }).catch(() => { reason = 'RVguarder 整包后端启动或持久状态检查失败；请核对实例状态后重新启用插件。'; });
+}
+
+/** 注册已具备认证连接的守卫；外部托管和整包托管共用相同决策路径。 */
+function applyCore(ctx:Context,config:Config) {
   if (!config?.instanceId || !/^[a-zA-Z0-9_.-]{1,128}$/.test(config.instanceId)) throw new Error('Invalid Guard instanceId');
   if (config.failMode!==undefined && !['closed','open'].includes(config.failMode)) throw new Error('Invalid failMode');
   const timeout=config.timeoutMs??5000;

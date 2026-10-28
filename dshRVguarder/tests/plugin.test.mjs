@@ -54,6 +54,18 @@ test('real SDK executes allowed call, final event has no result content',async t
 test('real SDK denial never reaches tool body',async t=>{
   const f=await fixture(t,{kind:'deny'});assert.equal((await f.invoke()).isError,true);assert.equal(f.executions(),0);
 });
+
+test('managed initialization failure keeps a real execution guard even with fail-open configured', async t => {
+  const ctx = new Context(); new SystemPrompt(ctx, {}); new ToolRuntime(ctx, {});
+  t.after(() => ctx.fiber.dispose());
+  let executions = 0;
+  ctx.tools.register(defineTool({ name: 'probe', description: 'startup boundary fixture', parameters: {}, output: { schema: { type: 'string' }, render: (_a, value) => [{ type: 'text', text: value }] }, execute() { executions++; return 'unexpected'; } }));
+  // 无可信 profileContext 的环境必须保留拦截，不能因初始化抛错使插件整条卸载。
+  apply(ctx, { backendMode: 'managed', failMode: 'open' });
+  const result = await ctx.tools.execute({ name: 'probe', arguments: {}, callId: 'startup-failure', agent: { id: 'test' }, signal: new AbortController().signal });
+  assert.equal(result.isError, true);
+  assert.equal(executions, 0);
+});
 test('native ask approved then syncs dispatch before body',async t=>{
   const f=await fixture(t,{kind:'ask'});assert.equal((await f.invoke()).isError,false);assert.equal(f.executions(),1);
   assert.ok(f.events.some(([path])=>path.endsWith('/dispatch')));

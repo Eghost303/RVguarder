@@ -9,12 +9,13 @@ import { once } from 'node:events';
 import { Context } from '@deepseek-ai/cordis';
 import { RvguarderAdmin } from '../dist/management.js';
 
-function fixture(t, { status = 200, body = { ok: true } } = {}) {
+function fixture(t, { status = 200, body = { ok: true }, identity = 'test', protocol = 'dsh-guard-v2' } = {}) {
   const temp = mkdtempSync(join(tmpdir(), 'rvg-admin-'));
   const tokenFile = join(temp, 'token');
   writeFileSync(tokenFile, 'x'.repeat(48));
   const server = createServer((req, res) => {
     if (req.headers['x-rvguarder-token'] !== 'x'.repeat(48)) { res.writeHead(401).end(); return; }
+    if (req.url === '/api/dsh/status' && status === 200) { res.writeHead(200, { 'Content-Type': 'application/json' }).end(JSON.stringify({ protocol, instance_id: identity })); return; }
     res.writeHead(status, { 'Content-Type': 'application/json' }).end(JSON.stringify(body));
   });
   server.listen(0, '127.0.0.1');
@@ -118,4 +119,31 @@ test('report and auditExport accept only controlled formats', async (t) => {
 test('rvToggle requires boolean', async (t) => {
   const { service } = await admin(t);
   await assert.rejects(() => service.rvToggle('yes'), (e) => e.code === 'rvguarder/invalid-argument');
+});
+
+test('every management method rejects non-owner', async (t) => {
+  const { service, ctx } = await admin(t);
+  Object.defineProperty(ctx, 'invocation', { value: { peer: { principal: { kind: 'agent', id: 'untrusted' } } }, configurable: true });
+  for (const [method, args] of Object.entries({ overview: [], actionDetail: ['a'], policy: [], rvStatus: [], rvToggle: [true], semanticMode: ['local'], runScan: [], audit: [], auditExport: ['json'], report: ['json'] })) {
+    await assert.rejects(() => service[method](...args), (error) => error.code === 'rvguarder/not-owner', method);
+  }
+});
+
+test('wrong identity is rejected for reads, mutations and downloads', async (t) => {
+  const { service } = await admin(t, { backend: { identity: 'other' } });
+  for (const run of [() => service.overview(), () => service.rvToggle(true), () => service.auditExport('json')]) {
+    await assert.rejects(run, (error) => error.code === 'rvguarder/instance-mismatch');
+  }
+});
+
+test('HTTP/authentication errors cannot become successful offline overview', async (t) => {
+  for (const [status, code] of [[500, 'rvguarder/backend-error'], [401, 'rvguarder/backend-unauthorized']]) {
+    const { service } = await admin(t, { backend: { status } });
+    await assert.rejects(() => service.overview(), (error) => error.code === code);
+  }
+});
+
+test('large UTF-8 JSON is limited by bytes', async (t) => {
+  const { service } = await admin(t, { backend: { body: { message: '中'.repeat(1500000) } } });
+  await assert.rejects(() => service.overview(), (error) => error.code === 'rvguarder/response-too-large');
 });

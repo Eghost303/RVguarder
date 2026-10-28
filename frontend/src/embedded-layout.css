@@ -1,0 +1,9 @@
+/* 内嵌容器布局；所有选择器限定在本插件内，不改变宿主页面。 */
+.rvg-embed { font: inherit; min-width: 0; width: 100%; color: var(--c-text); }
+.rvg-embed-tabs { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 16px; padding-bottom: 10px; border-bottom: 1px solid var(--c-border); }
+.rvg-embed .rvg-embed-tab { display: inline-flex; align-items: center; gap: 5px; padding: 8px 10px; border: 1px solid var(--c-border); border-radius: 8px; background: var(--c-surface); color: var(--c-text); font: inherit; cursor: pointer; }
+.rvg-embed .rvg-embed-tab.active { background: var(--c-accent, #2563eb); color: white; border-color: transparent; }
+.rvg-embed .rvg-embed-tab:focus-visible, .rvg-embed .rvg-embed-btn:focus-visible { outline: 2px solid #2563eb; outline-offset: 2px; }
+.rvg-embed-body { min-width: 0; overflow-wrap: anywhere; }
+.rvg-embed-offline { padding: 12px; margin: 12px 0; border: 1px solid #d97706; border-radius: 8px; background: var(--c-surface); }
+.rvg-embed .rvg-embed-btn { margin-top: 8px; padding: 6px 12px; border: 1px solid var(--c-border); border-radius: 6px; background: var(--c-surface); color: inherit; cursor: pointer; }

@@ -34,6 +34,7 @@ export async function fetchSummary({ compact = false } = {}) {
     return api(`/api/summary?${query}_ts=${Date.now()}`, { cache: 'no-store' });
   }
   const value = await call('overview');
+  if (value?.backend?.recoveryRequired) throw Object.assign(new Error('Guard 恢复锁定：上次执行尚未完成核对，请检查实例历史。'), { code: 'rvguarder/recovery-required' });
   // 宿主 overview 返回 { backend, summary }；页面继续消费 summary 形状。
   if (value && value.summary) return value.summary;
   throw Object.assign(new Error('后端未连接'), { code: 'rvguarder/backend-unreachable' });

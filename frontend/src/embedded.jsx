@@ -16,6 +16,7 @@ import { fetchSummary } from './api';
 import { t } from './i18n';
 import { EmbeddedShell } from './embedded/EmbeddedShell';
 import { embeddedCss } from './embedded-styles.js';
+import embeddedLayout from './embedded-layout.css?inline';
 
 const VIEWS = ['overview', 'actions', 'rules', 'scan', 'audit', 'settings'];
 
@@ -25,7 +26,7 @@ function ensureStyles() {
   if (document.getElementById(STYLE_ID)) return () => {};
   const tag = document.createElement('style');
   tag.id = STYLE_ID;
-  tag.textContent = embeddedCss;
+  tag.textContent = embeddedCss + embeddedLayout;
   document.head.append(tag);
   return () => { tag.remove(); };
 }

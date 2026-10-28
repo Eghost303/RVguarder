@@ -69,8 +69,8 @@ function applyInner(ctx: ClientContext) {
         call: async (method: string, args: Record<string, unknown> = {}) => invoke(method, args),
         download: async (method: string, args: Record<string, unknown> = {}) => {
           const value = await invoke(method, args) as { bytes?: unknown; filename?: string; mediaType?: string } | undefined;
-          if (!value) return { bytes: new Uint8Array(), filename: '', mediaType: '' };
-          return { bytes: value.bytes ? new Uint8Array(value.bytes as ArrayBuffer) : new Uint8Array(), filename: value.filename, mediaType: value.mediaType };
+          if (!value?.bytes) throw new Error('管理通道未返回下载内容。');
+          return new Uint8Array(value.bytes as ArrayBuffer).buffer;
         },
       };
     };
@@ -137,13 +137,18 @@ function RvguarderSettingsSection(props: SettingsSectionProps) {
     if (!node || !props.transport) return;
     const transport = props.transport();
     if (!transport) return;
-    const handle = mountEmbedded(node, {
-      transport,
-      instanceId: 'dsh',
-      language: props.language === 'en' ? 'en' : 'zh',
-      initialView: 'overview',
+    let disposed = false;
+    let handle: ReturnType<typeof mountEmbedded> | undefined;
+    // 持久化范围来自宿主确认的实际实例，关闭后的旧响应不能再次挂载。
+    void transport.call('overview').then((value) => {
+      if (disposed) return;
+      const instanceId = (value as { backend?: { instanceId?: unknown } })?.backend?.instanceId;
+      if (typeof instanceId !== 'string' || !/^[a-zA-Z0-9_.-]{1,128}$/.test(instanceId)) throw new Error('管理通道未提供有效实例身份。');
+      handle = mountEmbedded(node, { transport, instanceId, language: props.language === 'en' ? 'en' : 'zh', initialView: 'overview' });
+    }).catch((error: unknown) => {
+      if (!disposed) { node.setAttribute('role', 'alert'); node.textContent = error instanceof Error ? error.message : '管理通道不可用。'; }
     });
-    return () => { handle.dispose(); };
+    return () => { disposed = true; handle?.dispose(); node.removeAttribute('role'); node.textContent = ''; };
   }, [props.transport, props.language]);
   return createElement('div', { ref: containerRef, className: 'rvguarder-settings-host', 'data-testid': 'rvguarder-settings-section' });
 }

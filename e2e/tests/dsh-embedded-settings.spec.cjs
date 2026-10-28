@@ -109,8 +109,62 @@ test('closing settings unmounts embedded app without residue', async ({ page }) 
     await page.waitForTimeout(1000);
   }
   // 样式表被移除（dispose 清理）
-  await expect(page.locator('#rvguarder-embedded-styles')).toHaveCount(0, { timeout: 10_000 }).catch(() => {
-    // 若宿主复用了面板（未真正卸载），至少 DOM 中组件应已卸载
-    expect(page.locator('[data-testid="rvguarder-settings-section"]').count()).toBe(0);
+  await expect(page.locator('[data-testid="rvguarder-settings-section"]')).toHaveCount(0);
+  await expect(page.locator('#rvguarder-embedded-styles')).toHaveCount(0, { timeout: 10_000 });
+});
+
+test('embedded downloads contain real JSON report and audit bytes', async ({ page }) => {
+  test.setTimeout(180_000);
+  await openRvguarderSection(page);
+  await page.locator('.rvg-embed-tab:has-text("扫描与报告")').click();
+  await page.locator('#run-baseline').click();
+  await expect(page.locator('#run-baseline')).toBeEnabled({ timeout: 120_000 });
+  await page.locator('.rvg-embed-tab:has-text("概览")').click();
+  const reportReady = page.waitForEvent('download');
+  await page.locator('[data-testid="dsh-host-panel"]').getByRole('button', { name: 'JSON', exact: true }).click();
+  const report = await reportReady;
+  expect(report.suggestedFilename()).toBe('rvguarder-report.json');
+  expect(typeof JSON.parse(fs.readFileSync(await report.path(), 'utf8'))).toBe('object');
+  await page.locator('.rvg-embed-tab:has-text("审计")').click();
+  const auditReady = page.waitForEvent('download');
+  await page.getByRole('button', { name: '导出 JSON', exact: true }).click();
+  const audit = await auditReady;
+  expect(audit.suggestedFilename()).toBe('rvguarder-audit-export.json');
+  expect(typeof JSON.parse(fs.readFileSync(await audit.path(), 'utf8'))).toBe('object');
+  const output = path.resolve(__dirname, '../../runtime/review-20261028');
+  fs.mkdirSync(output, { recursive: true });
+  await page.screenshot({ path: path.join(output, 'managed-audit.png') });
+});
+
+test('embedded browser surfaces never receive temporary bridge credentials', async ({ page }) => {
+  test.setTimeout(150_000);
+  const info = JSON.parse(fs.readFileSync(path.join(__dirname, '../.cache/embed-e2e.json'), 'utf8'));
+  await openRvguarderSection(page);
+  await expect(page.locator('.rvg-embed')).toContainText('已连接');
+  let runtime = path.join(info.tmpRoot, 'guard/runtime');
+  const managedRoot = path.join(info.tmpRoot, 'home/rvguarder');
+  if (process.env.RVGUARDER_MANAGED_PACKAGE) {
+    const instance = fs.readdirSync(managedRoot).find(name => name.startsWith('dsh-'));
+    runtime = path.join(managedRoot, instance, 'runtime');
+  }
+  const token = fs.readFileSync(path.join(runtime, 'dsh-token'), 'utf8').trim();
+  const signing = fs.readFileSync(path.join(runtime, 'authorization/content-signing.key'));
+  const secrets = [token, signing.toString('hex'), signing.toString('base64')];
+  const clean = text => secrets.every(secret => !text.includes(secret));
+  expect(clean(await page.content())).toBe(true);
+  expect(clean(page.url())).toBe(true);
+  expect(clean(await page.evaluate(() => JSON.stringify({ local: { ...localStorage }, session: { ...sessionStorage } })))).toBe(true);
+  // 检查有限响应，避免对宿主常驻事件流调用 response.text()。
+  const overview = await page.request.post(new URL('/api/rvguarderAdmin/overview', dshUrl()).href, {
+    data: { type: 'client-request', rpcId: 'credential-scan', method: 'rvguarderAdmin/overview', payload: { args: {} } }, timeout: 10_000,
   });
+  expect(overview.ok()).toBe(true);
+  expect(clean(await overview.text())).toBe(true);
+  const resources = await page.evaluate(() => performance.getEntriesByType('resource').map(entry => entry.name).filter(name => name.includes('/plugins/')));
+  expect(resources.length).toBeGreaterThan(0);
+  for (const url of new Set(resources)) {
+    const resource = await page.request.get(url, { timeout: 10_000 });
+    expect(resource.ok()).toBe(true);
+    expect(clean(await resource.text())).toBe(true);
+  }
 });

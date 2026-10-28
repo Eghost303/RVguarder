@@ -140,3 +140,5 @@ def build_ui(target_dir: Path, summary=None) -> None:
 ```
 
 `clawRVguarder/web/routes/static.py`（FastAPI）负责托管 `runtime/ui/` 下的静态文件（`/`、`/assets/*`、前端路由的 SPA fallback）；FastAPI 是唯一 HTTP 入口。
+
+2026-10-28：rc.4 内嵌下载 transport 统一返回 ArrayBuffer，浏览器测试实际解析报告/审计 JSON；实例持久化范围来自认证 overview，管理错误与恢复锁定显式展示。平台整包与后端托管见 [DEP-01实现](../../dshRVguarder/docs/deployment-implementation-2026-10-28.md)，原UI交付的逐项结论见 [独立审查](../../dshRVguarder/docs/ui-review-2026-10-28.md)。主题/语言/焦点和完整故障矩阵仍待验收。

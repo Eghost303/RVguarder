@@ -1,12 +1,13 @@
 param(
     [string]$DshCli = 'C:\Users\elect\AppData\Local\Programs\DeepSeek Harness\resources\runtime\cli\bin\dsh.cmd',
-    [string]$Package = (Join-Path $PSScriptRoot '..\dsh-rvguarder-0.2.0-rc.3.tgz'),
+    [string]$Package,
     [string]$Output = (Join-Path $PSScriptRoot '..\..\runtime\native-rc3-ui-verify')
 )
 # 真实 rc.3 宿主验证：安装 bundle 化插件 → 启动 web profile → 认证 →
 # 通过 /api RPC 验证插件清单与管理通道。产物在 runtime/native-rc3-ui-verify/。
 $ErrorActionPreference = 'Stop'
 $repo = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..\..'))
+if (!$Package) { $Package = Join-Path $repo ("dshRVguarder\dsh-rvguarder-" + (Get-Content (Join-Path $repo 'dshRVguarder\package.json') -Raw | ConvertFrom-Json).version + '.tgz') }
 $python = Join-Path $repo '.venv\bin\python.exe'
 if (!(Test-Path $python)) { $python = Join-Path $repo '.venv\Scripts\python.exe' }
 $stage = [IO.Path]::GetFullPath($Output)
@@ -61,7 +62,7 @@ Start-Sleep -Seconds 4
 
 # 5) 启动 DSH web profile
 $hostProc = Start-Process -FilePath $DshCli -ArgumentList @('--profile','rvguarder-ui','--no-open','--port',"$port" ) `
-    -WorkingDirectory $workspace -PassThru -RedirectStandardOutput (Join-Path $stage 'host.out.log') -RedirectStandardError (Join-Path $stage 'host.err.log')
+    -WorkingDirectory $workspace -PassThru -WindowStyle Hidden -RedirectStandardOutput (Join-Path $stage 'host.out.log') -RedirectStandardError (Join-Path $stage 'host.err.log')
 try {
     $launchToken = $null
     $deadline = (Get-Date).AddSeconds(40)

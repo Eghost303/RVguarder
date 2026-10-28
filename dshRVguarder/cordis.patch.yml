@@ -9,8 +9,8 @@
       config:
         backendUrl: 'http://127.0.0.1:8781'
         instanceId: dsh-local
-        tokenFile: !!js "return (process.env.USERPROFILE || process.env.HOME) + '/.rvguarder/dsh-local/runtime/dsh-token'"
-        stateDir: !!js "return (process.env.USERPROFILE || process.env.HOME) + '/.rvguarder/dsh-local/runtime/plugin-state'"
+        tokenFile: !!js "(process.env.USERPROFILE || process.env.HOME) + '/.rvguarder/dsh-local/runtime/dsh-token'"
+        stateDir: !!js "(process.env.USERPROFILE || process.env.HOME) + '/.rvguarder/dsh-local/runtime/plugin-state'"
         timeoutMs: 5000
         failMode: closed
     - id: rvguarder-admin
@@ -18,5 +18,5 @@
       config:
         backendUrl: 'http://127.0.0.1:8781'
         instanceId: dsh-local
-        tokenFile: !!js "return (process.env.USERPROFILE || process.env.HOME) + '/.rvguarder/dsh-local/runtime/dsh-token'"
+        tokenFile: !!js "(process.env.USERPROFILE || process.env.HOME) + '/.rvguarder/dsh-local/runtime/dsh-token'"
         timeoutMs: 8000

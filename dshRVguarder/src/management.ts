@@ -4,7 +4,7 @@ import type { Context } from '@deepseek-ai/cordis';
 import { Remote, RemoteError, TypertRemoteService, principalOf } from '@deepseek-ai/dsh-typert-protocol';
 import { sdkVersion } from './sdk.js';
 
-export interface AdminConfig { backendUrl: string; tokenFile: string; instanceId: string; timeoutMs?: number; }
+export interface AdminConfig { backendUrl: string; tokenFile: string; instanceId: string; timeoutMs?: number; connectionReady?: Promise<{backendUrl: string; tokenFile: string; instanceId: string}>; }
 
 /** 后端字段白名单：概览中允许离开宿主的键；其余配置与私有路径不离开宿主侧。 */
 const SUMMARY_FIELDS = [
@@ -18,7 +18,7 @@ const MAX_RESPONSE_BYTES = 4 * 1024 * 1024;
 type Json = Record<string, unknown>;
 
 /** RVguarder 管理失败码；跨线传输依赖 RemoteError 的结构标记而非类型键集合。 */
-type AdminCode = 'rvguarder/invalid-argument' | 'rvguarder/not-owner' | 'rvguarder/backend-unreachable' | 'rvguarder/backend-unauthorized' | 'rvguarder/backend-error' | 'rvguarder/backend-protocol' | 'rvguarder/response-too-large' | 'rvguarder/action-not-found' | 'rvguarder/llm-key-missing' | 'rvguarder/report-not-generated';
+type AdminCode = 'rvguarder/invalid-argument' | 'rvguarder/not-owner' | 'rvguarder/backend-unreachable' | 'rvguarder/backend-unauthorized' | 'rvguarder/backend-error' | 'rvguarder/backend-protocol' | 'rvguarder/instance-mismatch' | 'rvguarder/response-too-large' | 'rvguarder/action-not-found' | 'rvguarder/llm-key-missing' | 'rvguarder/report-not-generated';
 
 /** 构造管理 RemoteError；code 在运行时原样过线（结构标记识别，不依赖 instanceof）。 */
 function adminError(code: AdminCode, message: string, details: Record<string, unknown> = {}): RemoteError {
@@ -40,10 +40,11 @@ function assertString(value: unknown, field: string, pattern?: RegExp): string {
 }
 
 export class RvguarderAdmin extends TypertRemoteService {
-  private readonly base: string;
-  private readonly token: string;
+  private base: string;
+  private token: string;
   private readonly timeoutMs: number;
-  private readonly instanceId: string;
+  private instanceId: string;
+  private readonly connectionReady: Promise<void>;
   /** 与后端最近一次成功握手时间；0 表示尚未确认在线。 */
   private backendSeenAt = 0;
 
@@ -52,12 +53,18 @@ export class RvguarderAdmin extends TypertRemoteService {
     const url = new URL(config.backendUrl);
     if (url.protocol !== 'http:' || !['127.0.0.1', 'localhost', '[::1]'].includes(url.hostname) || url.username || url.password || url.search || url.hash || url.pathname !== '/') throw new Error('Guard backend must use a loopback HTTP origin');
     this.base = url.origin;
-    this.token = readFileSync(config.tokenFile, 'utf8').trim();
-    if (this.token.length < 32) throw new Error('Invalid Guard token');
+    this.token = config.connectionReady ? '' : readFileSync(config.tokenFile, 'utf8').trim();
+    if (!config.connectionReady && this.token.length < 32) throw new Error('Invalid Guard token');
     this.instanceId = config.instanceId;
     const timeout = config.timeoutMs ?? 8000;
     if (!Number.isInteger(timeout) || timeout < 500 || timeout > 30000) throw new Error('Invalid timeoutMs');
     this.timeoutMs = timeout;
+    this.connectionReady = config.connectionReady ? config.connectionReady.then(connection => {
+      this.base = connection.backendUrl;
+      this.token = readFileSync(connection.tokenFile, 'utf8').trim();
+      this.instanceId = connection.instanceId;
+    }) : Promise.resolve();
+    void this.connectionReady.catch(() => {});
   }
 
   /** 每个管理方法都要求当前 Remote 调用来自 owner Peer。 */
@@ -67,6 +74,8 @@ export class RvguarderAdmin extends TypertRemoteService {
 
   /** 固定路径、固定方法的后端调用；不跟随重定向，限制响应大小。 */
   private async backend(path: string, init: { method: 'GET' | 'POST'; body?: unknown } = { method: 'GET' }): Promise<Json> {
+    await this.connectionReady.catch(() => { throw adminError('rvguarder/backend-unreachable', '整包后端不可用；请核对平台安装包与实例状态。'); });
+    if (path !== '/api/dsh/status') await this.checkIdentity();
     const response = await fetch(this.base + path, {
       method: init.method, redirect: 'error',
       headers: { 'x-rvguarder-token': this.token, ...(init.body !== undefined ? { 'Content-Type': 'application/json' } : {}) },
@@ -75,8 +84,7 @@ export class RvguarderAdmin extends TypertRemoteService {
     }).catch(() => { throw adminError('rvguarder/backend-unreachable', 'RVguarder 后端未连接；请先启动 Python 服务。', { path }); });
     if (response.status === 401) throw adminError('rvguarder/backend-unauthorized', 'RVguarder 后端拒绝了宿主桥接令牌。', { path });
     if (!response.ok) throw adminError('rvguarder/backend-error', `RVguarder 后端返回 HTTP ${response.status}`, { path, status: response.status });
-    const text = await response.text();
-    if (text.length > MAX_RESPONSE_BYTES) throw adminError('rvguarder/response-too-large', 'RVguarder 后端响应超过管理通道限额。', { path });
+    const text = new TextDecoder().decode(await this.boundedBody(response));
     let parsed: unknown;
     try { parsed = JSON.parse(text); } catch { throw adminError('rvguarder/backend-protocol', 'RVguarder 后端响应不可解析。', { path }); }
     if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) throw adminError('rvguarder/backend-protocol', 'RVguarder 后端响应不是对象。', { path });
@@ -86,33 +94,61 @@ export class RvguarderAdmin extends TypertRemoteService {
 
   /** 二进制下载（报告/审计导出），返回字节交给 Gateway 的附件通道。 */
   private async backendBytes(path: string, media: string): Promise<{ bytes: Uint8Array; filename: string; mediaType: string }> {
+    await this.connectionReady.catch(() => { throw adminError('rvguarder/backend-unreachable', '整包后端不可用；请核对平台安装包与实例状态。'); });
+    await this.checkIdentity();
     const response = await fetch(this.base + path, {
       method: 'GET', redirect: 'error',
       headers: { 'x-rvguarder-token': this.token },
       signal: AbortSignal.timeout(Math.max(this.timeoutMs, 30000)),
     }).catch(() => { throw adminError('rvguarder/backend-unreachable', 'RVguarder 后端未连接；请先启动 Python 服务。', { path }); });
+    if (response.status === 401) throw adminError('rvguarder/backend-unauthorized', 'RVguarder 后端拒绝了宿主桥接令牌。');
     if (!response.ok) throw adminError('rvguarder/backend-error', `RVguarder 后端返回 HTTP ${response.status}`, { path, status: response.status });
-    const buffer = new Uint8Array(await response.arrayBuffer());
-    if (buffer.byteLength > MAX_RESPONSE_BYTES) throw adminError('rvguarder/response-too-large', '下载内容超过管理通道限额。', { path });
+    const buffer = await this.boundedBody(response);
     const disposition = response.headers.get('content-disposition') ?? '';
     const match = /filename="?([^";]+)"?/.exec(disposition);
     return { bytes: buffer, filename: match?.[1] ?? 'rvguarder-export', mediaType: media };
+  }
+
+  /** 每个业务调用前校验真实后端身份，避免页面把错误实例显示为配置中的实例。 */
+  private async checkIdentity(): Promise<Json> {
+    const status = await this.backend('/api/dsh/status');
+    if (status.protocol !== 'dsh-guard-v2' || status.instance_id !== this.instanceId) throw adminError('rvguarder/instance-mismatch', '后端协议或实例身份不符；请核对连接配置。');
+    return status;
+  }
+
+  /** 读取期间实施字节限额，超限立即取消流，避免完整缓冲后才检测。 */
+  private async boundedBody(response: Response): Promise<Uint8Array> {
+    const reader = response.body?.getReader();
+    if (!reader) throw adminError('rvguarder/backend-protocol', '后端响应缺少内容。');
+    const chunks: Uint8Array[] = []; let size = 0;
+    try {
+      while (true) {
+        const item = await reader.read(); if (item.done) break;
+        size += item.value.byteLength;
+        if (size > MAX_RESPONSE_BYTES) { await reader.cancel(); throw adminError('rvguarder/response-too-large', '管理通道响应超过 4 MiB 限额。'); }
+        chunks.push(item.value);
+      }
+    } finally { reader.releaseLock(); }
+    const result = new Uint8Array(size); let offset = 0;
+    for (const chunk of chunks) { result.set(chunk, offset); offset += chunk.byteLength; }
+    return result;
   }
 
   /** 概览：连接状态 + 摘要（脱敏）。 */
   @Remote('overview')
   async overview(): Promise<Json> {
     this.requireOwner();
-    let summary: Json;
+    let summary: Json; let status: Json;
     try {
+      status = await this.checkIdentity();
       summary = sanitizeSummary(await this.backend('/api/summary'));
     } catch (error) {
-      if (error instanceof RemoteError && (error.code === 'rvguarder/backend-unreachable' || error.code === 'rvguarder/backend-error')) {
+      if (error instanceof RemoteError && error.code === 'rvguarder/backend-unreachable') {
         return { ok: true, backend: { online: false, instanceId: this.instanceId, sdkVersion, lastSeenAt: this.backendSeenAt || null }, summary: null };
       }
       throw error;
     }
-    return { ok: true, backend: { online: true, instanceId: this.instanceId, sdkVersion, lastSeenAt: this.backendSeenAt }, summary };
+    return { ok: true, backend: { online: true, instanceId: this.instanceId, sdkVersion, lastSeenAt: this.backendSeenAt, recoveryRequired: status.recovery_required === true }, summary };
   }
 
   /** 动作详情（只读）。 */

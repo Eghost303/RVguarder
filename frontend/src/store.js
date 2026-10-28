@@ -58,6 +58,8 @@ export const useStore = create((set, get) => ({
   embedded: false,
   language: 'zh',
   backendOnline: true,
+  backendError: '',
+  setBackendError: (backendError) => set({ backendError }),
 
   // ── Setters ──
 
@@ -140,6 +142,8 @@ export const useStore = create((set, get) => ({
     const storedRv = typeof localStorage !== 'undefined' ? localStorage.getItem(_key('rv-mode')) : null;
     set({
       embedded: true,
+      backendOnline: true,
+      backendError: '',
       language: language === 'en' ? 'en' : 'zh',
       summary: {},
       loading: true,
@@ -160,6 +164,8 @@ export const useStore = create((set, get) => ({
     embeddedScope = null;
     set({
       embedded: false,
+      backendOnline: true,
+      backendError: '',
       summary: {},
       loading: true,
       _summaryHash: '',

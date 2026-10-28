@@ -6,6 +6,7 @@ import json
 import re
 from pathlib import Path
 import signal
+import sys
 import threading
 
 from .adapter import local_path
@@ -23,6 +24,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--port", type=int, default=8781)
     parser.add_argument("--semantic-mode", choices=["auto", "local", "llm"], default="auto")
     parser.add_argument("--prepare-only", action="store_true", help="只初始化独占实例与私有令牌，不启动服务")
+    parser.add_argument("--managed-stdio", action="store_true", help="宿主托管模式：stdin 关闭时停止服务")
     args = parser.parse_args(argv)
     if not re.fullmatch(r"[a-zA-Z0-9_.-]{1,128}", args.instance_id):
         parser.error("invalid instance-id")
@@ -44,6 +46,15 @@ def main(argv: list[str] | None = None) -> int:
     print(json.dumps({"url": url, "host": "dsh", "instance_id": args.instance_id,
                       "token_file": str(manager.host_adapter.token_path)}, ensure_ascii=False), flush=True)
     stop = threading.Event()
+    if args.managed_stdio:
+        def watch_parent() -> None:
+            """宿主断开私有管道后退出，不依赖可重用的父进程 PID。"""
+            try:
+                while sys.stdin.buffer.read(1):
+                    pass
+            finally:
+                stop.set()
+        threading.Thread(target=watch_parent, daemon=True).start()
     signal.signal(signal.SIGINT, lambda *_: stop.set())
     signal.signal(signal.SIGTERM, lambda *_: stop.set())
     try:

@@ -183,6 +183,7 @@ def configure_app(app, manager: DshServices) -> None:
     @router.get("/status")
     def status():
         return {"protocol": PROTOCOL_VERSION, "host": "dsh", "instance_id": manager.instance_id,
+                "recovery_required": manager.recovery_required,
                 "hook": manager.hook_status(), "semantic": manager.summary(compact=True)["semantic"]}
 
     app.include_router(router)

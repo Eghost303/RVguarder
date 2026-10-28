@@ -171,18 +171,18 @@ export DEEPSEEK_API_KEY=...
 
 ### DSH 插件
 
-DSH 源码支持 **DSH 0.2.1-rc.2 / rc.3**、Node 24 与 Python 3.13+，当前本地开发候选为 **0.2.0-rc.3**（未发布，协议 `dsh-guard-v2`）。Python 后端支持 **Windows 原生 Python 和 Linux/WSL Python**；Windows 支持与 Python 的安装渠道无关，只需满足版本和依赖要求，无需为了运行后端启动 WSL。Windows 桌面 rc.3 部署见 [原生开发指南](dshRVguarder/docs/windows-native-rc3.md)。GitHub 已发布的历史候选仍为 0.2.0-rc.1，不包含本轮原生兼容改动。
+DSH 源码支持 **DSH 0.2.1-rc.2 / rc.3**、Node 24 与 Python 3.13+，当前本地开发候选为 **0.2.0-rc.4**（未发布，协议 `dsh-guard-v2`）。Python 后端支持 **Windows 原生 Python 和 Linux/WSL Python**；Windows 支持与 Python 的安装渠道无关，只需满足版本和依赖要求，无需为了运行后端启动 WSL。Windows 桌面 rc.3 部署见 [原生开发指南](dshRVguarder/docs/windows-native-rc3.md)。GitHub 已发布的历史候选仍为 0.2.0-rc.1，不包含本轮原生兼容改动。
 
-**宿主产品整合已完成 rc.3 验收。** 插件以 `dsh.bundle` 层安装，在 DSH“插件 → 已安装”页显示 `dsh-rvguarder@0.2.0-rc.3` 并沿用宿主启停/移除；“设置 → RVguarder”在宿主内嵌打开 Guard 管理界面（概览、调用与审批、规则与 RV、扫描与报告、审计、语义模式），认证经宿主 owner 通道，浏览器不接触桥接令牌；后端未启动时界面给出离线说明与重连。实现细节、构建/升级/回滚步骤与真实 rc.3 证据见 [UI 实现报告](dshRVguarder/docs/ui-integration-implementation.md)。规则现象（本地模式频繁 ask / 完全权限下被拦截）仍待复现定位，本轮未改动任何规则。
+**rc.3 宿主入口已接通，独立审查仍有待整改项。** 插件以 `dsh.bundle` 层安装，在 DSH“插件 → 已安装”页显示 `dsh-rvguarder@0.2.0-rc.4` 并沿用宿主启停/移除；“设置 → RVguarder”在宿主内嵌打开 Guard 管理界面（概览、调用与审批、规则与 RV、扫描与报告、审计、语义模式），认证经宿主 owner 通道，浏览器不接触桥接令牌；后端未启动时界面给出离线说明与重连。实现细节、构建/升级/回滚步骤与真实 rc.3 证据见 [UI 实现报告](dshRVguarder/docs/ui-integration-implementation.md)。规则现象（本地模式频繁 ask / 完全权限下被拦截）仍待复现定位，本轮未改动任何规则。
 
-一般流程是：准备环境 → 构建独立工作台与内嵌模块 → 构建插件 → 初始化实例并安装新 profile → **单独启动 Python 后端** → 启动 DSH profile → 在“设置 → RVguarder”内管理，或用独立 Guard 工作台（保留作开发/诊断/OpenClaw 路径）。Windows 安装/启动脚本可辅助完成部分步骤，但插件不自动托管 Python 服务。旧 plain-dependency profile 用 `dshRVguarder/scripts/migrate-test-profile.mjs` 升级到 bundle 形式。
+Windows x64 平台整包已包含 Python 与依赖：取得对应 tgz → 校验 SHA-256 → 在 DSH 安装并重新启用/重启 → 设置页管理；不需要手工启动后端。普通源码 npm pack 仍是外部模式，需自行准备和启动 Python。既有外部配置不被静默迁移。使用与边界见 [部署指南](dshRVguarder/docs/deployment.md) 和 [DEP-01 实现](dshRVguarder/docs/deployment-implementation-2026-10-28.md)。原交付逐项结果见 [独立审查](dshRVguarder/docs/ui-review-2026-10-28.md)：主题/语言/故障/迁移矩阵与 rc.2 UI 仍待验收，不能称全项完成。
 
 **源码部署和提交 PR 不要求 GitHub Release。** 团队也可使用维护者构建的同批次 tgz/wheel，省去源码编译；若以后通过 Release 分发，应标为 pre-release，附匹配产物、说明、哈希和已知问题。当前候选不是一键安装包，发布附件不会自动解决上述运行与界面问题。
 
 当前候选从源码构建后安装；历史发布包另见 [GitHub Releases](https://github.com/HorizonExploration/RVguarder/releases)：
 
 ```bash
-dsh plugin --profile <profile> add ./dsh-rvguarder-0.2.0-rc.3.tgz
+dsh plugin --profile <profile> add ./dsh-rvguarder-0.2.0-rc.4.tgz
 ```
 
 从源码构建：
@@ -260,7 +260,7 @@ ChainRule DSL 监视器触发：
 
 ```
 clawRVguarder/        Python 后端与 CLI（FastAPI、PMKB、RV、审计、OpenClaw 集成）
-dshRVguarder/         DSH 0.2.1-rc.2 / rc.3 适配插件（0.2.0-rc.3 本地开发候选：bundle 化清单 + 内嵌管理界面）
+dshRVguarder/         DSH 0.2.1-rc.2 / rc.3 适配插件（0.2.0-rc.4 本地开发候选：bundle 化清单 + 内嵌管理界面）
 frontend/              Preact 工作台（Vite 构建，产物输出 runtime/ui/）
 policies/permissions/  PMKB 单一源（schema、operations、rules、traces、relations、vectors）
 tests/                 后端测试与文档/发布契约

@@ -28,9 +28,15 @@ export function EmbeddedShell({ view, views, onNavigate, instanceId }) {
   const summary = useStore((s) => s.summary);
   const hookActive = !!summary.hook?.active;
   const backendOnline = useStore((s) => s.backendOnline !== false);
+  const backendError = useStore((s) => s.backendError);
 
   // 连接断开后的重新连接入口：手动触发一次快照。
-  const refresh = () => { useStore.getState().setLoading(true); import('../api').then(({ fetchSummary }) => fetchSummary({ compact: true })).catch(() => {}); };
+  const refresh = async () => {
+    const state = useStore.getState(); state.setLoading(true);
+    try { const { fetchSummary } = await import('../api'); const snapshot = await fetchSummary({ compact: true }); state.setSummary(snapshot); state.setBackendOnline(true); state.setBackendError(''); }
+    catch (error) { state.setBackendOnline(false); state.setBackendError(error.message || '管理通道不可用'); }
+    finally { state.setLoading(false); }
+  };
 
   return (
     <div class="rvg-embed" data-instance={instanceId} data-view={view}>
@@ -50,7 +56,7 @@ export function EmbeddedShell({ view, views, onNavigate, instanceId }) {
       </div>
       {!backendOnline && (
         <div class="rvg-embed-offline" role="status">
-          <p>Guard 后端未连接。插件安装与守卫状态不受影响；启动后端后重新连接。</p>
+          <p>{backendError || 'Guard 后端未连接，请检查插件状态后重新连接。'}</p>
           <button class="rvg-embed-btn" onClick={refresh}>重新连接</button>
         </div>
       )}
@@ -83,7 +89,7 @@ function EmbeddedSettingsPanel() {
         <div class="card-head"><h3>连接信息（只读）</h3></div>
         <p>实例：{host.instance_id || '—'} · Profile：{host.profile || '—'}</p>
         <p>协议：dsh-guard-v2 · 语义模式：{semantic.configured_mode || '—'}</p>
-        <p>后端由用户单独启动；本页面不自动托管进程。启动说明见项目部署文档。</p>
+        <p>平台整包随插件启停托管后端；外部服务模式需要单独启动。部署与诊断见插件说明。</p>
       </section>
     </div>
   );

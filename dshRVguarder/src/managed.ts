@@ -1,0 +1,143 @@
+/** 随插件分发的原生后端：校验平台及内容，托管单一子进程，不下载或执行外部脚本。 */
+import { spawn, type ChildProcess } from 'node:child_process';
+import { createHash } from 'node:crypto';
+import { lstatSync, readFileSync, readdirSync, realpathSync } from 'node:fs';
+import { dirname, isAbsolute, join, relative, resolve, toNamespacedPath } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import type { Context } from '@deepseek-ai/cordis';
+
+export interface ManagedConfig { backendMode?: 'managed' | 'external'; }
+export interface Connection { backendUrl: string; tokenFile: string; instanceId: string; stateDir: string; }
+export interface Deployment { directory: string; workspace: string; home: string; profile: string; instanceId: string; }
+interface Manifest { schema: number; platform: string; arch: string; executable: string; files: Record<string, string>; }
+const packageRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
+
+/** 拒绝路径逃逸、链接、缺失及篡改；manifest 是随平台包交付的完整文件清单。 */
+export function verifyBackend(root = join(packageRoot, 'backend')): string {
+  const manifest = JSON.parse(readFileSync(join(root, 'manifest.json'), 'utf8')) as Manifest;
+  const executable = process.platform === 'win32' ? 'rvguarder-backend.exe' : 'rvguarder-backend';
+  if (manifest.schema !== 1 || manifest.platform !== process.platform || manifest.arch !== process.arch || manifest.executable !== executable || !manifest.files || typeof manifest.files !== 'object') throw new Error('RVguarder backend platform/manifest mismatch');
+  const actual = new Set<string>();
+  const walk = (dir: string) => {
+    if (lstatSync(dir).isSymbolicLink()) throw new Error('RVguarder backend links are forbidden');
+    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+      const path = join(dir, entry.name);
+      if (entry.isSymbolicLink()) throw new Error('RVguarder backend links are forbidden');
+      if (entry.isDirectory()) walk(path);
+      else if (entry.isFile()) actual.add(relative(root, path).replaceAll('\\', '/'));
+      else throw new Error('RVguarder backend contains non-regular file');
+    }
+  };
+  walk(root); actual.delete('manifest.json');
+  if (!Object.hasOwn(manifest.files, executable) || Object.keys(manifest.files).length !== actual.size) throw new Error('RVguarder backend inventory mismatch');
+  for (const [name, digest] of Object.entries(manifest.files)) {
+    if (!actual.has(name) || !/^[a-f0-9]{64}$/.test(digest) || createHash('sha256').update(readFileSync(join(root, name))).digest('hex') !== digest) throw new Error('RVguarder backend integrity check failed');
+  }
+  return realpathSync(join(root, executable));
+}
+
+/** 只使用宿主注入的 profile 事实与工作区默认值，不读工具参数或浏览器输入。 */
+export function deploymentFor(ctx: Context): Deployment {
+  const profile = ctx.get('profileContext') as { home: string; name: string; cwd: string } | undefined;
+  if (!profile || !isAbsolute(profile.home) || !/^[a-zA-Z0-9_.-]{1,128}$/.test(profile.name) || ['.', '..'].includes(profile.name)) throw new Error('Managed backend requires trusted DSH profileContext');
+  const workspace = resolve(ctx.workingDirectory?.defaultDirectory || profile.cwd);
+  const id = 'dsh-' + createHash('sha256').update(resolve(profile.home) + '\0' + profile.name).digest('hex').slice(0, 24);
+  const directory = join(resolve(profile.home), 'rvguarder', id);
+  const local = relative(workspace, directory);
+  if (local === '' || (!local.startsWith('..') && !isAbsolute(local))) throw new Error('Guard data must be outside Agent workspace');
+  return { directory, workspace, home: resolve(profile.home), profile: profile.name, instanceId: id };
+}
+
+/** 启动后端并等待其认证就绪；stdin EOF 使子进程随宿主退出，不接管外部服务。 */
+export class ManagedBackend {
+  readonly ready: Promise<Connection>;
+  private child: ChildProcess;
+  private stopped = false;
+  private closing?: Promise<void>;
+  constructor(deployment: Deployment, executable = verifyBackend()) {
+    // pnpm 的真实安装路径可能超过 MAX_PATH，CreateProcess 需要 Windows 命名空间路径。
+    const nativeExecutable = toNamespacedPath(executable);
+    this.child = spawn(nativeExecutable, ['--project-dir', deployment.directory, '--dsh-home', deployment.home,
+      '--workspace', deployment.workspace, '--profile', deployment.profile, '--instance-id', deployment.instanceId,
+      '--port', '0', '--managed-stdio'], { cwd: dirname(nativeExecutable), windowsHide: true, shell: false, stdio: ['pipe', 'pipe', 'pipe'],
+      env: { ...process.env, PYTHONUTF8: '1', PYTHONNOUSERSITE: '1', PYTHONPATH: '', PYTHONHOME: '' } });
+    // 后端日志不含凭据；不把原始 stderr/文件路径送入浏览器或用户通知。
+    let startupError = '';
+    this.child.stderr!.on('data', (data: Buffer) => { startupError = (startupError + data.toString('utf8')).slice(-8192); });
+    this.ready = new Promise((accept, reject) => {
+      let buffer = ''; let settled = false;
+      const fail = () => { if (!settled) {
+        settled = true; clearTimeout(timer);
+        const diagnostic = startupError.split('\n').filter(line => /^(ModuleNotFoundError|ImportError|ValueError|OSError|PermissionError|RuntimeError|FileNotFoundError):/.test(line)).pop();
+        console.error(`RVguarder backend startup failed (${this.child.exitCode ?? 'timeout/spawn'}): ${diagnostic ?? 'see platform installation and instance binding'}`);
+        reject(new Error('RVguarder bundled backend failed to start; guard remains closed'));
+      } };
+      const timer = setTimeout(() => { fail(); void this.close(); }, 60000);
+      this.child.once('error', (error) => { console.error('RVguarder backend spawn:', (error as NodeJS.ErrnoException).code); fail(); });
+      this.child.once('exit', fail);
+      this.child.stdout!.on('data', (bytes: Buffer) => {
+        buffer += bytes.toString('utf8');
+        if (buffer.length > 65536) { fail(); void this.close(); return; }
+        while (buffer.includes('\n')) {
+          const end = buffer.indexOf('\n'); const line = buffer.slice(0, end); buffer = buffer.slice(end + 1);
+          if (settled) continue;
+          let item: Record<string, unknown>;
+          try { item = JSON.parse(line) as Record<string, unknown>; } catch { continue; }
+          if (!item.url) continue;
+          settled = true; clearTimeout(timer);
+          void (async () => {
+            const url = new URL(String(item.url));
+            const tokenFile = join(deployment.directory, 'runtime', 'dsh-token');
+            if (this.stopped || url.protocol !== 'http:' || url.hostname !== '127.0.0.1' || !url.port || url.pathname !== '/' || url.search || url.hash || url.username || url.password || item.instance_id !== deployment.instanceId || resolve(String(item.token_file)) !== tokenFile) throw new Error('Bundled backend readiness identity mismatch');
+            const token = readFileSync(tokenFile, 'utf8').trim();
+            if (token.length < 32) throw new Error('Bundled backend token missing');
+            const response = await fetch(url.origin + '/api/dsh/status', { headers: { 'x-rvguarder-token': token }, redirect: 'error', signal: AbortSignal.timeout(5000) });
+            const status = await response.json() as Record<string, unknown>;
+            if (!response.ok || status.protocol !== 'dsh-guard-v2' || status.instance_id !== deployment.instanceId || this.stopped || this.child.exitCode !== null) throw new Error('Bundled backend authentication failed');
+            accept({ backendUrl: url.origin, tokenFile, instanceId: deployment.instanceId, stateDir: join(deployment.directory, 'runtime', 'plugin-state') });
+          })().catch((error: unknown) => { reject(error); void this.close(); });
+        }
+      });
+    });
+  }
+
+  /** 仅关闭本对象创建的进程；保留实例、令牌、完成队列与审计。 */
+  close(): Promise<void> {
+    if (this.closing) return this.closing;
+    this.stopped = true;
+    this.closing = new Promise((done) => {
+      if (this.child.exitCode !== null || this.child.signalCode !== null || !this.child.pid) { done(); return; }
+      const timer = setTimeout(() => { this.child.kill('SIGKILL'); }, 8000);
+      this.child.once('exit', () => { clearTimeout(timer); done(); });
+      this.child.stdin!.on('error', () => {});
+      this.child.stdin!.end();
+    });
+    return this.closing;
+  }
+}
+
+const sessions = new Map<string, { backend: Promise<ManagedBackend>; references: number }>();
+const shutdowns = new Map<string, Promise<void>>();
+
+/** 核心与管理入口共享一个进程；最后一个宿主 fiber 卸载时关闭。 */
+export function acquireManaged(ctx: Context, factory: (deployment: Deployment) => ManagedBackend = deployment => new ManagedBackend(deployment)): { ready: Promise<Connection>; release(): Promise<void> } {
+  const deployment = deploymentFor(ctx);
+  let session = sessions.get(deployment.directory);
+  if (!session) {
+    // 快速禁用/启用时先等待旧进程释放目录锁，不能复用正在退出的连接。
+    session = { backend: (shutdowns.get(deployment.directory) ?? Promise.resolve()).then(() => factory(deployment)), references: 0 };
+    sessions.set(deployment.directory, session);
+  }
+  session.references++;
+  const owned = session; let released = false;
+  return { ready: owned.backend.then(backend => backend.ready), async release() {
+    if (released) return; released = true;
+    if (--owned.references === 0) {
+      if (sessions.get(deployment.directory) === owned) sessions.delete(deployment.directory);
+      const stopping = owned.backend.then(backend => backend.close(), () => {});
+      shutdowns.set(deployment.directory, stopping);
+      try { await stopping; }
+      finally { if (shutdowns.get(deployment.directory) === stopping) shutdowns.delete(deployment.directory); }
+    }
+  } };
+}

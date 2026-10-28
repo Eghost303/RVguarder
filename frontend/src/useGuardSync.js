@@ -21,7 +21,7 @@ export function useGuardSync() {
         const revision = useStore.getState()._actionRevision;
         const s = await fetchSummary({ compact: true });
         if (!disposed && revision === useStore.getState()._actionRevision) setSummary(s);
-        if (!disposed) setBackendOnline(true);
+        if (!disposed) { setBackendOnline(true); useStore.getState().setBackendError(''); }
         if (rvMode) {
           const rv = await fetchRvStatus();
           if (!disposed) setRvStatus(rv);
@@ -29,6 +29,7 @@ export function useGuardSync() {
       } catch (error) {
         if (!disposed) {
           setBackendOnline(false);
+          useStore.getState().setBackendError(apiErrorMessage(error, t('error_default')));
           // 内嵌模式离线横幅负责呈现；独立工作台保留 toast。
           if (!useStore.getState().embedded) showToast(apiErrorMessage(error, t('error_default')));
         }

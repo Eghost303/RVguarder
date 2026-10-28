@@ -8,7 +8,7 @@ $workspace = Join-Path $Stage 'workspace'
 $dshHome = Join-Path $Stage 'home'
 $env:DSH_HOME = $dshHome
 $hostProc = Start-Process -FilePath $DshCli -ArgumentList @('--profile','rvguarder-ui','--no-open','--port','8791') `
-    -WorkingDirectory $workspace -PassThru -RedirectStandardOutput (Join-Path $Stage 'dbg.out.log') -RedirectStandardError (Join-Path $Stage 'dbg.err.log')
+    -WorkingDirectory $workspace -PassThru -WindowStyle Hidden -RedirectStandardOutput (Join-Path $Stage 'dbg.out.log') -RedirectStandardError (Join-Path $Stage 'dbg.err.log')
 try {
     $launchToken = $null
     $deadline = (Get-Date).AddSeconds(40)
@@ -23,9 +23,10 @@ try {
     try { Invoke-WebRequest -Uri "http://127.0.0.1:8791/connect?token=$launchToken" -WebSession $session -Method GET -UseBasicParsing -MaximumRedirection 0 -ErrorAction Stop | Out-Null } catch { }
     Start-Sleep -Seconds 3
     $page = Invoke-WebRequest -Uri "http://127.0.0.1:8791/?token=$launchToken" -WebSession $session -Method GET -UseBasicParsing
-    $html = $page.Content
-    $hasRvg = $html -match 'dsh-rvguarder/client\.js'
+    $html = if ($page.Content -is [byte[]]) { [Text.Encoding]::UTF8.GetString($page.Content) } else { [string]$page.Content }
+    $hasRvg = [bool]($html -match 'dsh-rvguarder/client\.js')
     Write-Host "boot graph includes dsh-rvguarder client: $hasRvg"
+    if (!$hasRvg) { throw 'Authenticated host HTML does not include the RVguarder client boot entry.' }
     if ($hasRvg) {
         # 拉取该客户端 bundle（combo URL）
         if ($html -match 'plugins/\?\?dsh-rvguarder/client\.js[^"\\'']+') {
@@ -33,8 +34,11 @@ try {
             Write-Host "bundle url: $rel"
             $bundle = Invoke-WebRequest -Uri "http://127.0.0.1:8791/$($rel -replace '&amp;','&')" -WebSession $session -Method GET -UseBasicParsing
             Write-Host ("client bundle bytes: " + $bundle.Content.Length)
-            Write-Host ("client bundle registers: " + ($bundle.Content -match '__ModuleLoader__\.load'))
-        } else { Write-Host 'WARN: combo url pattern not found' }
+            $clientText = if ($bundle.Content -is [byte[]]) { [Text.Encoding]::UTF8.GetString($bundle.Content) } else { [string]$bundle.Content }
+            $registered = $clientText -match '__ModuleLoader__\.load'
+            Write-Host ("client bundle registers: " + $registered)
+            if (!$registered) { throw 'Client resource did not register the DSH module loader.' }
+        } else { throw 'RVguarder client combo resource URL not found.' }
     }
 } finally {
     taskkill /PID $hostProc.Id /T /F 2>$null | Out-Null
