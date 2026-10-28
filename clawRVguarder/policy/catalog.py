@@ -10,6 +10,7 @@ from typing import Any
 from collections.abc import Mapping
 
 from .models import OperationRef, PolicyRule
+from .selectors import SUBACTION_GAP, is_selector_tool, select_family
 
 
 class PolicyBundleError(ValueError):
@@ -257,6 +258,14 @@ class PolicyBundle:
         )
 
     def operation_for_tool(self, tool_id: str, params: dict[str, Any]) -> OperationRef:
+        selected = select_family(tool_id, params)
+        if selected:
+            return OperationRef(family=selected, tool_id=tool_id, arguments=params,
+                                aliases=[f"selector:{tool_id}"])
+        if is_selector_tool(tool_id):
+            # 子操作未登记时不能落回工具默认族，否则未知操作会被当成已知效果。
+            return OperationRef(family="unknown_tool", tool_id=tool_id, arguments=params,
+                                gaps=["tool_mapping", SUBACTION_GAP])
         for operation in self.operations:
             if tool_id in operation.tool_ids:
                 return OperationRef(family=operation.family, tool_id=tool_id, arguments=params, aliases=list(operation.aliases))

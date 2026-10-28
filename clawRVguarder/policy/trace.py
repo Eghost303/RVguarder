@@ -48,7 +48,10 @@ class TraceCompiler:
             except ValueError:
                 params["argv"] = []
         operation = self.bundle.operation_for_tool(tool_id, params)
-        if operation.family == "unknown_tool" and event.action_type in _ACTION_TO_TOOL:
+        # 选择器工具的子操作未登记时保持 unknown，不用 action_type 兜底成已知族。
+        if (operation.family == "unknown_tool"
+                and "subaction_unmapped" not in operation.gaps
+                and event.action_type in _ACTION_TO_TOOL):
             operation = self.bundle.operation_for_tool(_ACTION_TO_TOOL[event.action_type], params)
 
         labels = {str(x) for x in semantic.get("labels", [])}

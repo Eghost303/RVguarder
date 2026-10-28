@@ -17,7 +17,10 @@ SUPPORTED_SDK_VERSIONS = ("0.2.1-rc.2", "0.2.1-rc.3")
 TOOL_ALIASES = {"read": "read", "write": "write", "edit": "edit", "bash": "exec",
                 "pwsh": "exec", "read_image": "read", "web_fetch": "web_fetch",
                 "web_search": "web_search", "run_code": "code_execution", "rvguard_read": "read", "rvguard_copy": "write",
-                "rvguard_transform": "write", "rvguard_send": "web_fetch"}
+                "rvguard_transform": "write", "rvguard_send": "web_fetch",
+                # 这两个工具的子操作由 policy/selectors.py 按参数解析，
+                # 这里只保留原名，避免被前缀成 dsh-unmapped 而失去契约。
+                "str_replace_editor": "str_replace_editor", "terminal_send": "terminal_send"}
 
 
 def local_path(value: str) -> str:
