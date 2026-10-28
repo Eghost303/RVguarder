@@ -30,7 +30,11 @@ _RE_PUBLIC_IP = re.compile(r"https?://(\d{1,3}(?:\.\d{1,3}){3})", re.IGNORECASE)
 _INTERNAL_DOMAINS = {"openclaw.ai", "openclaw.local", "internal.local", "company.local"}
 _SYSTEM_PREFIXES = ("/bin", "/etc", "/usr", "/system")
 _LOG_PREFIXES = ("/var/log", "/tmp/openclaw")
-_SENSITIVE_PATH_MARKERS = ("/.ssh", "/.aws", "/.gnupg", "id_rsa", "api_key", "/secrets/", "/credentials/")
+_SENSITIVE_PATH_MARKERS = (
+    "/.ssh", "/.aws", "/.gnupg", "id_rsa", "api_key", "/secrets/", "/credentials/",
+    "/.npmrc", "/.netrc", "/.pypirc", "/.pgpass", "/.docker/config.json",
+    "kubeconfig", "/.kube/", "/.config/gh/", "authorized_keys",
+)
 _HIGH_VALUE_PATH_MARKERS = ("/cases/", "/evidence/", "evidence", "forensics")
 _SCRIPT_SUFFIXES = {".sh", ".ps1", ".bat", ".py", ".pyw", ".js", ".mjs", ".cjs", ".rb", ".pl", ".lua"}
 _READONLY_COMMANDS = ("ls", "pwd", "cat ", "grep ", "find ", "echo ")
@@ -604,6 +608,11 @@ def _path_labels(event: BehaviorEvent) -> set[str]:
         if normalized.startswith(_SYSTEM_PREFIXES):
             labels.add("path_system_root")
         if any(marker in normalized for marker in _SENSITIVE_PATH_MARKERS):
+            labels.add("path_sensitive_creds")
+        # 根目录下的 .env / .npmrc 等没有前导斜杠，需要按 basename 判定。
+        basename = Path(normalized).name
+        if (basename == ".env" or basename.startswith(".env.")
+                or basename in {".envrc", ".npmrc", ".netrc", ".pypirc", ".pgpass"}):
             labels.add("path_sensitive_creds")
         if normalized.startswith(_LOG_PREFIXES):
             labels.add("path_log")
