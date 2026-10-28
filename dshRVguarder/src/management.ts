@@ -142,7 +142,7 @@ export class RvguarderAdmin extends TypertRemoteService {
   async overview(): Promise<Json> {
     this.requireOwner();
     const deployment = this.deploymentStatus();
-    if (deployment.state === 'starting' || deployment.state === 'failed' || deployment.state === 'stopped') return { ok: true, backend: { online: false, instanceId: this.instanceId, sdkVersion, deployment, lastSeenAt: this.backendSeenAt || null }, summary: null };
+    if (deployment.state === 'starting' || deployment.state === 'failed' || deployment.state === 'stopped') return { ok: true, backend: { online: false, instanceId: this.instanceId, sdkVersion, deployment, recoveryRequired: deployment.reason === 'recovery-required', lastSeenAt: this.backendSeenAt || null }, summary: null };
     let summary: Json; let status: Json;
     try {
       status = await this.checkIdentity();

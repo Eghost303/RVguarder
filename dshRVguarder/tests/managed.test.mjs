@@ -5,7 +5,7 @@ import { createHash } from 'node:crypto';
 import { mkdtempSync, mkdirSync, writeFileSync, rmSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
-import { verifyBackend, deploymentFor, ManagedBackend, acquireManaged } from '../dist/managed.js';
+import { verifyBackend, deploymentFor, ManagedBackend, acquireManaged, coreFailureReason } from '../dist/managed.js';
 
 function fixture(t) {
   const root = mkdtempSync(join(tmpdir(), 'rvg-package-'));
@@ -50,6 +50,24 @@ test('trusted profile binding separates homes and profile names', () => {
   const migrated = deploymentFor(ctx('one'), binding);
   assert.equal(migrated.instanceId, 'old-id'); assert.equal(migrated.directory, binding.projectDir); assert.equal(migrated.stateDir, binding.stateDir);
   assert.throws(() => deploymentFor(ctx('one'), { ...binding, projectDir: workspace }), /outside/);
+});
+
+test('core recovery failure stays visible across concurrent admin readiness', async t => {
+  const root = mkdtempSync(join(tmpdir(), 'rvg-core-failure-'));
+  const ctx = { get: () => ({ home: join(root, 'home'), name: 'test', cwd: join(root, 'workspace') }), workingDirectory: { defaultDirectory: join(root, 'workspace') } };
+  let finish;
+  const connection = new Promise(resolve => { finish = resolve; });
+  const factory = () => ({ ready: connection, alive: () => true, close: async () => {} });
+  const core = acquireManaged(ctx, factory), admin = acquireManaged(ctx, factory);
+  t.after(async () => { await core.release(); await admin.release(); rmSync(root, { recursive: true, force: true }); });
+  const classified = coreFailureReason(new Error('Previous plugin owner exited; inspect outbox and explicitly remove stale owner.lock before restart'));
+  assert.equal(classified, 'recovery-required');
+  const failed = core.ready.then(() => core.reportFailure(classified));
+  finish({ backendUrl: 'http://127.0.0.1:1', tokenFile: 'private', instanceId: 'test', stateDir: root });
+  await Promise.all([failed, admin.ready]);
+  assert.deepEqual(admin.status(), { mode: 'managed', state: 'failed', reason: 'recovery-required' });
+  assert.equal(coreFailureReason(new Error('DSH plugin state directory already owned')), 'instance-conflict');
+  assert.equal(coreFailureReason(new Error('Unconfirmed execution from previous process')), 'recovery-required');
 });
 
 test('frozen backend authenticates, stops on pipe close and preserves identity', {

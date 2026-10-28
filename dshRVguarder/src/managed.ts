@@ -141,11 +141,21 @@ export class ManagedBackend {
   }
 }
 
-const sessions = new Map<string, { backend: Promise<ManagedBackend>; references: number; fingerprint: string; status: DeploymentStatus }>();
+export type CoreFailure = 'recovery-required' | 'instance-conflict' | 'startup-failed';
+
+/** 将核心启动/持久化故障映射为固定原因，绝不向浏览器透出异常路径。 */
+export function coreFailureReason(error: unknown): CoreFailure {
+  const message = error instanceof Error ? error.message : '';
+  if (/previous plugin owner|reconcile|outbox|completion|execution|persistence/i.test(message)) return 'recovery-required';
+  if (/state directory already owned/i.test(message)) return 'instance-conflict';
+  return 'startup-failed';
+}
+
+const sessions = new Map<string, { backend: Promise<ManagedBackend>; references: number; fingerprint: string; status: DeploymentStatus; coreFailure?: CoreFailure }>();
 const shutdowns = new Map<string, Promise<void>>();
 
 /** 核心与管理入口共享一个进程；最后一个宿主 fiber 卸载时关闭。 */
-export function acquireManaged(ctx: Context, factory: (deployment: Deployment) => ManagedBackend | Promise<ManagedBackend> = cachedBackend, binding?: ManagedBinding): { ready: Promise<Connection>; status(): DeploymentStatus; release(): Promise<void> } {
+export function acquireManaged(ctx: Context, factory: (deployment: Deployment) => ManagedBackend | Promise<ManagedBackend> = cachedBackend, binding?: ManagedBinding): { ready: Promise<Connection>; status(): DeploymentStatus; reportFailure(reason: CoreFailure): void; release(): Promise<void> } {
   const deployment = deploymentFor(ctx, binding);
   const fingerprint = JSON.stringify(deployment);
   let session = sessions.get(deployment.directory);
@@ -161,7 +171,7 @@ export function acquireManaged(ctx: Context, factory: (deployment: Deployment) =
   void owned.backend.then(backend => { runtime = backend; }, () => {});
   const ready = owned.backend.then(backend => backend.ready);
   void ready.then(() => { owned.status = { mode: 'managed', state: 'ready' }; }, (error: unknown) => { owned.status = { mode: 'managed', state: 'failed', reason: String((error as {reason?: string})?.reason || (/manifest|integrity|inventory|platform|cache/i.test(String(error)) ? 'runtime-damaged' : 'startup-failed')) }; });
-  return { ready, status: () => owned.status.state === 'ready' && runtime && !runtime.alive() ? { mode: 'managed', state: 'failed', reason: 'backend-exited' } : ({ ...owned.status }), async release() {
+  return { ready, reportFailure(reason) { if (!released) owned.coreFailure = reason; }, status: () => owned.status.state === 'stopped' ? ({ ...owned.status }) : owned.coreFailure ? { mode: 'managed', state: 'failed', reason: owned.coreFailure } : owned.status.state === 'ready' && runtime && !runtime.alive() ? { mode: 'managed', state: 'failed', reason: 'backend-exited' } : ({ ...owned.status }), async release() {
     if (released) return; released = true;
     if (--owned.references === 0) {
       if (sessions.get(deployment.directory) === owned) sessions.delete(deployment.directory);

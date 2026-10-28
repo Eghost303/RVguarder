@@ -13,7 +13,7 @@ import {DegradedOutbox} from './durable.js';
 import {hostProbe} from './probe.js';
 import { Outbox } from './outbox.js';
 import { protocol,type GuardCall,type GuardDecision } from './protocol.js';
-import { acquireManaged, type ManagedConfig } from './managed.js';
+import { acquireManaged, coreFailureReason, type ManagedConfig } from './managed.js';
 export const name='dsh-rvguarder';
 export const inject=['tools','workingDirectory'];
 export interface Config extends ManagedConfig { backendUrl:string; tokenFile:string; instanceId:string; stateDir?:string; timeoutMs?:number; failMode?:'closed'|'open'; evidenceKeyFile?:string; egressAllowlist?:string[]; egressCaFile?:string; }
@@ -33,12 +33,12 @@ export function apply(ctx:Context,config:Config) {
   ctx.effect(() => async () => { stopped = true; await managed.release(); }, 'rvguarder-managed-backend');
   void managed.ready.then(connection => {
     if (stopped) return;
-    applyCore(ctx, { ...config, ...connection }); initialized = true;
-  }).catch(() => { reason = 'RVguarder 整包后端启动或持久状态检查失败；请核对实例状态后重新启用插件。'; });
+    applyCore(ctx, { ...config, ...connection }, error => managed.reportFailure(coreFailureReason(error))); initialized = true;
+  }).catch((error: unknown) => { if (!stopped) managed.reportFailure(coreFailureReason(error)); reason = 'RVguarder 整包后端启动或持久状态检查失败；请核对实例状态后重新启用插件。'; });
 }
 
 /** 注册已具备认证连接的守卫；外部托管和整包托管共用相同决策路径。 */
-function applyCore(ctx:Context,config:Config) {
+function applyCore(ctx:Context,config:Config,onFailure?:(error:unknown)=>void) {
   if (!config?.instanceId || !/^[a-zA-Z0-9_.-]{1,128}$/.test(config.instanceId)) throw new Error('Invalid Guard instanceId');
   if (config.failMode!==undefined && !['closed','open'].includes(config.failMode)) throw new Error('Invalid failMode');
   const timeout=config.timeoutMs??5000;
@@ -56,6 +56,7 @@ function applyCore(ctx:Context,config:Config) {
   const identities=new Map<object,GuardCall>();
   const degradedCalls=new Map<object,GuardCall>();
   let failure:unknown=outbox.recoveryRequired ? new Error("Unconfirmed execution from previous process") : undefined;
+  if (failure) onFailure?.(failure);
   async function ready(forceHello = false) {
     if(failure) throw new Error('Guard persistence failure requires reconciliation');
     await outbox.flush(client); await client.hello(config.instanceId, forceHello);
@@ -112,7 +113,7 @@ function applyCore(ctx:Context,config:Config) {
     const item=pending.get(exec.token);
     if(item) {
       try { outbox.begin(item.call); }
-      catch(error) { failure=error;throw error; }
+      catch(error) { failure=error;onFailure?.(error);throw error; }
       const ack=await client.post('dispatch',item.call,exec.signal);
       if(ack.ok!==true) throw new Error('Guard dispatch acknowledgement missing');
       controlled?.permitted(exec.token,ack.permit);
@@ -132,7 +133,7 @@ function applyCore(ctx:Context,config:Config) {
       outbox.push({call:item.call,dispatched:item.dispatched,succeeded:item.dispatched&&result.isError===false,...(result.isError===false&&receipt?{evidence:receipt}:{})});
       outbox.settle(item.call);
       void outbox.flush(client).catch(()=>{});
-    } catch(error) {failure=error;}
+    } catch(error) {failure=error;onFailure?.(error);}
   });
   let stopped=false;let heartbeatRun:Promise<void>|undefined;
   const heartbeat=()=>{

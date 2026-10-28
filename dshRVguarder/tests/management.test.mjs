@@ -162,3 +162,12 @@ test('invalid JSON shape and HTTP 403 have distinct visible failure codes', asyn
   const forbidden = await admin(t, { backend: { status: 403 } });
   await assert.rejects(() => forbidden.service.overview(), error => error.code === 'rvguarder/backend-error' && error.details.status === 403);
 });
+
+test('core recovery lock is reported even when the backend process is ready', async t => {
+  const ctx = new Context(); t.after(() => ctx.fiber.dispose());
+  const service = new RvguarderAdmin(ctx, { backendUrl: 'http://127.0.0.1:1', tokenFile: '', instanceId: 'locked-instance', connectionReady: new Promise(() => {}), deploymentStatus: () => ({ mode: 'managed', state: 'failed', reason: 'recovery-required' }) });
+  const value = await service.overview();
+  assert.equal(value.backend.recoveryRequired, true);
+  assert.equal(value.backend.online, false);
+  assert.equal(value.backend.deployment.reason, 'recovery-required');
+});

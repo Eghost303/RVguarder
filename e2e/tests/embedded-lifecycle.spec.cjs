@@ -18,7 +18,7 @@ test.beforeEach(async ({ page }) => {
         window.counts[id] = (window.counts[id] || 0) + 1;
         if (window.faults[id]) throw Object.assign(new Error(window.faults[id]), { code: window.faults[id] });
         if (method === 'overview') return { backend: { online: true, instanceId: id }, summary: { host: { kind: 'dsh', instance_id: id }, hook: { active: true }, actions: { counts: {}, items: [] }, semantic: {}, capabilities: {} } };
-        return method === 'policy' ? { rules: [] } : { items: [], chain: { ok: true } };
+        return method === 'policy' ? { version: 'fixture', rules: [{ id: 'contrast-rule', source: 'Readable rule description', effect: 'block', match: { operation: 'file.read' } }] } : { items: [], chain: { ok: true } };
       }, download: async () => new TextEncoder().encode('{}').buffer };
       window.handles[id] = window.mount(container, { transport, instanceId: id, language: 'zh' });
     };
@@ -48,6 +48,26 @@ test('language and theme updates preserve active tab and keyboard focus', async 
   await expect(tabs.last()).toHaveText(/Settings/); await expect(tabs.last()).toBeFocused();
   expect(await page.locator('html').getAttribute('data-theme')).toBeNull();
   await page.keyboard.press('Home'); await expect(tabs.first()).toBeFocused();
+});
+
+test('dark rule descriptions and severity labels have readable contrast', async ({ page }) => {
+  await page.evaluate(() => { add('contrast'); handles.contrast.update({ language: 'en', theme: 'dark' }); });
+  await page.locator('#contrast').getByRole('tab', { name: 'Rules & RV' }).click();
+  await expect(page.locator('#contrast .rule-desc')).toHaveText('Readable rule description');
+  const ratios = await page.evaluate(() => {
+    const luminance = values => values.slice(0, 3).map(value => value / 255).map(value => value <= .04045 ? value / 12.92 : ((value + .055) / 1.055) ** 2.4).reduce((sum, value, index) => sum + value * [.2126, .7152, .0722][index], 0);
+    const rgb = text => text.match(/[\d.]+/g).map(Number);
+    const card = document.querySelector('#contrast .rule-card');
+    const background = rgb(getComputedStyle(card).backgroundColor);
+    return ['.rule-desc', '.rule-tag.sev-critical'].map(selector => {
+      const node = card.querySelector(selector), style = getComputedStyle(node);
+      const overlay = rgb(style.backgroundColor), alpha = overlay[3] ?? 1;
+      const surface = overlay.slice(0, 3).map((value, index) => value * alpha + background[index] * (1 - alpha));
+      const foreground = luminance(rgb(style.color)), behind = luminance(surface);
+      return (Math.max(foreground, behind) + .05) / (Math.min(foreground, behind) + .05);
+    });
+  });
+  for (const contrast of ratios) expect(contrast).toBeGreaterThanOrEqual(4.5);
 });
 
 for (const code of ['backend-unreachable', 'backend-unauthorized', 'not-owner', 'backend-error', 'backend-protocol', 'instance-mismatch', 'recovery-required']) {

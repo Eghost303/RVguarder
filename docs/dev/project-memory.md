@@ -2,6 +2,8 @@
 
 ## rc.5 审查整改与 Windows 整包（2026-10-29）
 
+桌面续验又发现两项：真实主题快照为`getTheme().active.colorScheme`，修正外层字段误读并补齐深色二级文字/风险标签配色；异常退出旧插件租约会使核心拒绝启动，原overview仍报告后端ready，现通过内部共享状态显式呈现recovery-required，不改变拒绝、租约或队列语义。复验和新包来源随后记录在rc.5复验表，原577136…整包已被本次修正版本替代。
+
 基线1539653，直接master提交，不推送/发布。新增挂载独立store/transport、宿主语言active/主题订阅、键盘页签和首次失败重连；后端按manifest内容哈希部署到DSH_HOME私有缓存，避免npm安装目录被常驻executable锁住。冻结程序支持离线inspect/apply/rollback，managedBinding原地保留旧实例、令牌、审计/RV/完成队列；迁移不增加Remote方法。用户新安装Windows x64整包后不必单独启动Python；旧实例需一次离线迁移。见[部署](../../dshRVguarder/docs/deployment-rc5.md)和[复验表](../../dshRVguarder/docs/rc5-revalidation-2026-10-29.md)。
 
 十并发曾复现5秒超时，观测包含握手/排队/决策审计/journal提交。修复并发握手重复、audit连接反复关闭和DELETE journal落盘开销；DSH独占连接使用WAL/FULL，原超时及十路Promise.all不变，无工具重跑。完整Node连续三轮49通过/1真实PTC沙箱不可用跳过。Python两个规则链断言在1539653原始DSH/存储实现同样失败，保留为未关闭问题，不改PMKB或授权语义。历史f3990e8审查5通过/3不通过/5待整改保持。rc.2 UI及Linux整包不能据本轮计通过。

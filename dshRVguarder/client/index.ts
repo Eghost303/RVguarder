@@ -8,6 +8,7 @@
  */
 import { createElement, useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import type { ClientContext } from './types.js';
+import { readHostTheme } from './appearance.js';
 import { mountEmbedded } from '../embedded/rvguarder-embedded.mjs';
 import { createRemoteContribution } from './remote-contribution.js';
 
@@ -142,7 +143,7 @@ function RvguarderSettingsSection(props: SettingsSectionProps) {
   );
   const theme = useSyncExternalStore(
     listener => props.context?.on?.('theme/change', listener) ?? (() => {}),
-    () => props.context?.get<{getTheme(): {colorScheme?: string}}>('theme')?.getTheme().colorScheme === 'dark' ? 'dark' : 'light',
+    () => readHostTheme(props.context),
   );
   const appearance = useRef({ language, theme }); appearance.current = { language, theme };
   useEffect(() => { handleRef.current?.update({ language, theme }); }, [language, theme]);
