@@ -14,9 +14,32 @@ from typing import Any
 from clawRVguarder import __version__
 from clawRVguarder.policy import reasons
 
-FORMAT_VERSION = 1
+FORMAT_VERSION = 2
 _MAX_ITEMS = 32
 _MAX_TEXT = 512
+
+
+def _bounded_permissions(value: Any) -> list[dict[str, Any]]:
+    """把权限引用输出为结构化字段，而不是对象的字符串表示。"""
+    if not isinstance(value, (list, tuple)):
+        return []
+    items: list[dict[str, Any]] = []
+    for entry in list(value)[:_MAX_ITEMS]:
+        if hasattr(entry, "model_dump"):
+            data = entry.model_dump(mode="json")
+        elif isinstance(entry, dict):
+            data = entry
+        else:
+            items.append({"raw": str(entry)[:_MAX_TEXT]})
+            continue
+        items.append({
+            "family": data.get("family"),
+            "resource_type": data.get("resource_type"),
+            "resource_ids": _bounded_list(data.get("resource_ids")),
+            "scope": data.get("scope"),
+            "classification": data.get("classification"),
+        })
+    return items
 
 
 def _bounded_list(value: Any) -> list[str]:
@@ -36,6 +59,17 @@ def _mapping(value: Any) -> dict[str, Any]:
     return value if isinstance(value, dict) else {}
 
 
+def _execution_surface(tool_name: str, shell_dialect: str) -> str:
+    """执行面决定效果是否可被逐调用观测。"""
+    if tool_name in {"code_execution", "run_code"}:
+        return "ptc_container"
+    if shell_dialect or tool_name in {"bash", "pwsh", "exec", "shell"}:
+        return "shell"
+    if tool_name:
+        return "native"
+    return "unknown"
+
+
 def build_decision_record(event: Any, decision: Any, *, action: Any = None) -> dict[str, Any]:
     """构造一条逐调用决策记录；缺失字段保持显式未知，不推断补齐。"""
     metadata = _mapping(getattr(event, "metadata", None))
@@ -46,6 +80,14 @@ def build_decision_record(event: Any, decision: Any, *, action: Any = None) -> d
     timings = _mapping(metadata.get("pipeline_timings_ms"))
     rv = _mapping(metadata.get("rv_result"))
     semantic_audit = _mapping(metadata.get("semantic_audit"))
+    host_kind = str(metadata.get("host") or "openclaw")
+    rv_steps = metadata.get("rv_trace") if isinstance(metadata.get("rv_trace"), list) else []
+    tool_step = _mapping(rv_steps[0]) if rv_steps else {}
+    evidence_items = tool_step.get("effect_evidence") if isinstance(tool_step.get("effect_evidence"), list) else []
+    effect_claim = sorted({str(item.get("status")) for item in evidence_items if isinstance(item, dict)})
+    observation_state = _bounded_text(_mapping(tool_step.get("observation")).get("state")) or "not_started"
+    raw_tool_name = str(dsh.get("tool_name") or metadata.get("tool_name") or "")
+    execution_surface = _execution_surface(raw_tool_name, str(metadata.get("shell_dialect") or ""))
 
     operation = _mapping(trace.get("operation"))
     coverage = _mapping(trace.get("coverage"))
@@ -98,6 +140,7 @@ def build_decision_record(event: Any, decision: Any, *, action: Any = None) -> d
             # 不能用后端版本冒充。
             "adapter_version": _bounded_text(metadata.get("adapter_version")),
             "backend_version": __version__,
+            "execution_surface": execution_surface,
         },
         "resources": {
             "paths": _bounded_list(getattr(event, "target_paths", None)),
@@ -110,6 +153,9 @@ def build_decision_record(event: Any, decision: Any, *, action: Any = None) -> d
             "conflicts": _bounded_list(policy.get("conflicts")),
             "semantic_provider": _bounded_text(semantic_audit.get("provider")) or "local",
             "semantic_status": _bounded_text(semantic_audit.get("llm_status")) or "not_run",
+            # 执行前只有效果主张；已观测状态由 Observation 单独记录。
+            "effect_claim": effect_claim,
+            "observation": observation_state,
         },
         "policy": {
             "version": _bounded_text(policy.get("policy_version")) or "",
@@ -121,9 +167,9 @@ def build_decision_record(event: Any, decision: Any, *, action: Any = None) -> d
             "grant_source": _bounded_text(policy.get("grant_source")) or "",
             "grant_validation_gaps": _bounded_list(policy.get("grant_validation_gaps")),
             "permission_diff": {
-                "requested_delta": _bounded_list(policy.get("requested_delta")),
-                "excessive": _bounded_list(policy.get("excessive_permissions")),
-                "scope_expansions": _bounded_list(policy.get("scope_expansions")),
+                "requested_delta": _bounded_permissions(policy.get("requested_delta")),
+                "excessive": _bounded_permissions(policy.get("excessive_permissions")),
+                "scope_expansions": _bounded_permissions(policy.get("scope_expansions")),
             },
         },
         "rv": {

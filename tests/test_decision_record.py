@@ -56,6 +56,8 @@ def test_decision_record_carries_identity_policy_and_reason() -> None:
     assert record["host"]["instance_id"] == "dsh-local"
     assert record["host"]["workspace"] == "/ws"
     assert record["host"]["profile"] is None
+    assert record["format_version"] == 2
+    assert record["tool"]["execution_surface"] == "native"
     assert record["principal"]["id"] == "dsh:abc"
     assert record["call"]["session_id"] == "s1"
     assert record["call"]["call_id"] == "c1"
@@ -84,6 +86,35 @@ def test_rv_escalation_owns_the_dominant_reason() -> None:
         event, _decision(action="ask", codes=[reasons.POLICY_REQUIRES_APPROVAL, reasons.RV_ESCALATION]),
     )
     assert record["decision"]["dominant_reason"] == reasons.RV_ESCALATION
+
+
+def test_permission_diff_is_structured_not_stringified() -> None:
+    """权限引用必须以字段输出，否则无法按族/资源统计差分。"""
+    from clawRVguarder.policy.models import PermissionRef
+
+    ref = PermissionRef(family="file.write", resource_type="path",
+                        resource_ids=("notes.md",), scope="workspace")
+    decision = _decision(codes=[reasons.PERMISSION_EXCESS])
+    decision.policy_decision = {"reason_codes": [reasons.PERMISSION_EXCESS],
+                                "excessive_permissions": [ref]}
+
+    record = build_decision_record(_event(), decision)
+
+    item = record["policy"]["permission_diff"]["excessive"][0]
+    assert item["family"] == "file.write"
+    assert item["resource_type"] == "path"
+    assert item["resource_ids"] == ["notes.md"]
+
+
+def test_effect_claim_is_reported_without_being_observed() -> None:
+    event = _event(rv_trace=[{
+        "effect_evidence": [{"effect": "write", "status": "expected"}],
+        "observation": {"state": "not_started"},
+    }])
+    record = build_decision_record(event, _decision(action="ask", codes=[reasons.POLICY_REQUIRES_APPROVAL]))
+
+    assert record["evidence"]["effect_claim"] == ["expected"]
+    assert record["evidence"]["observation"] == "not_started"
 
 
 def test_public_hook_record_does_not_echo_decision_record() -> None:
