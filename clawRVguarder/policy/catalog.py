@@ -275,10 +275,14 @@ class PolicyBundle:
         return OperationRef(family="unknown_tool", tool_id=tool_id, arguments=params, gaps=["tool_mapping"])
 
     def rules_for_operation(self, family: str) -> list[PolicyRule]:
+        """返回该操作族的全部候选规则：精确匹配在前，别名匹配随后。
+
+        旧实现只要存在精确规则就丢弃别名规则，使带 aliases 的规则永不生效。
+        """
         exact = [rule for rule in self.rules if rule.match.get("operation") == family]
-        if exact:
-            return exact
-        return [rule for rule in self.rules if family in rule.match.get("aliases", [])]
+        aliased = [rule for rule in self.rules if family in rule.match.get("aliases", [])]
+        seen = {rule.id for rule in exact}
+        return exact + [rule for rule in aliased if rule.id not in seen]
 
     def p0_vectors(self) -> list[dict[str, Any]]:
         # Callers use vectors as test input and may annotate them; return a
