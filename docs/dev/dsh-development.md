@@ -40,7 +40,7 @@ dsh plugin --profile rvguarder-dev add .\dist\dsh-rvguarder-build\dsh-rvguarder-
 
 构建产物、SDK 副本、缓存和测试数据均留在 Git 忽略目录中。提交前检查 `git status --short`；长期保留的验收结论放在文档中，截图与脱敏日志随本地验收归档保存。
 
-可选宿主配置 `resourceWorkspace` 指定绝对路径的受控资源根，供启用签名字节执行器的开发测试使用；它不覆盖会话 cwd。该根不能包含 Guard 数据、插件状态或运行时缓存。普通工具调用使用 SDK 提供的每次调用 cwd，受控执行器继续校验签名、资源版本及已登记资源根。
+可选宿主配置 `resourceWorkspace` 指定绝对路径的受控资源根，核心和管理组件应使用相同值，供启用签名字节执行器的开发测试使用；它不覆盖会话 cwd。该根不能与 Guard 数据、插件状态或运行时缓存互相包含。普通工具调用使用 SDK 提供的每次调用 cwd，受控执行器继续校验签名、资源版本及已登记资源根。
 
 ## 直接启动回归
 

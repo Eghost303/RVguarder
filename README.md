@@ -89,25 +89,25 @@ DSH 准备调用工具
 
 ```
 ┌─────────────────────────────────────────────────────────┐
-│                    Guard Dashboard (SPA)                 │
-│      概览 · 动作审批 · 安全规则 · 基线扫描 · RV 面板        │
+│                    Guard Dashboard (SPA)                │
+│      概览 · 动作审批 · 安全规则 · 基线扫描 · RV 面板       │
 └──────────────────────┬──────────────────────────────────┘
                        │ HTTP REST API / SSE
 ┌──────────────────────▼──────────────────────────────────┐
-│                  Guard Bridge (Python)                   │
-│   Semantic + Trace │ PMKB Policy │ RV Engine │ Audit     │
+│                  Guard Bridge (Python)                  │
+│   Semantic + Trace │ PMKB Policy │ RV Engine │ Audit    │
 └──────────────────────┬──────────────────────────────────┘
                        │ POST /api/hook/before-tool-call
 ┌──────────────────────▼──────────────────────────────────┐
-│            OpenClaw Agent Plugin (JavaScript)            │
+│            OpenClaw Agent Plugin (JavaScript)           │
 │   before_tool_call → requireApproval                    │
 │   after_tool_call  → audit logging                      │
 │   Circuit Breaker · Health Check · onResolution         │
 └──────────────────────┬──────────────────────────────────┘
                        │ Plugin SDK
 ┌──────────────────────▼──────────────────────────────────┐
-│                   OpenClaw Gateway                        │
-│            Agent 运行 · 工具调用 · 原生审批 UI             │
+│                   OpenClaw Gateway                      │
+│            Agent 运行 · 工具调用 · 原生审批 UI            │
 └─────────────────────────────────────────────────────────┘
 ```
 
@@ -117,15 +117,15 @@ DSH 准备调用工具
 
 ## 快速开始
 
-**DSH 用户请先看 [插件下载安装](docs/deployment/dsh.md)。** 以下 Python 部署步骤面向 OpenClaw。
+### OpenClaw
 
-### 环境要求
+#### 环境要求
 
 - Python 3.13+
 - Node.js 20+（构建前端）
 - 已安装并可运行的 OpenClaw
 
-### 安装
+#### 安装
 
 ```bash
 git clone https://github.com/HorizonExploration/RVguarder.git
@@ -144,7 +144,7 @@ cd ..
 
 Python 主包现为 `clawRVguarder`。更新已有开发环境后，请重新执行 `python -m pip install -e .`；模块启动使用 `python -m clawRVguarder.main run`，命令行仍使用 `openclaw-guard`。
 
-### 启动
+#### 启动
 
 ```bash
 openclaw-guard run
@@ -181,7 +181,7 @@ dsh plugin --profile desktop add dsh-rvguarder@0.2.0-rc.6
 
 重新启动 DSH，在 **插件 → 已安装** 中启用 RVguarder，再打开 **设置 → RVguarder**。整包自带运行环境，**无需安装 Python 或单独启动后端**。
 
-[下载安装与使用说明](docs/deployment/dsh.md)提供 npm 安装、GitHub Release 下载及日常操作。本版本为预发布版本，[验证范围与已知问题](dshRVguarder/docs/rc6-startup-verification-2026-10-29.md)请在使用前阅读。
+[插件下载安装与使用说明](docs/deployment/dsh.md) 提供 npm 安装、GitHub Release 下载及日常操作。本版本为预发布版本，[验证范围与已知问题](dshRVguarder/docs/rc6-startup-verification-2026-10-29.md) 请在使用前阅读。
 
 ---
 

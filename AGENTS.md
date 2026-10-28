@@ -8,7 +8,7 @@
 
 按用户要求，本项目直接在 `master` 分支内提交，不为任务新建分支；只有用户另行明确要求时才使用其他分支。
 
-DSH 真实宿主开发、桌面复查和人工集成测试统一使用 `~/.dsh/profiles/rvguarder-dev`，开发工作区为 `~/.dsh/workspaces/rvguarder-dev`。不得在仓库下重新建立 desktop 测试 profile，不得用日常 desktop/web profile 进行项目测试。启动和构建见 [DSH 开发指南](docs/dev/dsh-development.md)。
+DSH 真实宿主开发、桌面复查和人工集成测试统一使用 `~/.dsh/profiles/rvguarder-dev`，后台受控资源根默认为 `~/.dsh/workspaces/rvguarder-dev`，不覆盖会话 cwd。直接执行 `dsh rvguarder-dev` 必须与启动目录无关，不得用脚本切换目录代替该项验收。不得在仓库下重新建立 desktop 测试 profile，不得用日常 desktop/web profile 进行项目测试。启动和构建见 [DSH 开发指南](docs/dev/dsh-development.md)。
 
 2026-10-28 当前候选已推进到插件 rc.4：`f3990e8` 的独立复核为5项通过、3项不通过、5项待整改，详见 [审查报告](dshRVguarder/docs/ui-review-2026-10-28.md)，不能用下文原交付“UX完成”替代逐项结论。DEP-01已新增Windows x64平台整包/宿主托管，并在真实rc.3验证无手工后端的新安装；普通npm pack仍是外部模式。Linux整包、rc.2 UI、桌面完整生命周期/迁移/故障矩阵仍待验收，POL-01/02仍未定位。构建、数据绑定与升级约束见 [DEP-01实现](dshRVguarder/docs/deployment-implementation-2026-10-28.md)。
 

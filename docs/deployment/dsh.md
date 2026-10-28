@@ -18,16 +18,15 @@ dsh plugin --profile desktop add dsh-rvguarder@0.2.0-rc.6
 
 ## 从 GitHub Release 下载
 
-1. 打开 [下载页面](https://github.com/Eghost303/RVguarder/releases/tag/dsh-v0.2.0-rc.6)。
-2. 下载 `dsh-rvguarder-0.2.0-rc.6-win32-x64.tgz` 和 `SHA256SUMS`。请选择附件中的 tgz。
-3. 在下载目录核对 SHA-256，然后安装：
+1. 打开 [Release 页面](https://github.com/Eghost303/RVguarder/releases/tag/dsh-v0.2.0-rc.6)。
+2. 下载 `dsh-rvguarder-0.2.0-rc.6-win32-x64.tgz`。
+3. 进入下载目录，执行安装命令：
 
 ```powershell
-Get-FileHash .\dsh-rvguarder-0.2.0-rc.6-win32-x64.tgz -Algorithm SHA256
 dsh plugin --profile desktop add .\dsh-rvguarder-0.2.0-rc.6-win32-x64.tgz
 ```
 
-哈希应与 `SHA256SUMS` 中该文件的值一致。也可在 DSH 插件页选择本地 tgz 安装，再重新启动 DSH。
+也可在 DSH 插件页选择本地 tgz 安装，再重新启动 DSH。
 
 ## 日常使用
 

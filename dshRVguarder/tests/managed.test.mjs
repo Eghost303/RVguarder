@@ -49,6 +49,7 @@ test('trusted profile binding separates homes and profile names', () => {
   const binding = { projectDir: join(home, 'legacy-data'), instanceId: 'old-id', stateDir: join(home, 'legacy-plugin-state') };
   const migrated = deploymentFor(ctx('one'), binding);
   assert.equal(migrated.instanceId, 'old-id'); assert.equal(migrated.directory, binding.projectDir); assert.equal(migrated.stateDir, binding.stateDir);
+  assert.equal(migrated.workspace, workspace, 'explicit legacy binding retains its declared resource context');
   assert.throws(() => deploymentFor(ctx('one'), { ...binding, projectDir: workspace }), /outside/);
 });
 
@@ -85,6 +86,10 @@ test('managed profile storage and resource roots do not depend on launcher cwd',
     expected = deployment;
   }
   const ctx = { get: () => ({ home, name: 'rvguarder-dev', cwd: user }), workingDirectory: { defaultDirectory: user } };
+  const configured = deploymentFor(ctx, undefined, join(user, 'controlled-project'));
+  assert.equal(configured.workspace, join(user, 'controlled-project'));
+  assert.equal(configured.directory, expected.directory);
+  assert.equal(configured.instanceId, expected.instanceId);
   assert.throws(() => deploymentFor(ctx, undefined, user), /outside managed resource workspace/);
   assert.throws(() => deploymentFor(ctx, undefined, join(expected.directory, 'resources')), /outside managed resource workspace/);
   assert.throws(() => deploymentFor(ctx, undefined, join(expected.directory, '..resources')), /outside managed resource workspace/);
