@@ -118,6 +118,8 @@ def _annotate_event_context(
     *,
     source_message: str = "",
     origin: str = "unknown",
+    host_semantic_response: str | None = None,
+    host_semantic_mode: bool = False,
 ) -> None:
     """为事件标注工作区边界 + 语义分析 + RV trace。
 
@@ -135,14 +137,17 @@ def _annotate_event_context(
         project_dir=services.context.paths.project_dir,
     )
     semantic_started = time.perf_counter()
-    semantic_payload = services.semantic_enhancer.evaluate(
-        event,
-        {
-            "source_message": source_message,
-            "origin": origin,
-            "workspace_path": str(workspace) if workspace else None,
-        },
-    )
+    semantic_context = {
+        "source_message": source_message,
+        "origin": origin,
+        "workspace_path": str(workspace) if workspace else None,
+    }
+    if host_semantic_mode:
+        semantic_payload = services.semantic_enhancer.evaluate_host_response(
+            event, semantic_context, host_semantic_response
+        )
+    else:
+        semantic_payload = services.semantic_enhancer.evaluate(event, semantic_context)
     _merge_deterministic_semantics(event, semantic_payload)
     timings = _ensure_pipeline_timings(event)
     timings["semantic_ms"] = round((time.perf_counter() - semantic_started) * 1000.0, 3)
@@ -402,6 +407,8 @@ def handle_before_tool_call_pipeline(
     payload: dict[str, Any],
     *,
     wait_timeout_ms: int | None = None,
+    host_semantic_response: str | None = None,
+    host_semantic_mode: bool = False,
 ) -> dict[str, Any]:
     """Hook 路径安全判定流水线 —— OpenClaw 审批门。
 
@@ -418,7 +425,14 @@ def handle_before_tool_call_pipeline(
     adapter = getattr(services, "host_adapter", None)
     event = adapter.build_event(payload, services.context) if adapter else build_hook_event(payload, managed_project_root=services.context.paths.project_dir)
     hook_source_message = adapter.source_message(event) if adapter else build_hook_source_message(event)
-    _annotate_event_context(services, event, source_message=hook_source_message, origin="hook")
+    _annotate_event_context(
+        services,
+        event,
+        source_message=hook_source_message,
+        origin="hook",
+        host_semantic_response=host_semantic_response,
+        host_semantic_mode=host_semantic_mode,
+    )
     policy_started = time.perf_counter()
     decision = services.policy_engine.decide(event, source_message=hook_source_message)
     timings = _ensure_pipeline_timings(event)

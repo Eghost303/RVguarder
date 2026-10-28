@@ -28,6 +28,17 @@ class Call(BaseModel):
     cwd: str = Field(min_length=1, max_length=4096)
     arguments: dict[str, Any]
     proposal: dict[str, Any] | None = None
+    host_semantic_request_id: str | None = Field(default=None, min_length=16, max_length=128)
+
+
+class HostSemanticSubmission(BaseModel):
+    """Transient, call-bound model output; the response is never journaled."""
+    model_config = ConfigDict(extra="forbid", strict=True)
+    request_id: str = Field(min_length=16, max_length=128)
+    call: Call
+    # Enforce the byte limit in the service layer so validation errors never
+    # reflect a potentially sensitive model response in their detail text.
+    response: str = Field(min_length=1)
 
 
 class Completion(BaseModel):
@@ -59,7 +70,7 @@ def configure_app(app, manager: DshServices) -> None:
             return JSONResponse({"error": "invalid_local_host"}, status_code=403)
         header = request.headers.get("x-rvguarder-token", "")
         plugin = valid(header)
-        bridge_only = path in {"/api/dsh/hello", "/api/dsh/before", "/api/dsh/dispatch", "/api/dsh/result", "/api/dsh/session", "/api/dsh/degraded", "/api/dsh/probe"}
+        bridge_only = path in {"/api/dsh/hello", "/api/dsh/before", "/api/dsh/dispatch", "/api/dsh/result", "/api/dsh/session", "/api/dsh/degraded", "/api/dsh/probe", "/api/dsh/semantic/prepare", "/api/dsh/semantic/submit"}
         browser = valid(request.cookies.get(cookie_name, ""))
         if bridge_only and not plugin or not bridge_only and not (plugin or browser):
             return JSONResponse({"error": "dsh_unauthorized"}, status_code=401)
@@ -67,7 +78,7 @@ def configure_app(app, manager: DshServices) -> None:
             origin = request.headers.get("origin", "")
             if not origin or urlsplit(origin).netloc != request.url.netloc or urlsplit(origin).scheme != request.url.scheme:
                 return JSONResponse({"error": "same_origin_required"}, status_code=403)
-        allowed_mutations = {"/api/dsh/hello", "/api/dsh/session", "/api/dsh/before", "/api/dsh/dispatch", "/api/dsh/result", "/api/dsh/degraded", "/api/dsh/probe", "/api/dsh/semantic", "/api/baseline/run", "/api/audit/export", "/api/rv/toggle"}
+        allowed_mutations = {"/api/dsh/hello", "/api/dsh/session", "/api/dsh/before", "/api/dsh/dispatch", "/api/dsh/result", "/api/dsh/degraded", "/api/dsh/probe", "/api/dsh/semantic", "/api/dsh/semantic/prepare", "/api/dsh/semantic/submit", "/api/baseline/run", "/api/audit/export", "/api/rv/toggle"}
         if request.method not in {"GET", "HEAD", "OPTIONS"} and path not in allowed_mutations:
             return JSONResponse({"error": "dsh_decisions_owned_by_native_host"}, status_code=403)
         if request.method in {"POST", "PUT", "PATCH"}:
@@ -110,6 +121,19 @@ def configure_app(app, manager: DshServices) -> None:
     def before(call: Call):
         return operation(manager.bridge_before, checked(call))
 
+    @router.post("/semantic/prepare")
+    def semantic_prepare(call: Call):
+        return operation(manager.prepare_host_semantic, checked(call))
+
+    @router.post("/semantic/submit")
+    def semantic_submit(payload: HostSemanticSubmission):
+        return operation(
+            manager.submit_host_semantic,
+            payload.request_id,
+            checked(payload.call),
+            payload.response,
+        )
+
     @router.post("/dispatch")
     def dispatch(call: Call):
         return operation(manager.bridge_dispatch, checked(call))
@@ -133,11 +157,15 @@ def configure_app(app, manager: DshServices) -> None:
     @router.post("/semantic")
     def semantic(payload: dict):
         mode = payload.get("mode")
-        if mode not in {"local", "auto", "llm"}:
+        if mode not in {"local", "auto", "llm", "host-agent"}:
             raise HTTPException(422, "invalid_semantic_mode")
         from .semantic import DshSemanticEnhancer
         with manager.bridge_lock:
-            enhancer = DshSemanticEnhancer(policy_version=manager.policy_engine.bundle.version, api_key="" if mode == "local" else None, config_path=manager.context.paths.runtime_dir / "guard-config.json")
+            if mode == "host-agent" and not manager.host_agent_capability()["available"]:
+                raise HTTPException(409, "host_agent_unavailable")
+            enhancer = DshSemanticEnhancer(policy_version=manager.policy_engine.bundle.version,
+                api_key="" if mode in {"local", "host-agent"} else None,
+                config_path=manager.context.paths.runtime_dir / "guard-config.json")
             if mode == "llm" and not enhancer._llm_enabled:
                 raise HTTPException(409, "llm_mode_requires_host_api_key")
             manager.semantic_enhancer = enhancer

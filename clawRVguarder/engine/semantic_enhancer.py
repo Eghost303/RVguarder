@@ -41,6 +41,7 @@ _DEFAULT_LLM_MODEL = "deepseek-v4-flash"
 # local evaluator remains the deterministic fallback when this short request
 # window is exceeded.
 _DEFAULT_TIMEOUT_SEC = 1.5
+_MAX_HOST_RESPONSE_BYTES = 16 * 1024
 _CONFIG_FILE_NAME = "guard-config.json"
 
 
@@ -195,6 +196,95 @@ class SemanticEnhancer:
         if hard_tool_name:
             result["semantic"] = self._validate_tool_name(hard_tool_name, result["semantic"])
 
+        return result
+
+    def build_host_prompt(self, event: BehaviorEvent, context: dict[str, Any] | None = None) -> str:
+        """Build a sanitized semantic prompt for a host-owned model route."""
+        ctx = context or {}
+        source_message = str(ctx.get("source_message") or event.raw_payload.get("raw_user_intent") or "").strip()
+        tool_name = str(event.metadata.get("tool_name") or "")
+        haystack = _build_haystack(event, source_message, tool_name)
+        return self._build_prompt(event, source_message, tool_name, haystack)
+
+    def evaluate_host_response(
+        self,
+        event: BehaviorEvent,
+        context: dict[str, Any] | None,
+        response: str | None,
+    ) -> dict[str, Any]:
+        """Validate a host-agent suggestion and merge it with local semantics.
+
+        The response is untrusted evidence only. This path never reads a
+        configured key or calls an HTTP provider, and oversized or malformed
+        responses fall back to the deterministic local projection.
+        """
+        ctx = context or {}
+        source_message = str(ctx.get("source_message") or event.raw_payload.get("raw_user_intent") or "").strip()
+        tool_name = str(event.metadata.get("tool_name") or "")
+        origin = str(ctx.get("origin") or event.source or "unknown")
+        haystack = _build_haystack(event, source_message, tool_name)
+        llm_result: dict[str, Any] | None = None
+        fallback_reason = "no_child_response"
+
+        response_size: int | None = None
+        if isinstance(response, str) and response:
+            try:
+                response_size = len(response.encode("utf-8"))
+            except UnicodeEncodeError:
+                fallback_reason = "invalid_response"
+        if response_size is not None and response_size > _MAX_HOST_RESPONSE_BYTES:
+            fallback_reason = "response_too_large"
+        elif response_size is not None:
+            match = parse_semantic_match_response(response)
+            if match is not None:
+                llm_result = _semantic_match_result(
+                    event=event,
+                    match=match,
+                    origin=origin,
+                    tool_name=tool_name,
+                )
+                llm_result["_llm_valid"] = True
+            else:
+                fallback_reason = "invalid_response"
+
+        local_result = self._local_evaluate(event, source_message, tool_name, haystack, origin)
+        unknown_hook = event.metadata.get("hook_bridge") is True and event.action_type == "unknown"
+        if llm_result is None:
+            result = _unknown_hook_result(tool_name=tool_name, origin=origin) if unknown_hook else local_result
+        else:
+            result = llm_result
+            if not unknown_hook:
+                _merge_local_semantics(result, local_result)
+
+        if unknown_hook:
+            suggested_match = result.get("semantic_match")
+            llm_valid = result.get("_llm_valid")
+            result = _unknown_hook_result(tool_name=tool_name, origin=origin)
+            if suggested_match:
+                uncertainties = list(suggested_match.get("uncertainties", []))
+                if "operation_unverified" not in uncertainties:
+                    uncertainties.append("operation_unverified")
+                suggested_match["uncertainties"] = uncertainties
+                result["semantic_match"] = suggested_match
+            if llm_valid:
+                result["_llm_valid"] = True
+
+        result.setdefault("semantic_match", local_semantic_match(event).model_dump(mode="json"))
+        result["semantic_audit"] = {
+            "llm_attempted": True,
+            "llm_status": "success" if result.get("_llm_valid") else "fallback",
+            "provider": "host-agent",
+            "fallback_reason": None if result.get("_llm_valid") else fallback_reason,
+        }
+        result.pop("_llm_valid", None)
+
+        hard_tool_name = (
+            getattr(event, "metadata", {}).get("tool_name")
+            or (event.raw_payload.get("toolName") if isinstance(event.raw_payload, dict) else "")
+            or ""
+        )
+        if hard_tool_name:
+            result["semantic"] = self._validate_tool_name(hard_tool_name, result["semantic"])
         return result
 
     def _call_llm(

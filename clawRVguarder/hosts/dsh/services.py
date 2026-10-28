@@ -6,12 +6,14 @@ import secrets
 import sqlite3
 import threading
 import time
+from collections import deque
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
 
 from clawRVguarder.config import AppContext, GuardSettings, OpenClawTarget, default_paths
 from clawRVguarder.engine.semantic_enhancer import SemanticEnhancer
+from clawRVguarder.engine.semantic_models import SemanticMatchIR, parse_semantic_match_response
 from clawRVguarder.services import GuardServices
 from clawRVguarder.utils import sha256_text, utc_now_iso
 from .adapter import DshAdapter, PROTOCOL_VERSION, SUPPORTED_SDK_VERSIONS
@@ -22,6 +24,29 @@ import os
 
 class BridgeConflict(ValueError):
     """载荷重用、状态冲突或无法恢复的中断必须拒绝。"""
+
+
+def _sanitize_host_semantic_match(match: SemanticMatchIR) -> SemanticMatchIR:
+    """Drop model-controlled free text before retaining a host suggestion."""
+    safe_constraints = {
+        key: value
+        for key in ("has_scope_constraint", "requires_human_review")
+        if type(value := match.constraints.get(key)) is bool
+    }
+    return match.model_copy(update={
+        "engine": "host-agent",
+        "operation_candidates": [
+            item.model_copy(update={"evidence": "host-agent suggested operation"})
+            for item in match.operation_candidates
+        ],
+        "facts": {
+            key: item.model_copy(update={"evidence": "host-agent suggested fact"})
+            for key, item in match.facts.items()
+        },
+        "entities": {},
+        "constraints": safe_constraints,
+        "uncertainties": [],
+    })
 
 
 from .observability import DshObservability
@@ -50,6 +75,8 @@ class DshServices(DshObservability, GuardServices):
         self.hello_count = 0
         self.sdk_version: str | None = None
         self.semantic_mode = semantic_mode
+        self._host_semantic_requests: dict[str, dict[str, Any]] = {}
+        self._host_semantic_calls: deque[float] = deque()
         project_dir, workspace = project_dir.resolve(), workspace.resolve()
         if project_dir == workspace or project_dir.is_relative_to(workspace):
             raise ValueError("guard_state_must_be_outside_agent_workspace")
@@ -63,7 +90,7 @@ class DshServices(DshObservability, GuardServices):
         if semantic_mode == "auto" and self.semantic_settings_path.is_file():
             stored = json.loads(self.semantic_settings_path.read_text())
             semantic_mode = stored.get("semantic_mode", "auto")
-            if semantic_mode not in {"auto", "local", "llm"}:
+            if semantic_mode not in {"auto", "local", "llm", "host-agent"}:
                 raise ValueError("invalid_persisted_semantic_mode")
         self.semantic_mode = semantic_mode
         token_path = paths.runtime_dir / "dsh-token"
@@ -86,7 +113,8 @@ class DshServices(DshObservability, GuardServices):
                                 workspace_path=workspace, profile=profile)
         super().__init__(AppContext(paths, target, GuardSettings()), host_adapter=adapter)
         self.semantic_enhancer = DshSemanticEnhancer(policy_version=self.policy_engine.bundle.version,
-            api_key="" if semantic_mode == "local" else None, config_path=paths.runtime_dir / "guard-config.json")
+            api_key="" if semantic_mode in {"local", "host-agent"} else None,
+            config_path=paths.runtime_dir / "guard-config.json")
         self.action_service.semantic_enhancer = self.semantic_enhancer
         if semantic_mode == "llm" and not self.semantic_enhancer._llm_enabled:
             raise ValueError("llm_mode_requires_host_api_key")
@@ -137,7 +165,8 @@ class DshServices(DshObservability, GuardServices):
         self.hello_count += 1
         return {"ok": True, "protocol": PROTOCOL_VERSION, "instance_id": self.instance_id,
                 "sdk_version": sdk_version, "policy_version": self.policy_engine.bundle.version,
-                "recovery_required": self.recovery_required}
+                "recovery_required": self.recovery_required,
+                "semantic_mode": self.semantic_mode}
 
     def bridge_before(self, request: dict[str, Any]) -> dict[str, Any]:
         """同一调用只判定一次，冲突载荷及终态重用拒绝。"""
@@ -159,7 +188,12 @@ class DshServices(DshObservability, GuardServices):
                 # 历史写盘/决策异常保留 deciding，后续请求不能绕过该故障。
                 db.execute("INSERT INTO calls(id,digest,state) VALUES(?,?,'deciding')", (key, digest))
             try:
-                result = self.handle_before_tool_call(payload)
+                host_semantic_response = self.consume_host_semantic(request)
+                result = self.handle_before_tool_call(
+                    payload,
+                    host_semantic_response=host_semantic_response,
+                    host_semantic_mode=self.semantic_mode == "host-agent",
+                )
                 record = result["action_record"]
                 if request.get("proposal"):
                     action = self._find_action(record["action_id"])
@@ -182,6 +216,99 @@ class DshServices(DshObservability, GuardServices):
                 raise
             self.last_seen = time.monotonic()
             return response
+
+    def host_agent_capability(self) -> dict[str, Any]:
+        """Return a fresh, authenticated DSH child-agent capability snapshot."""
+        capabilities = self.capabilities()
+        return capabilities.get("host_agent") or {
+            "available": False,
+            "reason": "probe_unavailable",
+        }
+
+    def prepare_host_semantic(self, request: dict[str, Any]) -> dict[str, Any]:
+        """Create an expiring sanitized prompt bound to one trusted DSH call."""
+        if self.semantic_mode != "host-agent":
+            return {"available": False, "reason": "mode_disabled"}
+        capability = self.host_agent_capability()
+        if not capability["available"]:
+            return {"available": False, "reason": capability["reason"]}
+
+        with self.bridge_lock:
+            now = time.monotonic()
+            while self._host_semantic_calls and now - self._host_semantic_calls[0] >= 60:
+                self._host_semantic_calls.popleft()
+            if len(self._host_semantic_calls) >= getattr(self.semantic_enhancer, "max_calls_per_minute", 60):
+                return {"available": False, "reason": "rate_limited"}
+            for stale_id in [
+                key for key, item in self._host_semantic_requests.items()
+                if item["expires"] <= now
+            ]:
+                self._host_semantic_requests.pop(stale_id, None)
+            if len(self._host_semantic_requests) >= 256:
+                return {"available": False, "reason": "request_capacity"}
+            payload = self.host_adapter.payload(request)
+            event = self.host_adapter.build_event(payload, self.context)
+            source_message = self.host_adapter.source_message(event)
+            prompt = self.semantic_enhancer.build_host_prompt(
+                event, {"source_message": source_message, "origin": "hook"}
+            )
+            request_id = secrets.token_urlsafe(32)
+            binding = sha256_text(json.dumps(request, ensure_ascii=False, sort_keys=True))
+            expires = now + 8.0
+            self._host_semantic_requests[request_id] = {
+                "binding": binding, "expires": expires, "response": None,
+            }
+            self._host_semantic_calls.append(now)
+            return {
+                "available": True,
+                "request_id": request_id,
+                "prompt": prompt,
+                "expires_at": time.time() + 8.0,
+            }
+
+    def submit_host_semantic(self, request_id: str, call: dict[str, Any], response: str) -> dict[str, Any]:
+        """Keep one bounded child response in memory until its before-call is consumed."""
+        try:
+            response_size = len(response.encode("utf-8"))
+        except UnicodeEncodeError as exc:
+            raise BridgeConflict("host_semantic_response_invalid_encoding") from exc
+        if response_size > 16 * 1024:
+            raise BridgeConflict("host_semantic_response_too_large")
+        binding = sha256_text(json.dumps(call, ensure_ascii=False, sort_keys=True))
+        with self.bridge_lock:
+            item = self._host_semantic_requests.get(request_id)
+            if not item or item["expires"] <= time.monotonic():
+                self._host_semantic_requests.pop(request_id, None)
+                return {"ok": False, "reason": "request_expired"}
+            if item["binding"] != binding:
+                raise BridgeConflict("host_semantic_call_mismatch")
+            if item["response"] is not None:
+                raise BridgeConflict("host_semantic_response_already_submitted")
+            normalized = parse_semantic_match_response(response)
+            if normalized is not None:
+                normalized = _sanitize_host_semantic_match(normalized)
+            stored_response = (
+                normalized.model_dump_json()
+                if normalized is not None
+                else "__invalid_host_semantic_response__"
+            )
+            item["response"] = stored_response
+            return {"ok": True}
+
+    def consume_host_semantic(self, request: dict[str, Any]) -> str | None:
+        """Consume and erase a transient response after validating its call binding."""
+        request_id = request.get("host_semantic_request_id")
+        if not isinstance(request_id, str):
+            return None
+        bound_call = dict(request)
+        bound_call.pop("host_semantic_request_id", None)
+        binding = sha256_text(json.dumps(bound_call, ensure_ascii=False, sort_keys=True))
+        with self.bridge_lock:
+            item = self._host_semantic_requests.pop(request_id, None)
+            if not item or item["expires"] <= time.monotonic() or item["binding"] != binding:
+                return None
+            response = item.get("response")
+            return response if isinstance(response, str) else None
 
     def bridge_result(self, request: dict[str, Any], *, succeeded: bool, dispatched: bool, evidence: dict | None = None) -> dict[str, Any]:
         """幂等提交最终结果；仅实际 dispatch 且成功的工具扩充历史。"""
@@ -250,7 +377,24 @@ class DshServices(DshObservability, GuardServices):
             from clawRVguarder.engine.pipeline import _annotate_event_context, _apply_rv_if_available
             event = self.host_adapter.build_event(payload, self.context)
             source = self.host_adapter.source_message(event)
-            _annotate_event_context(self, event, source_message=source, origin="hook")
+            semantic_audit = action.event.metadata.get("semantic_audit", {})
+            prior_match = action.event.metadata.get("semantic_match")
+            replayed_host_response = None
+            if (
+                self.semantic_mode == "host-agent"
+                and semantic_audit.get("provider") == "host-agent"
+                and semantic_audit.get("llm_status") == "success"
+                and isinstance(prior_match, dict)
+            ):
+                replayed_host_response = json.dumps(prior_match, ensure_ascii=False, sort_keys=True)
+            _annotate_event_context(
+                self,
+                event,
+                source_message=source,
+                origin="hook",
+                host_semantic_response=replayed_host_response,
+                host_semantic_mode=self.semantic_mode == "host-agent",
+            )
             current = self.policy_engine.decide(event, source_message=source)
             current = _apply_rv_if_available(self, event, current)
             reviewed = self.controller.decide(event, current, source)
@@ -295,9 +439,20 @@ class DshServices(DshObservability, GuardServices):
         result = super().summary(compact=compact)
         result["host"] = {"kind": "dsh", "instance_id": self.instance_id, "profile": self.context.target.profile}
         result["capabilities"] = self.capabilities()
+        capability = self.host_agent_capability()
+        semantic_audit = next(
+            (action.event.metadata.get("semantic_audit", {}) for action in reversed(self._load_actions())
+             if action.event.metadata.get("semantic_audit")),
+            {},
+        )
         result["semantic"] = {"configured_mode": self.semantic_mode, "llm_enabled": self.semantic_enhancer._llm_enabled,
-                              "fallback": "local", "model": self.semantic_enhancer.model,
-                              "last_llm_status": next((a.event.metadata.get("semantic_audit", {}).get("llm_status") for a in reversed(self._load_actions()) if a.event.metadata.get("semantic_audit")), "not_run")}
+                              "fallback": "local", "model": self.semantic_enhancer.model if self.semantic_mode != "host-agent" else None,
+                              "host_agent_available": capability["available"],
+                              "host_agent_reason": capability["reason"],
+                              "provider_status": "ready" if capability["available"] else capability["reason"],
+                              "last_llm_status": semantic_audit.get("llm_status", "not_run"),
+                              "last_delegate_status": semantic_audit.get("llm_status", "not_run") if semantic_audit.get("provider") == "host-agent" else "not_used",
+                              "last_delegate_reason": semantic_audit.get("fallback_reason") if semantic_audit.get("provider") == "host-agent" else None}
         return result
 
     def _mark_orphaned_previous_actions(self, session_id: str) -> None:

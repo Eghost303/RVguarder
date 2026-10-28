@@ -21,7 +21,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--profile", default="web")
     parser.add_argument("--instance-id", default="dsh-local")
     parser.add_argument("--port", type=int, default=8781)
-    parser.add_argument("--semantic-mode", choices=["auto", "local", "llm"], default="auto")
+    parser.add_argument("--semantic-mode", choices=["auto", "local", "llm", "host-agent"], default="auto")
     parser.add_argument("--prepare-only", action="store_true", help="只初始化独占实例与私有令牌，不启动服务")
     args = parser.parse_args(argv)
     if not re.fullmatch(r"[a-zA-Z0-9_.-]{1,128}", args.instance_id):

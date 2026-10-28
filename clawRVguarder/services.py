@@ -459,11 +459,24 @@ class GuardServices:
 
         return ingest_event_pipeline(self, payload, source_message, auto_execute=auto_execute)
 
-    def handle_before_tool_call(self, payload: dict[str, Any], *, wait_timeout_ms: int | None = None) -> dict[str, Any]:
+    def handle_before_tool_call(
+        self,
+        payload: dict[str, Any],
+        *,
+        wait_timeout_ms: int | None = None,
+        host_semantic_response: str | None = None,
+        host_semantic_mode: bool = False,
+    ) -> dict[str, Any]:
         from clawRVguarder.engine.pipeline import handle_before_tool_call_pipeline
 
         try:
-            return handle_before_tool_call_pipeline(self, payload, wait_timeout_ms=wait_timeout_ms)
+            return handle_before_tool_call_pipeline(
+                self,
+                payload,
+                wait_timeout_ms=wait_timeout_ms,
+                host_semantic_response=host_semantic_response,
+                host_semantic_mode=host_semantic_mode,
+            )
         finally:
             preparation = getattr(self.host_authorization_bridge, "history_preparation", None)
             if preparation is not None:

@@ -42,6 +42,23 @@ class HostProbe(BaseModel):
     tools: list[str] = Field(max_length=512)
     facts: list[ProbeFact] = Field(max_length=16)
     audit_gap: bool = False
+    host_agent: "HostAgentProbe" = Field(default_factory=lambda: HostAgentProbe())
+
+
+class HostAgentProbe(BaseModel):
+    """Finite capability flags for delegated semantic analysis."""
+    model_config = ConfigDict(extra="forbid", strict=True)
+    subagents_available: bool = False
+    preset_registry_available: bool = False
+    provider_available: bool = False
+    isolated_preset_ready: bool = False
+    effective_tools_empty: bool = False
+    provider_reason: Literal[
+        "not_checked", "ready", "subagent_services_unavailable", "preset_registry_unavailable",
+        "sdk_package_version_mismatch", "spawn_provider_apply_missing", "spawn_provider_module_unavailable",
+        "spawn_provider_load_failed", "provider_registration_failed",
+        "provider_registration_or_capability_missing", "provider_initialization_failed",
+    ] = "not_checked"
 
 
 class DshObservability:
@@ -84,5 +101,23 @@ class DshObservability:
         tools = probe["tools"] if probe else []
         return {"mapped": self.host_adapter.tool_aliases, "unmapped": [t for t in tools if t not in self.host_adapter.tool_aliases],
                 "probe": probe, "probe_fresh": fresh, "degraded_events": count,
+                "host_agent": self._host_agent_status(probe, fresh),
                 "audit_gap": bool(probe and probe["audit_gap"]),
                 "evidence": self.evidence.status() if hasattr(self, "evidence") else {"enabled": False}}
+
+    @staticmethod
+    def _host_agent_status(probe: dict[str, Any] | None, fresh: bool) -> dict[str, Any]:
+        """Derive support only from the authenticated, current DSH runtime probe."""
+        observed = (probe or {}).get("host_agent") or {}
+        if not fresh:
+            reason = "probe_unavailable"
+        else:
+            fields = (
+                ("subagents_available", "subagents_unavailable"),
+                ("preset_registry_available", "preset_registry_unavailable"),
+                ("provider_available", observed.get("provider_reason") or "provider_unavailable"),
+                ("isolated_preset_ready", "isolated_preset_unavailable"),
+                ("effective_tools_empty", "tool_free_child_unverified"),
+            )
+            reason = next((missing for key, missing in fields if observed.get(key) is not True), "ready")
+        return {"available": reason == "ready", "reason": reason}
