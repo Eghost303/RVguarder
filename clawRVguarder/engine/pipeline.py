@@ -99,7 +99,7 @@ def annotate_scope(
     command_safety = analyze_command(event.command)
     event.metadata["command_safety"] = command_safety.to_dict()
     scope_class = _classify_scope(
-        [*event.target_paths, *command_safety.path_hints],
+        [*event.target_paths, *event.network_targets, *command_safety.path_hints],
         roots=roots,
         working_directory=event.working_directory,
     )
@@ -130,11 +130,14 @@ def _annotate_event_context(
         if isinstance(raw_grants, list):
             event.metadata["current_permissions"] = raw_grants
     workspace = event.metadata.get("host_workspace") or services.context.target.workspace_path
+    # DSH 的 project_dir 是 Guard 实例数据目录（令牌、授权库、审计），不是受管项目；
+    # 把它登记成 managed_project 会让 P1-PROCESS-READONLY 自动放行读取令牌。
+    host_kind = getattr(getattr(services, "action_service", None), "host_kind", "openclaw")
     annotate_scope(
         event,
         workspace_path=workspace,
         source_root=services.context.target.source_root,
-        project_dir=services.context.paths.project_dir,
+        project_dir=None if host_kind == "dsh" else services.context.paths.project_dir,
     )
     semantic_started = time.perf_counter()
     semantic_context = {
@@ -209,6 +212,9 @@ def _classify_scope(
     candidates = list(paths) or [str(default_base)]
     matched: list[str] = []
     for raw in candidates:
+        # 网络目的地在任何根之外，必须先于路径解析判定，否则会被拼成相对路径。
+        if str(raw).strip().lower().startswith(("http://", "https://")):
+            return "external"
         path = Path(str(raw)).expanduser()
         if not path.is_absolute():
             path = default_base / path

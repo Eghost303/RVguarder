@@ -31,6 +31,9 @@ _NETWORK_COMMANDS = {"curl", "wget", "nc", "netcat", "ssh", "scp", "sftp", "rsyn
 _PRIVILEGED_COMMANDS = {"sudo", "su", "doas", "pkexec"}
 _OPERATORS = {";", "&&", "||", "|", ">", ">>", "<", "<<", "(", ")"}
 _PATH_RE = re.compile(r"^(?:/|\./|\.\./|~[/\\]|[A-Za-z]:[/\\])")
+# POSIX shlex 会把 Windows 反斜杠当转义符吃掉，导致 `cat C:\...\id_rsa`
+# 这类路径既不进 path_hints 也不进 scope 判定。这里直接从原始命令串补回。
+_WINDOWS_PATH_RE = re.compile(r"[A-Za-z]:\\[^\s\"';&|<>()]*")
 
 
 @dataclass(frozen=True)
@@ -114,7 +117,7 @@ def analyze_command(command: str | None) -> CommandSafety:
     safe = first.safe_read_only and all(value == "read_only" for value in classifications)
     if not safe and classification == "read_only":
         classification = "unknown"
-    return CommandSafety(classification, safe, tuple(commands), tuple(dict.fromkeys([*_path_hints(tokens), *inline_paths]))[:16],
+    return CommandSafety(classification, safe, tuple(commands), tuple(dict.fromkeys([*_path_hints(tokens), *_raw_windows_path_hints(raw), *inline_paths]))[:16],
                          tuple(dict.fromkeys(reasons)), tuple(dict.fromkeys(capabilities)))
 
 
@@ -270,4 +273,15 @@ def _path_hints(tokens: list[str]) -> tuple[str, ...]:
         if _PATH_RE.match(candidate) or "/" in candidate or "\\" in candidate:
             if candidate not in hints:
                 hints.append(candidate)
+    return tuple(hints[:16])
+
+
+def _raw_windows_path_hints(command: str) -> tuple[str, ...]:
+    """从原始命令串提取被 shlex 剥掉反斜杠的 Windows 绝对路径。"""
+    hints: list[str] = []
+    for match in _WINDOWS_PATH_RE.finditer(command):
+        candidate = match.group(0)
+        # 只保留驱动器前缀，单独一个 "C:\" 不构成有意义的资源引用。
+        if len(candidate) > 3 and candidate not in hints:
+            hints.append(candidate)
     return tuple(hints[:16])

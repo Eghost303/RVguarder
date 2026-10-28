@@ -25,6 +25,8 @@ PATH_KEYS = {
 }
 URL_KEYS = {"url", "uri", "endpoint", "baseUrl", "webhook"}
 COMMAND_KEYS = {"command", "commandText", "commandPreview", "cmd", "shellCommand", "script"}
+# 工作目录是执行上下文，不是被访问的资源；混入 target_paths 会污染 scope 判定。
+WORKING_DIRECTORY_KEYS = {"cwd", "workingDirectory", "working_directory"}
 OPENCLAW_NATIVE_TOOL_PROFILES = {
     "read": {
         "action_type": "file_read", "tool_group": "filesystem", "tool_origin": "openclaw_native",
@@ -615,6 +617,8 @@ def _collect_paths(payload: Any) -> list[str]:
             return
         candidate = value.strip().strip("\"'")
         if not candidate:
+            return
+        if key in WORKING_DIRECTORY_KEYS:
             return
         if key in PATH_KEYS or _looks_like_path(candidate):
             if candidate.startswith(("http://", "https://")):
