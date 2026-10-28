@@ -2,7 +2,7 @@
 
 ## 开发收尾约定（2026-10-29）
 
-清理余项：DSH 主窗口进程 67828 当前占用 `runtime/review-20261028/temp/rvguarder-embed-e2e-KaZ5G7/workspace`。旧资料已私有归档并核对 4988 项后清理，只剩空目录及祖先；用户已收到退出窗口后清理的请求，不得自动终止该窗口。私有备份位于 `~/.dsh/rvguarder-dev-backups/20261029-finalization/`，不属于公开交付。
+收尾清理已完成：用户退出 DSH 后，确认原进程 67828 无窗口但仍在后台占用旧测试目录，已结束该残留进程并移除 `runtime/review-20261028/` 的最后空目录。旧资料已私有归档并核对 4988 项；备份位于 `~/.dsh/rvguarder-dev-backups/20261029-finalization/`，不属于公开交付。仓库 runtime 仅保留构建环境、SDK 和前端构建资源。
 
 当前供发布整包为`dist/dsh-rvguarder-0.2.0-rc.5/`，来源011e201，SHA256为57aa38eb03aabc22f4d7f82d7ebc70111224ee3349f2bcb3abd20dd7eeabf66b，npm dry-run通过但未发布。已装入用户目录rvguarder-dev并验证真实启动及宿主探针；其他五个配置块逐字节保留。
 
