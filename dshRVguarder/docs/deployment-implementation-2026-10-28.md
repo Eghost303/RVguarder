@@ -16,6 +16,8 @@
 
 Windows x64 最终本机产物位于 `dist/dsh-rvguarder-0.2.0-rc.4-final/`（忽略目录），约 18 MB tgz、35 MB 解压后内容；含同批 SHA256SUMS。候选构建不等于可信签名发布。构建期间的失败探针包仅为诊断，不作为可分发产物；以最终说明和哈希清单为准。
 
+最终包源码提交 `fe234bd791f15c6ec42bbe24cbfb9df5e04e519b`，包内记录 `source_tree_dirty: false`；tgz 大小18,053,417字节，SHA-256 为 `596b20fdc57500294008e7f5813ee681d7b2326c59efd3f1b2321ff9416d9655`。tar清单未发现运行目录、`.env` 或令牌文件。
+
 ```powershell
 python -m pip install -r dshRVguarder/requirements-standalone.txt
 python dshRVguarder/scripts/build-standalone.py --output dist/<新的平台发行目录>
@@ -31,9 +33,9 @@ SDK 准备沿用原生开发指南，构建机需要 Node/TypeScript/Python；�
 | --- | --- |
 | 类型、工作台、内嵌模块与完整平台打包 | 通过；冻结 CLI --help 已实际运行，修复冻结解释器默认编码后 UTF-8 正常 |
 | 修改后 Python DSH/UI/共享核心组 | 123 passed；junction 通过，1 条 Starlette 弃用警告 |
-| 确定性 Node 核心/管理/迁移/整包边界 | 32 passed，1 个需指定冻结后端的用例在该组跳过；该用例另用实际 tgz 执行通过 |
+| 最终 Node 核心保护/管理/迁移 | 29/29（`last-protection.log`）；冻结运行时另用实际 executable 执行5/5，无需以跳过项补数 |
 | 原生冻结运行时生命周期 | 5/5：匿名401、认证就绪、重复后端独占拒绝、关闭后不可达、令牌保留重启、核心/管理共享引用及快速重启等待旧进程退出 |
-| 真实 rc.3 平台整包 E2E | **7/7**：没有执行 prepare-only、没有启动源码 Python、没有写连接覆盖；安装默认 bundle 自动启动后端，概览/局部导航/只读调用/扫描/审计/卸载/报告及审计 JSON 字节下载通过 |
+| 最终 tgz 真实 rc.3 平台整包 E2E | **8/8**（`final-package-e2e.log`）：没有执行 prepare-only、没有启动源码 Python、没有写连接覆盖；安装默认 bundle 自动启动后端，概览/局部导航/只读调用/扫描/审计/卸载/报告及审计 JSON 字节下载和凭据扫描通过 |
 | 浏览器凭据扫描专项 | 1/1：实际插件资源、owner 管理响应、DOM、URL与存储不含临时桥接令牌或签名密钥的编码 |
 | 原轻量包内嵌 / 独立 DSH / OpenClaw | 审查阶段分别6/6、4/4、串行6/6；OpenClaw首次并发技能页失败已保留 |
 

@@ -4,7 +4,7 @@
 
 已独立审查 f3990e8 并填写任务书第13节：原交付5项通过、3项不通过、5项待整改；见 [审查报告](../../dshRVguarder/docs/ui-review-2026-10-28.md)。发现并修复默认 bundle 非法 return 表达式、下载对象被当 Blob 字节、固定 dsh 实例范围、管理实例身份缺失、500/401 错误吞并、响应事后限额及 E2E 未调用清理。UI 主题/语言/焦点、完整故障矩阵、生命周期/迁移矩阵仍待验收，下方2026-10-27“完成”是原交付陈述，不能代替该结论。
 
-当前插件候选0.2.0-rc.4（未发布），新增 `build-standalone.py` + `managed.ts` 平台整包/宿主托管后端，Windows x64 新安装主路径真实rc.3通过7项页面与下载内容测试。整包含Python3.13、基础依赖、UI、PMKB/RV；默认managed配置，无需手工Python/令牌/后端。数据位于 `<DSH_HOME>/rvguarder/dsh-<home/profile哈希>/`，随机回环端口、认证就绪、启动失败保持实际guard、stdin EOF退出；Windows pnpm长路径用命名空间路径处理。普通npm pack仍是外部后端轻量包，既有profile覆盖不会被静默迁移，不能清空历史升级。构建、使用与边界见 [DEP-01实现](../../dshRVguarder/docs/deployment-implementation-2026-10-28.md) 和 [部署指南](../../dshRVguarder/docs/deployment.md)。Linux整包、rc.2 UI、完整桌面生命周期仍未验收，POL-01/02未改规则、未称解决。直接master提交，不推送远程。
+当前插件候选0.2.0-rc.4（未发布），新增 `build-standalone.py` + `managed.ts` 平台整包/宿主托管后端，Windows x64 新安装主路径真实rc.3通过8项页面/下载/凭据扫描测试。整包含Python3.13、基础依赖、UI、PMKB/RV；默认managed配置，无需手工Python/令牌/后端。数据位于 `<DSH_HOME>/rvguarder/dsh-<home/profile哈希>/`，随机回环端口、认证就绪、启动失败保持实际guard、stdin EOF退出；Windows pnpm长路径用命名空间路径处理。普通npm pack仍是外部后端轻量包，既有profile覆盖不会被静默迁移，不能清空历史升级。构建、使用与边界见 [DEP-01实现](../../dshRVguarder/docs/deployment-implementation-2026-10-28.md) 和 [部署指南](../../dshRVguarder/docs/deployment.md)。Linux整包、rc.2 UI、完整桌面生命周期仍未验收，POL-01/02未改规则、未称解决。直接master提交，不推送远程。
 
 更新时间：2026-10-26。此文记录本地源码与仓库文档核对后的状态；不是线上部署状态证明。
 
