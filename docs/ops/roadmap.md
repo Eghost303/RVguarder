@@ -31,11 +31,11 @@
 
 ### DSH 插件（当前主线）
 
-工程目录：[`dshRVguarder/`](../../dshRVguarder/README.md)，当前源码为 **0.2.0-rc.4 本地开发候选（未发布）**，支持 DSH `0.2.1-rc.2` / `0.2.1-rc.3`，协议 `dsh-guard-v2`。Windows 原生 Python 与 Linux/WSL 路径均保留，用户已确认后端启动、新 profile 接入和基础拦截正常。已公开的历史 rc.1 仍见 [GitHub Releases](https://github.com/HorizonExploration/RVguarder/releases)；此前门槛见 [v2 修复记录](../../dshRVguarder/docs/repair-2026-10-21.md)，当前交接与部署方式见 [阶段记录](../dev/dsh-progress-2026-10-26.md)。
+工程目录：[`dshRVguarder/`](https://github.com/Eghost303/RVguarder/blob/master/dshRVguarder/README.md)，当前源码为 **0.2.0-rc.4 本地开发候选（未发布）**，支持 DSH `0.2.1-rc.2` / `0.2.1-rc.3`，协议 `dsh-guard-v2`。Windows 原生 Python 与 Linux/WSL 路径均保留，用户已确认后端启动、新 profile 接入和基础拦截正常。已公开的历史 rc.1 仍见 [GitHub Releases](https://github.com/HorizonExploration/RVguarder/releases)；此前门槛见 [v2 修复记录](https://github.com/Eghost303/RVguarder/blob/master/dshRVguarder/docs/repair-2026-10-21.md)，当前交接与部署方式见 [阶段记录](../dev/dsh-progress-2026-10-26.md)。
 
 当前已接通基础能力、内嵌入口及 Windows x64 平台整包新安装，后续验收与待办如下：
 
-UX-01/02 已形成 [交给 DSH 实施的内嵌管理界面计划](../dev/dsh-ui-integration-plan-2026-10-26.md)，范围为原生插件清单、设置入口、页面/导航/认证整合；已实施且完成Codex独立复核，原交付存在未通过/待整改项，见 [独立审查](../../dshRVguarder/docs/ui-review-2026-10-28.md)。rc.4增加Windows x64整包与自动托管，完整跨平台/生命周期验收仍待完成。
+UX-01/02 已形成 [交给 DSH 实施的内嵌管理界面计划](../dev/dsh-ui-integration-plan-2026-10-26.md)，范围为原生插件清单、设置入口、页面/导航/认证整合；已实施且完成Codex独立复核，原交付存在未通过/待整改项，见 [独立审查](https://github.com/Eghost303/RVguarder/blob/master/dshRVguarder/docs/ui-review-2026-10-28.md)。rc.4增加Windows x64整包与自动托管，完整跨平台/生命周期验收仍待完成。
 
 - [x] DSH“插件”页中的真实bundle展示和管理入口（DSH-UX-01）；默认bundle加载问题已在rc.4修复。
 - [ ] Guard 工作台与 DSH 的界面、导航和认证整合（DSH-UX-02）。

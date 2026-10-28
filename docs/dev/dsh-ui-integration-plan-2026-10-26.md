@@ -15,7 +15,7 @@
 3. 复用现有 Python 服务与工作台能力；Python 服务仍由用户单独启动。本轮不开发一键安装器、后端自动托管或权限规则修复。
 4. 完成代码、相关测试、部署/升级说明和实现报告，保留可供 Codex 复核的命令、结果与截图。
 
-仓库在本机 `D:/E-ghost/Documents/Code/Python/Projects/RVguarder`。先阅读根目录 `AGENTS.md`、[开发记忆](project-memory.md)、[阶段交接](dsh-progress-2026-10-26.md) 和本文。按用户要求直接在 **master** 开发，不新建分支、不丢弃既有改动；远程推送、PR、tag 和 Release 留给用户下一步安排。
+仓库在本机 `D:/E-ghost/Documents/Code/Python/Projects/RVguarder`。先阅读根目录 `AGENTS.md`、[开发记忆](https://github.com/Eghost303/RVguarder/blob/master/docs/dev/project-memory.md)、[阶段交接](dsh-progress-2026-10-26.md) 和本文。按用户要求直接在 **master** 开发，不新建分支、不丢弃既有改动；远程推送、PR、tag 和 Release 留给用户下一步安排。
 
 实施中可自行处理本文范围内的工程细节。遇到接口差异，先查实际安装版本与同版本公开源码，修正方案并记录证据；不能用关闭鉴权、扩大 Agent 权限或修改已安装 DSH 文件来绕过问题。确需修改宿主核心时，说明具体缺口与已完成成果，不把改造宿主安装包作为默认部署前提。
 
@@ -276,7 +276,7 @@ npm --prefix e2e test -- --config=playwright.dsh.config.cjs
 
 ## 13. Codex 后续审查验收清单
 
-DSH 实现后逐项填写结果和证据。2026-10-28 已独立审查 `f3990e8`，结论如下；详细证据、发现与本轮整改见 [独立审查报告](../../dshRVguarder/docs/ui-review-2026-10-28.md)。结论针对原提交，不能用后续修复倒填通过。
+DSH 实现后逐项填写结果和证据。2026-10-28 已独立审查 `f3990e8`，结论如下；详细证据、发现与本轮整改见 [独立审查报告](https://github.com/Eghost303/RVguarder/blob/master/dshRVguarder/docs/ui-review-2026-10-28.md)。结论针对原提交，不能用后续修复倒填通过。
 
 | 编号 | 必须满足的条件 | 应提供的证据 | Codex 独立结论（原提交） |
 | --- | --- | --- | --- |

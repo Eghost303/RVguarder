@@ -1,5 +1,9 @@
 # RVguarder 开发记忆
 
+## 开发收尾约定（2026-10-29）
+
+真实 DSH 开发和桌面集成测试统一使用 `~/.dsh/profiles/rvguarder-dev`，工作区为 `~/.dsh/workspaces/rvguarder-dev`；不再在仓库下创建 desktop profile。入口为 `dshRVguarder/scripts/start-dev-profile.ps1`，见 [开发指南](dsh-development.md)。历史验收结论保留，但用户安装入口统一为 [DSH 插件下载安装](../deployment/dsh.md)，不引导用户执行旧候选的迁移步骤。平台构建产物解除 private 标记并声明 os/cpu，源码开发包继续保持 private，避免发布不含运行时的轻量包。用户自行执行所有推送、PR、Release 和 npm 发布操作。
+
 ## rc.5 审查整改与 Windows 整包（2026-10-29）
 
 桌面续验又发现两项：真实主题快照为`getTheme().active.colorScheme`，修正外层字段误读并补齐深色二级文字/风险标签配色；异常退出旧插件租约会使核心拒绝启动，原overview仍报告后端ready，现通过内部共享状态显式呈现recovery-required，不改变拒绝、租约或队列语义。桌面四组语言/主题、六页签、键盘焦点、关闭重开、恢复锁定及正常退出复验完成，UI-04关闭；追加not_run状态中英文映射。最新包来源b1ffdd9，位于dist/dsh-rvguarder-0.2.0-rc.5-desktop-final，SHA256为54f78fdd4e1b11b67b1c7d768a6c78a9bd7250385726843bddee8a8bc47f3237，原577136…和中间eccebe…已替代。最新13项为12通过（限定矩阵）/REG-01待整改，见rc.5复验表。

@@ -2,7 +2,7 @@
 
 ## 2026-10-28 后续进度
 
-已完成 f3990e8 独立审查并逐项填写任务书第13节，原交付5项通过、3项不通过、5项待整改；见 [审查报告](../../dshRVguarder/docs/ui-review-2026-10-28.md)。rc.4 新增 Windows x64 整包/宿主后端托管，真实 rc.3 无手工后端的新安装流程与下载内容验证通过；见 [DEP-01 实现](../../dshRVguarder/docs/deployment-implementation-2026-10-28.md)。以下为2026-10-26/27历史阶段记录，不能覆盖该独立结论。POL-01/02未修改规则。
+已完成 f3990e8 独立审查并逐项填写任务书第13节，原交付5项通过、3项不通过、5项待整改；见 [审查报告](https://github.com/Eghost303/RVguarder/blob/master/dshRVguarder/docs/ui-review-2026-10-28.md)。rc.4 新增 Windows x64 整包/宿主后端托管，真实 rc.3 无手工后端的新安装流程与下载内容验证通过；见 [DEP-01 实现](https://github.com/Eghost303/RVguarder/blob/master/dshRVguarder/docs/deployment-implementation-2026-10-28.md)。以下为2026-10-26/27历史阶段记录，不能覆盖该独立结论。POL-01/02未修改规则。
 
 ## 当前结论
 
@@ -10,7 +10,7 @@
 
 这仍是插件 `0.2.0-rc.2` 本地开发候选，支持 DSH `0.2.1-rc.2` / `0.2.1-rc.3`，通信协议为 `dsh-guard-v2`。它尚不是具备宿主内嵌界面、一键安装和完整规则验收的正式产品。本阶段只记录下方问题，不修复插件页展示、界面整合、自动托管后端或规则行为。
 
-后续 UX-01/02 的开发交接已写入 [DSH 内嵌管理界面计划](dsh-ui-integration-plan-2026-10-26.md)，**该计划已于 2026-10-27 实施并在真实桌面 rc.3 完成验收**（插件 bundle 化进入"插件 → 已安装"，"设置 → RVguarder"内嵌管理页，宿主 owner 认证通道）；实现、构建/迁移/回滚步骤与证据见 [UI 实现报告](../../dshRVguarder/docs/ui-integration-implementation.md)。rc.2 上的内嵌 UI 未实测。整包部署（DEP-01）和规则适配（POL-01/02）另行安排，不改变本轮完成范围。
+后续 UX-01/02 的开发交接已写入 [DSH 内嵌管理界面计划](dsh-ui-integration-plan-2026-10-26.md)，**该计划已于 2026-10-27 实施并在真实桌面 rc.3 完成验收**（插件 bundle 化进入"插件 → 已安装"，"设置 → RVguarder"内嵌管理页，宿主 owner 认证通道）；实现、构建/迁移/回滚步骤与证据见 [UI 实现报告](https://github.com/Eghost303/RVguarder/blob/master/dshRVguarder/docs/ui-integration-implementation.md)。rc.2 上的内嵌 UI 未实测。整包部署（DEP-01）和规则适配（POL-01/02）另行安排，不改变本轮完成范围。
 
 Python 后端同时支持 **Windows 原生 Python 和 Linux/WSL Python**，要求 Python 3.13+ 及兼容依赖；Windows 支持不限定安装渠道，也不要求运行 WSL。平台支持与逐个 Python 发行渠道的实际验收是两个范围，本次 Windows 测试使用本机现有解释器。
 
@@ -86,7 +86,7 @@ DSH 的任务与工具调用
 dsh.cmd --profile rvguarder-dev --port 8790
 ```
 
-默认 Guard 工作台为 `http://127.0.0.1:8781`，上述 DSH 测试界面为 `http://127.0.0.1:8790`。首次工作台登录使用实例令牌链接；它们目前是分开的入口。详细构建、路径、登录、更新和临时目录说明见 [Windows 原生开发指南](../../dshRVguarder/docs/windows-native-rc3.md)；Linux/WSL 见 [通用部署说明](../../dshRVguarder/docs/deployment.md)。个人安装路径均为示例，不是团队成员的固定路径。
+默认 Guard 工作台为 `http://127.0.0.1:8781`，上述 DSH 测试界面为 `http://127.0.0.1:8790`。首次工作台登录使用实例令牌链接；它们目前是分开的入口。详细构建、路径、登录、更新和临时目录说明见 [Windows 原生开发指南](https://github.com/Eghost303/RVguarder/blob/master/dshRVguarder/docs/windows-native-rc3.md)；Linux/WSL 见 [通用部署说明](https://github.com/Eghost303/RVguarder/blob/master/dshRVguarder/docs/deployment.md)。个人安装路径均为示例，不是团队成员的固定路径。
 
 ### 方式 B：使用配套构建产物
 
@@ -132,7 +132,7 @@ python -X utf8 dshRVguarder/scripts/build-release.py `
 | 配套 wheel | 隔离安装、79 条规则、工作台资源检查通过 | 本机构建产物，不等于已发布 Release |
 | 用户当前人工测试 | 后端启动、新 profile 接入、基础运行和拦截正常 | 同时发现上表五项问题，规则与产品体验未验收完毕 |
 
-Windows ACL 不隔离持有同一完整用户令牌的任意进程。完整沙箱矩阵、在线模型、委派、多插件组合、长时间稳定性及其他尚未完成的门槛仍需独立验收。历史基线见 [v2 修复记录](../../dshRVguarder/docs/repair-2026-10-21.md)。
+Windows ACL 不隔离持有同一完整用户令牌的任意进程。完整沙箱矩阵、在线模型、委派、多插件组合、长时间稳定性及其他尚未完成的门槛仍需独立验收。历史基线见 [v2 修复记录](https://github.com/Eghost303/RVguarder/blob/master/dshRVguarder/docs/repair-2026-10-21.md)。
 
 ## 本地提交与下一步 PR
 

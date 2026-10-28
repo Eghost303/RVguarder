@@ -243,9 +243,9 @@ DSH 仓库根目录 [SAFETY.zh.md](https://github.com/deepseek-ai/deepseek-harne
 
 用户已明确全量范围。为控制重写成本与语义漂移，新的**实施建议**是 TypeScript 薄适配插件调用 Python 共享核心服务，复用 Preact 工作台。该建议取代原来的纯 TS 优先实施计划，具体通信与部署方式须由 Phase 0 实测后定稿。
 
-首期测试候选已完成打包：发行目录 `dist/dsh-rvguarder-0.1.0/`（`manifest.json` 四项 SHA-256 全部匹配），插件包 `dsh-rvguarder-0.1.0.tgz`（12.3 kB，哈希 `e57ba4aa…`）、Python wheel `openclaw_guard-0.7.0.dev0-py3-none-any.whl`（352 kB）、`INSTALL.md` 与 `create-test-profile.mjs` 均校验一致；临时副本 `/tmp/dsh-rvguarder-0.1.0.tgz`、`/tmp/rvguarder-dsh-release-20261020/` 与发行包同哈希。实际验证及剩余门禁见[验证记录](../../dshRVguarder/docs/validation-2026-10-20.md)。
+首期测试候选已完成打包：发行目录 `dist/dsh-rvguarder-0.1.0/`（`manifest.json` 四项 SHA-256 全部匹配），插件包 `dsh-rvguarder-0.1.0.tgz`（12.3 kB，哈希 `e57ba4aa…`）、Python wheel `openclaw_guard-0.7.0.dev0-py3-none-any.whl`（352 kB）、`INSTALL.md` 与 `create-test-profile.mjs` 均校验一致；临时副本 `/tmp/dsh-rvguarder-0.1.0.tgz`、`/tmp/rvguarder-dsh-release-20261020/` 与发行包同哈希。实际验证及剩余门禁见[验证记录](https://github.com/Eghost303/RVguarder/blob/master/dshRVguarder/docs/validation-2026-10-20.md)。
 
-2026-10-21 更新：`0.1.0`（`dsh-guard-v1`）作为首期测试候选保留归档；当前预发行版为 **`0.2.0-rc.1`**（`dsh-guard-v2`），发行目录 `dist/dsh-rvguarder-0.2.0-rc.1/`，四项 SHA-256 全部匹配，并已通过 GitHub Releases 发布。v2 增加签名内容收据（ContentReceipt/ContentVersion）、受控工具 `rvguard_read` / `rvguard_copy` / `rvguard_transform` / `rvguard_send`、宿主单次授权 CLI、fail-open 独立旁路审计队列、内核与插件目录文件锁、45 秒时效宿主探针、离线维护入口，并将逐调用 `hello` 收敛为 15 秒心跳。20 次合成只读调用复验均值 `134.33ms`、p95 `160.78ms`（LLM 关闭）。仍未通过的 7 项正式发布门槛见[v2 修复记录](../../dshRVguarder/docs/repair-2026-10-21.md)。
+2026-10-21 更新：`0.1.0`（`dsh-guard-v1`）作为首期测试候选保留归档；当前预发行版为 **`0.2.0-rc.1`**（`dsh-guard-v2`），发行目录 `dist/dsh-rvguarder-0.2.0-rc.1/`，四项 SHA-256 全部匹配，并已通过 GitHub Releases 发布。v2 增加签名内容收据（ContentReceipt/ContentVersion）、受控工具 `rvguard_read` / `rvguard_copy` / `rvguard_transform` / `rvguard_send`、宿主单次授权 CLI、fail-open 独立旁路审计队列、内核与插件目录文件锁、45 秒时效宿主探针、离线维护入口，并将逐调用 `hello` 收敛为 15 秒心跳。20 次合成只读调用复验均值 `134.33ms`、p95 `160.78ms`（LLM 关闭）。仍未通过的 7 项正式发布门槛见[v2 修复记录](https://github.com/Eghost303/RVguarder/blob/master/dshRVguarder/docs/repair-2026-10-21.md)。
 
 ```text
 DSH 原生工具 / PTC 内层工具 / 子 Agent（覆盖范围需逐项验证）
@@ -350,7 +350,7 @@ Phase 1 的共享协议确定后，基线扫描与 Dashboard 可独立推进；�
 
 | 项目 | 状态 | 证据 |
 | --- | --- | --- |
-| Windows 宿主 | 已跑通 | web profile 启动、真实工具门禁、审批与完成回写；见[验证记录](../../dshRVguarder/docs/validation-2026-10-20.md) |
+| Windows 宿主 | 已跑通 | web profile 启动、真实工具门禁、审批与完成回写；见[验证记录](https://github.com/Eghost303/RVguarder/blob/master/dshRVguarder/docs/validation-2026-10-20.md) |
 | WSL 原生宿主 | 已跑通 | `dsh@0.2.1-rc.2` 全局安装于 `~/.npm-global/bin/dsh`；自定义 profile 启动成功，后端记录 2 次 `session_started`，插件状态目录生成 |
 | TS 构建与单测 | 通过 | `tsc --noEmit` 无错误；对 WSL SDK 运行 `12/12` 通过，耗时 `358.9ms`（原先链接 `/mnt/c` 时 `3022ms`） |
 | 打包与安装 | 通过 | `dsh plugin add` 装入测试 profile（+25 包，`600ms`）；发行包四项 SHA-256 全部匹配 |

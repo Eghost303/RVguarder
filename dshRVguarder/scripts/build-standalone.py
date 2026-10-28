@@ -60,6 +60,13 @@ def main() -> None:
             shutil.copy2(root / "dshRVguarder" / name, package / name)
         metadata = json.loads((package / "package.json").read_text(encoding="utf-8"))
         metadata.pop("scripts", None)
+        metadata.pop("private", None)
+        metadata["os"] = [target]
+        metadata["cpu"] = [arch]
+        metadata["publishConfig"] = {"access": "public", "tag": "next"}
+        metadata["repository"] = {"type": "git", "url": "git+https://github.com/Eghost303/RVguarder.git", "directory": "dshRVguarder"}
+        metadata["homepage"] = "https://github.com/Eghost303/RVguarder#readme"
+        metadata["bugs"] = {"url": "https://github.com/Eghost303/RVguarder/issues"}
         metadata["files"].extend(["backend", "LICENSE"])
         (package / "package.json").write_text(json.dumps(metadata, indent=2) + "\n", encoding="utf-8")
         shutil.copy2(root / "LICENSE", package / "LICENSE")

@@ -1,66 +1,58 @@
-# rc.5 Windows x64 安装与维护
+# 在 DSH 中安装 RVguarder
 
-适用 DSH **0.2.1-rc.3 Windows x64**。平台整包为 `dsh-rvguarder-0.2.0-rc.5-win32-x64.tgz`，自带 Python 3.13、基础依赖、UI、PMKB/RV 和维护命令。运行时无需 pip、Python、WSL、源码或联网下载依赖。DSH 自身安装依赖可能使用其包管理缓存；不宣称宿主整个安装过程已经断网验收。普通 `npm pack` 是外部后端轻量包，不能替代平台整包。
+RVguarder 为 DSH 提供执行前审批、风险分析、运行时验证、基线扫描和审计。在 **设置 → RVguarder** 中使用全部管理功能，工具审批仍在 DSH 原生窗口完成。
 
-## 新安装
+当前版本 **0.2.0-rc.5**，适用于 **Windows x64、DSH 0.2.1-rc.3**。整包自带运行环境，**无需安装 Python，也无需单独启动后端**。这是预发布版本，建议先在独立 profile 中试用。
 
-下载整包与同批 `SHA256SUMS`，核对哈希。退出目标 DSH 后安装到它实际使用的 profile（桌面通常为 `desktop`，自定义 profile 按实际值）。
+## 从 npm 安装
+
+退出目标 DSH 窗口，在终端运行：
+
+```powershell
+dsh plugin --profile desktop add dsh-rvguarder@0.2.0-rc.5
+```
+
+重新启动 DSH，打开 **插件 → 已安装**，确认 RVguarder 已启用；随后进入 **设置 → RVguarder**，看到“插件已连接”和“已就绪”即可开始使用。
+
+如果使用 DSH 内置插件下载器，选择 **from npm**，填写 `dsh-rvguarder@0.2.0-rc.5`，安装后启用插件。
+
+## 从 GitHub Release 下载
+
+1. 打开 [下载页面](https://github.com/Eghost303/RVguarder/releases/tag/dsh-v0.2.0-rc.5)。
+2. 下载 `dsh-rvguarder-0.2.0-rc.5-win32-x64.tgz` 和 `SHA256SUMS`。请选择附件中的 tgz。
+3. 在下载目录核对 SHA-256，然后安装：
 
 ```powershell
 Get-FileHash .\dsh-rvguarder-0.2.0-rc.5-win32-x64.tgz -Algorithm SHA256
-dsh.cmd plugin --profile desktop add .\dsh-rvguarder-0.2.0-rc.5-win32-x64.tgz
+dsh plugin --profile desktop add .\dsh-rvguarder-0.2.0-rc.5-win32-x64.tgz
 ```
 
-也可使用 DSH 的插件安装入口选择该 tgz。启动 DSH，在“插件 → 已安装”确认版本及两个组件，在“设置 → RVguarder”查看托管状态。**无需单独启动 Python 后端。** 浏览器只使用宿主 owner 管理通道，不输入桥接令牌。
+哈希应与 `SHA256SUMS` 中该文件的值一致。也可在 DSH 插件页选择本地 tgz 安装，再重新启动 DSH。
 
-数据默认为 `<DSH_HOME>/rvguarder/dsh-<home/profile哈希>/`，端口自动分配，仅绑定本机。常驻 executable/DLL 来自 `<DSH_HOME>/rvguarder/runtimes/<manifest内容哈希>/` 的私有副本；升级不会锁住 npm 安装目录。旧运行时保留，故障不删除数据或退回空实例。核心与管理组件共用一个托管进程，最后一个组件关闭才停止后端。
+## 日常使用
 
-## 旧实例保历史迁移
+- **概览**：查看插件连接、运行状态和调用统计。
+- **调用与审批**：查看执行结果与待审批操作；在 DSH 原生窗口确认审批。
+- **规则与 RV**：查看安全规则和运行时验证状态。
+- **扫描与报告**：运行基线扫描并下载报告。
+- **审计**：查看完整性结果并导出审计记录。
+- **设置**：查看连接信息；语义模式可在概览中选择。
 
-先正常退出目标 DSH 和旧后端。不得自动终止未知服务。确认没有未核对的执行；保留待补交的**已确认**完成事件。使用 Windows 自带 tar 将新包解到一个新的维护目录，无需安装 Python：
+界面跟随 DSH 的语言与亮暗主题。默认可使用本地分析，LLM 增强为可选项。
+
+## profile 与停用
+
+示例命令中的 `desktop` 是 DSH 桌面默认 profile。使用其他 profile 时替换该名称即可，例如：
 
 ```powershell
-New-Item -ItemType Directory .\rvguarder-maintenance
-tar -xf .\dsh-rvguarder-0.2.0-rc.5-win32-x64.tgz -C .\rvguarder-maintenance
-$backend = (Resolve-Path .\rvguarder-maintenance\package\backend\rvguarder-backend.exe).Path
-$dshHome = if ($env:DSH_HOME) { $env:DSH_HOME } else { Join-Path $env:USERPROFILE '.dsh' }
-$profile = Join-Path $dshHome 'profiles\desktop'
-$preview = (& $backend migrate inspect --profile-dir $profile | ConvertFrom-Json)
-if ($LASTEXITCODE -ne 0 -or !$preview.ready) { throw '预检失败，先核对报告' }
-$preview.diff
-& $backend migrate apply --profile-dir $profile --digest $preview.digest
-if ($LASTEXITCODE -ne 0) { throw '迁移失败，配置已尝试恢复，请检查错误' }
+dsh plugin --profile rvguarder-dev add dsh-rvguarder@0.2.0-rc.5
+dsh --profile rvguarder-dev
 ```
 
-保存 apply 返回的 `backup` 名称。然后安装新整包到同一 profile 并启动 DSH。迁移写入 `managedBinding: {projectDir, instanceId, stateDir}`，原地沿用旧令牌、审计、RV、执行日志和完成队列。新配置仍保留全部 RVguarder 参数、禁用状态及其他插件。被禁用的实例不会因迁移自行启用。
+在插件页停用 RVguarder 即可停止防护；后端随插件自动启停。卸载可使用插件页的“移除”。
 
-inspect 不写源配置或业务历史；校验私有权限、协议/schema、绑定、数据库与 JSONL 审计链、执行及完成队列和独占锁。JSON 格式 patch 与 YAML 均支持；其他插件的自定义 YAML 标签保留，不求值。自身动态配置、include、重复/歧义条目、高优先级非空全局 patch、未知协议、正在占用或未确认执行会拒绝，需人工消除歧义后重新 inspect。不得用清空队列或改 instanceId 绕过拒绝。
+## 连接异常
 
-apply 取得现有数据锁后再次核验摘要和历史，在 profile 下创建仅当前用户/SYSTEM 可读的 `.rvguarder-migration-*` 备份，再逐文件原子替换。任一步失败恢复配置。重复执行不创建新备份。没有为迁移增加 HTTP/Remote 方法。
+先确认两个 RVguarder 组件均已启用，再在设置页点击“重新连接”。若显示认证失败、实例冲突或恢复锁定，请保留错误码并向维护者反馈，不要重复执行尚未确认结果的工具调用。
 
-## 升级、恢复及回滚
-
-普通托管升级：退出目标 DSH，确认托管进程已退出，安装新平台 tgz，再启动同一 profile。禁用、卸载和异常宿主退出均保留数据；stdin EOF 使后端退出。旧运行时留在私有缓存，不自动清理。
-
-启动中、离线、认证失败、实例不符、恢复锁定、运行时损坏分别呈现；首次连接失败也可重新连接。运行时损坏时重新安装同一或兼容整包；绑定错误先核对 profile/数据目录。恢复锁定必须对照实际工具结果完成核对，不自动重跑工具或删除日志。rc.5 未新增历史核对/授权语义。
-
-异常退出还可能留下插件状态目录中的 `owner.lock`。即使后端进程已经就绪，核心也会保持拒绝执行，管理页显示恢复锁定。须先退出目标宿主和后端，确认锁记录的旧PID已退出，核对执行日志、完成队列及后端调用记录，再将已核对的旧租约移到私有备份中。不要删除完成队列或把未确认执行视为成功；不确定时保留锁定。只有明确核对后的重启才恢复核心，不自动回收旧租约。
-
-迁移回滚必须先退出宿主与后端：
-
-```powershell
-& $backend migrate rollback --profile-dir $profile --backup '.rvguarder-migration-<apply返回值>'
-if ($LASTEXITCODE -ne 0) { throw '回滚拒绝或失败，勿覆盖人工修改' }
-```
-
-该命令恢复对应 profile 配置，保留迁移后的业务历史；配置再次修改时拒绝覆盖。之后恢复对应旧插件包。若原配置为外部后端模式，需启动与原协议/schema 兼容的后端；可以用随包 executable 代替 Python，参数须来自原绑定：
-
-```powershell
-& $backend --project-dir '<旧projectDir>' --dsh-home '<原DSH_HOME>' --profile '<原profile>' --workspace '<原workspace>' --instance-id '<原instanceId>' --port 8781
-```
-
-托管版本间回滚：退出宿主，安装保留的兼容旧平台 tgz，再启动同一 profile。rc.5 仍为 `dsh-guard-v2` / journal schema 2；不保证任意未来版本降级。迁移命令不自动启动或接管外部服务，也不将外部配置悄悄改成其他运行模式。
-
-## 构建与证据
-
-构建机需 Python 3.13+、Node 24 与锁定构建依赖；终端用户不需要。前端普通和内嵌构建后，运行 `scripts/build-standalone.py --frontend-built --output <新目录>`。产物含许可证、依赖版本、来源 commit/dirty 标记及运行时文件 SHA-256 清单。复验范围与未完成项见 [rc.5 复验表](rc5-revalidation-2026-10-29.md)。rc.2 核心兼容保留；rc.2 UI、Linux 整包和不可用的真实 PTC 沙箱不计通过。POL-01/02、PMKB 和授权语义未改。
+[验证范围与已知问题](rc5-revalidation-2026-10-29.md)
