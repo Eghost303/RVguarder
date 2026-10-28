@@ -2,6 +2,10 @@
 
 ## 开发收尾约定（2026-10-29）
 
+清理余项：DSH 主窗口进程 67828 当前占用 `runtime/review-20261028/temp/rvguarder-embed-e2e-KaZ5G7/workspace`。旧资料已私有归档并核对 4988 项后清理，只剩空目录及祖先；用户已收到退出窗口后清理的请求，不得自动终止该窗口。私有备份位于 `~/.dsh/rvguarder-dev-backups/20261029-finalization/`，不属于公开交付。
+
+当前供发布整包为`dist/dsh-rvguarder-0.2.0-rc.5/`，来源011e201，SHA256为57aa38eb03aabc22f4d7f82d7ebc70111224ee3349f2bcb3abd20dd7eeabf66b，npm dry-run通过但未发布。已装入用户目录rvguarder-dev并验证真实启动及宿主探针；其他五个配置块逐字节保留。
+
 真实 DSH 开发和桌面集成测试统一使用 `~/.dsh/profiles/rvguarder-dev`，工作区为 `~/.dsh/workspaces/rvguarder-dev`；不再在仓库下创建 desktop profile。入口为 `dshRVguarder/scripts/start-dev-profile.ps1`，见 [开发指南](dsh-development.md)。历史验收结论保留，但用户安装入口统一为 [DSH 插件下载安装](../deployment/dsh.md)，不引导用户执行旧候选的迁移步骤。平台构建产物解除 private 标记并声明 os/cpu，源码开发包继续保持 private，避免发布不含运行时的轻量包。用户自行执行所有推送、PR、Release 和 npm 发布操作。
 
 ## rc.5 审查整改与 Windows 整包（2026-10-29）
