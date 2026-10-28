@@ -96,7 +96,7 @@ export function HostPanel() {
         <p>{t("受控外发：默认禁用，仅允许精确 HTTPS 白名单和当前单次宿主授权；Windows ACL 与沙箱以实际探针结果为准。")}</p>
       </div>
       <label>{t("语义模式")}<select aria-label={t("DSH 语义模式")} value={semantic.configured_mode || 'auto'} onChange={changeMode}><option value="auto">{t("自动（LLM 可用时增强）")}</option><option value="local">{t("本地规则")}</option><option value="llm">{t("LLM（需要宿主密钥）")}</option></select></label>
-      <p>LLM：{semantic.llm_enabled ? t("已配置，失败时退回本地分析") : t("未启用，使用本地分析")}{t("· 模型：")}{semantic.model || '—'}{t("· 最近增强：")}{semantic.last_llm_status || t("未运行")}</p>
+      <p>LLM：{semantic.llm_enabled ? t("已配置，失败时退回本地分析") : t("未启用，使用本地分析")}{t("· 模型：")}{semantic.model || '—'}{t("· 最近增强：")}{!semantic.last_llm_status || semantic.last_llm_status === 'not_run' ? t("未运行") : semantic.last_llm_status}</p>
       <button class="btn" onClick={handleExport}>{t("导出审计")}</button>
       <p>{t("扫描报告：")}{embedded
         ? ['json', 'html', 'pdf'].map((format) => <button key={format} class="btn" onClick={() => downloadFormat(format)}> {format.toUpperCase()} </button>)

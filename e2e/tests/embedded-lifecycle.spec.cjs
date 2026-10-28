@@ -17,7 +17,7 @@ test.beforeEach(async ({ page }) => {
       const transport = { call: async method => {
         window.counts[id] = (window.counts[id] || 0) + 1;
         if (window.faults[id]) throw Object.assign(new Error(window.faults[id]), { code: window.faults[id] });
-        if (method === 'overview') return { backend: { online: true, instanceId: id }, summary: { host: { kind: 'dsh', instance_id: id }, hook: { active: true }, actions: { counts: {}, items: [] }, semantic: {}, capabilities: {} } };
+        if (method === 'overview') return { backend: { online: true, instanceId: id }, summary: { host: { kind: 'dsh', instance_id: id }, hook: { active: true }, actions: { counts: {}, items: [] }, semantic: { last_llm_status: 'not_run' }, capabilities: {} } };
         return method === 'policy' ? { version: 'fixture', rules: [{ id: 'contrast-rule', source: 'Readable rule description', effect: 'block', match: { operation: 'file.read' } }] } : { items: [], chain: { ok: true } };
       }, download: async () => new TextEncoder().encode('{}').buffer };
       window.handles[id] = window.mount(container, { transport, instanceId: id, language: 'zh' });
@@ -48,6 +48,10 @@ test('language and theme updates preserve active tab and keyboard focus', async 
   await expect(tabs.last()).toHaveText(/Settings/); await expect(tabs.last()).toBeFocused();
   expect(await page.locator('html').getAttribute('data-theme')).toBeNull();
   await page.keyboard.press('Home'); await expect(tabs.first()).toBeFocused();
+  await expect(page.locator('#appearance [data-testid="dsh-host-panel"]')).toContainText('Not run');
+  await expect(page.locator('#appearance [data-testid="dsh-host-panel"]')).not.toContainText('not_run');
+  await page.evaluate(() => handles.appearance.update({ language: 'zh' }));
+  await expect(page.locator('#appearance [data-testid="dsh-host-panel"]')).toContainText('未运行');
 });
 
 test('dark rule descriptions and severity labels have readable contrast', async ({ page }) => {
