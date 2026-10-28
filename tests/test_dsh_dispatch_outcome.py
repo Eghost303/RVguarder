@@ -57,6 +57,13 @@ def test_lost_dispatch_ack_is_recorded_as_outcome_unknown(dsh) -> None:
     assert first.get("outcome_unknown") is True
     assert manager.recovery_required is False
 
+    payload = manager.host_adapter.payload(dict(call))
+    action = manager._find_action_by_hook_key(f"{payload['runId']}:{payload['toolCallId']}")
+    assert action is not None
+    assert action.execution_state == "unknown"
+    assert action.status != "failed"
+    assert action.execution_result["status"] == "outcome_unknown"
+
     duplicate = manager.bridge_result(dict(call), succeeded=False, dispatched=False)
     assert duplicate.get("duplicate") is True
     assert duplicate.get("outcome_unknown") is True

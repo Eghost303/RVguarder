@@ -366,25 +366,34 @@ class DshServices(DshObservability, GuardServices):
                 action = self._find_action(response["action_id"])
                 if action is None:
                     raise BridgeConflict("action_missing")
-                if action.status == "pending_approval":
-                    if outcome_unknown:
-                        action.status, action.decision_state = "executing", "allowed"
-                        action.execution_state = "unknown"
-                    else:
+                if outcome_unknown:
+                    # 结果未知既不是失败也不是成功：保留未确认状态，且不再
+                    # 经过 after-tool-call，否则会被统一改写成 failed。
+                    action.status = "executing"
+                    action.decision_state = "allowed"
+                    action.execution_state = "unknown"
+                    action.sync_state = "synced"
+                    action.execution_result.update({
+                        "status": "outcome_unknown",
+                        "error_code": "outcome_unknown",
+                        "message": "dispatch acknowledgement lost; execution outcome unconfirmed",
+                        "completed_at": utc_now_iso(),
+                    })
+                    self._replace_action(action)
+                    self.audit_store.append("dsh_dispatch_ack_unknown",
+                                            {"action_id": action.action_id, "call_id": request["call_id"]})
+                else:
+                    if action.status == "pending_approval":
                         action.status = "executing" if dispatched else "rejected"
                         action.decision_state = "allowed" if dispatched else "denied"
                         action.execution_state = "running" if dispatched else "not_started"
-                    action.sync_state = "synced"
-                    self._replace_action(action)
-                if outcome_unknown:
-                    self.audit_store.append("dsh_dispatch_ack_unknown",
-                                            {"action_id": action.action_id, "call_id": request["call_id"]})
-                error = ("dsh_outcome_unknown" if outcome_unknown
-                         else None if succeeded else "dsh_tool_failed_or_cancelled")
-                outcome = self.handle_after_tool_call({**payload, "toolResultFailed": not succeeded,
-                                                      "error": error})
-                if not outcome.get("ok"):
-                    raise BridgeConflict(str(outcome.get("error")))
+                        action.sync_state = "synced"
+                        self._replace_action(action)
+                    error = None if succeeded else "dsh_tool_failed_or_cancelled"
+                    outcome = self.handle_after_tool_call({**payload, "toolResultFailed": not succeeded,
+                                                          "error": error})
+                    if not outcome.get("ok"):
+                        raise BridgeConflict(str(outcome.get("error")))
                 self.evidence.commit(request, receipt)
                 with self._journal() as db:
                     db.execute("UPDATE calls SET state='completed',completion=? WHERE id=?", (completion, key))
