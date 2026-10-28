@@ -87,6 +87,7 @@ test('managed profile storage and resource roots do not depend on launcher cwd',
   const ctx = { get: () => ({ home, name: 'rvguarder-dev', cwd: user }), workingDirectory: { defaultDirectory: user } };
   assert.throws(() => deploymentFor(ctx, undefined, user), /outside managed resource workspace/);
   assert.throws(() => deploymentFor(ctx, undefined, join(expected.directory, 'resources')), /outside managed resource workspace/);
+  assert.throws(() => deploymentFor(ctx, undefined, join(expected.directory, '..resources')), /outside managed resource workspace/);
   assert.throws(() => deploymentFor(ctx, undefined, '.'), /Invalid managed resource workspace/);
   assert.equal(deploymentFailureReason(new Error('Guard data must be outside managed resource workspace')), 'workspace-conflict');
   assert.equal(deploymentFailureReason(new Error('Managed backend requires trusted DSH profileContext')), 'configuration-invalid');

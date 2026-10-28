@@ -41,3 +41,13 @@ dsh plugin --profile rvguarder-dev add .\dist\dsh-rvguarder-build\dsh-rvguarder-
 构建产物、SDK 副本、缓存和测试数据均留在 Git 忽略目录中。提交前检查 `git status --short`；长期保留的验收结论放在文档中，截图与脱敏日志随本地验收归档保存。
 
 可选宿主配置 `resourceWorkspace` 指定绝对路径的受控资源根，供启用签名字节执行器的开发测试使用；它不覆盖会话 cwd。该根不能包含 Guard 数据、插件状态或运行时缓存。普通工具调用使用 SDK 提供的每次调用 cwd，受控执行器继续校验签名、资源版本及已登记资源根。
+
+## 直接启动回归
+
+安装整包、退出正在使用的开发宿主后运行：
+
+```powershell
+node dshRVguarder/scripts/verify-dev-startup.mjs --output runtime/startup-proof
+```
+
+输出目录必须是新目录。此脚本仅使用现有 `rvguarder-dev` profile，从用户目录、DSH_HOME、盘符根和仓库目录分别启动，读取宿主侧概览验证连接和实例身份，再正常卸载每个测试宿主。它不执行 Agent 工具、不修改会话工作目录，不读取启动链接或认证令牌。不要将其原始宿主日志作为公开附件；使用生成的 JSON 验收摘要。

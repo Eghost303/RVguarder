@@ -3,7 +3,7 @@ import { spawn, execFile, type ChildProcess } from 'node:child_process';
 import { promisify } from 'node:util';
 import { createHash } from 'node:crypto';
 import { lstatSync, mkdirSync, readFileSync, readdirSync, realpathSync } from 'node:fs';
-import { dirname, isAbsolute, join, relative, resolve, toNamespacedPath } from 'node:path';
+import { dirname, isAbsolute, join, relative, resolve, sep, toNamespacedPath } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { Context } from '@deepseek-ai/cordis';
 
@@ -17,7 +17,7 @@ const packageRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 
 /** 任一方向的包含都属于资源根与私有存储重叠。 */
 function overlaps(left: string, right: string): boolean {
-  const contains = (parent: string, child: string) => { const path = relative(parent, child); return path === '' || (!path.startsWith('..') && !isAbsolute(path)); };
+  const contains = (parent: string, child: string) => { const path = relative(parent, child); return path === '' || (path !== '..' && !path.startsWith('..' + sep) && !isAbsolute(path)); };
   return contains(left, right) || contains(right, left);
 }
 
@@ -99,6 +99,7 @@ export class ManagedBackend {
   /** 只反映本对象所持进程的存活状态，不探测或接管外部进程。 */
   alive(): boolean { return !this.stopped && this.child.exitCode === null && this.child.signalCode === null; }
   constructor(deployment: Deployment, executable = verifyBackend()) {
+    prepareResourceWorkspace(deployment);
     // pnpm 的真实安装路径可能超过 MAX_PATH，CreateProcess 需要 Windows 命名空间路径。
     const nativeExecutable = toNamespacedPath(executable);
     this.child = spawn(nativeExecutable, ['--project-dir', deployment.directory, '--dsh-home', deployment.home,
