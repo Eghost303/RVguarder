@@ -65,9 +65,11 @@ ALLOWED_SECURITY_FACTS: dict[str, type] = {
     "network.webhook": bool,
     "network.upload": bool,
     "network.secret_payload": bool,
+    "network.secret_mention": bool,
     "network.proxy_change": bool,
     "channel.external": bool,
     "channel.admin": bool,
+    "channel.admin_mention": bool,
     "channel.present": bool,
     "channel.bulk": bool,
     "skill.shell": bool,
@@ -342,10 +344,14 @@ def local_semantic_match(event: BehaviorEvent, *, engine: str = "builtin-fallbac
         )
     structured_checks = {
         "network.upload": any(token in raw_text for token in ("upload", "send file", "post data", "上传", "外发")),
-        "network.secret_payload": any(token in raw_text for token in ("token", "secret", "password", "api_key", "api key")),
+        # 只按出站字段值判定是否携带密钥材料；关键字只产生 mention 事实，
+        # 不再单独触发阻断。
+        "network.secret_payload": _outbound_secret_payload(event),
+        "network.secret_mention": any(token in raw_text for token in ("token", "secret", "password", "api_key", "api key")),
         "network.proxy_change": any(token in raw_text for token in ("proxy", "代理")),
         "channel.external": _has_external_recipient(raw_text),
-        "channel.admin": any(token in raw_text for token in ("admin", "管理员")),
+        "channel.admin": _admin_recipient(raw_text),
+        "channel.admin_mention": any(token in raw_text for token in ("admin", "管理员")),
         "channel.present": event.action_type == "channel_send" or bool(event.channel_name),
         "channel.bulk": len(_EMAIL_RE.findall(raw_text)) > 1 or any(token in raw_text for token in ("broadcast", "群发", "bcc")),
         "skill.shell": any(token in raw_text for token in ("shell", "exec")),
@@ -398,6 +404,44 @@ def _has_external_recipient(text: str) -> bool:
     for match in _EMAIL_RE.finditer(text):
         domain = match.group(1).lower()
         if domain not in {"openclaw.ai", "openclaw.local", "internal.local", "company.local"}:
+            return True
+    return False
+
+
+_OUTBOUND_SECRET_RE = re.compile(
+    r"(?i)(bearer\s+[a-z0-9._~+/-]{8,}"
+    r"|(?:token|secret|password|passwd|api[_-]?key|access[_-]?key)\s*[=:]\s*[^\s'\";,]{6,}"
+    r"|-----BEGIN [A-Z ]*PRIVATE KEY-----)"
+)
+_ADMIN_LOCAL_PARTS = {"admin", "administrator", "root", "security", "postmaster", "abuse"}
+
+
+def _iter_strings(value: Any):
+    if isinstance(value, str):
+        yield value
+    elif isinstance(value, dict):
+        for item in value.values():
+            yield from _iter_strings(item)
+    elif isinstance(value, (list, tuple)):
+        for item in value:
+            yield from _iter_strings(item)
+
+
+def _outbound_secret_payload(event: Any) -> bool:
+    """出站字段值里是否真的带有密钥材料，而不是关键词。"""
+    params = event.raw_payload.get("params") if isinstance(getattr(event, "raw_payload", None), dict) else {}
+    values = list(_iter_strings(params)) if isinstance(params, dict) else []
+    values.extend(str(target) for target in getattr(event, "network_targets", []) or [])
+    return any(_OUTBOUND_SECRET_RE.search(value) for value in values if value)
+
+
+def _admin_recipient(text: str) -> bool:
+    """管理员身份按收件人/频道标识判定，正文提到 admin 不算。"""
+    for local in re.findall(r"([A-Za-z0-9._%+-]+)@[A-Za-z0-9.-]+", text):
+        if local.lower() in _ADMIN_LOCAL_PARTS:
+            return True
+    for channel in re.findall(r"#[A-Za-z0-9_-]+", text):
+        if channel.lstrip("#").lower() in {"admin", "administrator", "security"}:
             return True
     return False
 
