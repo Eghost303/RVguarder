@@ -414,7 +414,7 @@
           "to": "sensitive_content_accessed",
           "when": {
             "all_of": [
-              "effect:read",
+              "effect_observed:read",
               "contains_secret"
             ],
             "tool": {
@@ -746,7 +746,7 @@
           "verdict": "ask",
           "when": {
             "all_of": [
-              "effect:query"
+              "effect_observed:query"
             ],
             "any_of": [
               "user_table",
@@ -856,7 +856,7 @@
           "to": "searching",
           "when": {
             "any_of": [
-              "effect:read"
+              "effect_observed:read"
             ],
             "none_of": [
               "effect:transform",

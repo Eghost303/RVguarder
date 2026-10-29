@@ -304,6 +304,34 @@ def _apply_policy_engine(
     return decision
 
 
+def _mark_step_observed(step: dict[str, Any], completion_evidence: dict[str, Any]) -> dict[str, Any]:
+    """把认证成功完成后的步骤标记为已观测。
+
+    仅升级预期/潜在效果；未识别效果保持 unknown。``verified`` 只有在收据
+    核验后才为真，宿主成功回调只能证明"报告成功"。
+    """
+    evidence = [
+        {**item, "status": "observed", "basis": "host_report", "verified": False}
+        if item.get("status") in {"expected", "potential"} else item
+        for item in step.get("effect_evidence", [])
+    ]
+    observed_props = [f"effect_observed:{item['effect']}" for item in evidence
+                      if item.get("status") == "observed" and item.get("effect")]
+    return {
+        **step,
+        "execution_state": "succeeded",
+        "effect_evidence": evidence,
+        # 规则按标签匹配，提交时必须把已观测标签一并补上。
+        "props": list(dict.fromkeys([*step.get("props", []), *observed_props])),
+        "observation": {
+            "state": "reported_succeeded", "source": "host_callback",
+            "verified": False, "receipt_id": None,
+            "content_lineage_verified": False,
+        },
+        "provenance": {**step.get("provenance", {}), "completion_evidence": completion_evidence},
+    }
+
+
 def _apply_rv_if_available(
     services: GuardServices,
     event: Any,
@@ -807,9 +835,7 @@ def handle_after_tool_call_pipeline(
         action.event.metadata["principal_rv_commit_effect"] = services.record_executed_principal_action(action) or "none"
         rv_trace = action.event.metadata.get("rv_trace", [])
         if isinstance(rv_trace, list) and rv_trace and services.rv_enabled():
-            rv_trace = [{**step, "execution_state": "succeeded",
-                         "provenance": {**step.get("provenance", {}), "completion_evidence": completion_evidence}}
-                        for step in rv_trace]
+            rv_trace = [_mark_step_observed(step, completion_evidence) for step in rv_trace]
             action.event.metadata["rv_trace"] = rv_trace
             rv_result = services.rv_engine.evaluate(
                 rv_trace,
