@@ -69,12 +69,22 @@ export function ActionCard({ item }) {
   };
 
   const rvResult = item.event?.metadata?.rv_result;
+  const decisionRecord = item.event?.metadata?.decision_record || null;
+  const decisionInfo = decisionRecord?.decision || {};
+  const evidenceInfo = decisionRecord?.evidence || {};
+  const policyInfo = decisionRecord?.policy || {};
+  const resourcesInfo = decisionRecord?.resources || {};
+  const executionUnknown = item.execution_state === 'unknown';
+  const dshMeta = item.event?.metadata?.dsh || {};
+  const innerCall = Boolean(dshMeta.parent_call_id);
+  const statusKey = executionUnknown ? 'unknown_result' : (item.status || 'unknown');
 
   return (
     <article class={'approval-card tone-' + esc(d.risk_level || 'safe') + (il ? ' card-loading' : '')}>
       <div class="approval-head">
         <span class="risk-chip">{esc(d.risk_level || 'safe')}</span>
-        <span class="status-chip">{t('status_' + (item.status || 'unknown'))}</span>
+        <span class="status-chip">{t('status_' + statusKey)}</span>
+        {innerCall && <span class="chip chip-muted">{t("内层调用")}</span>}
       </div>
       <h4>{esc(presentation.intent_summary || d.user_title || (item.source === 'hook_bridge' ? t("OpenClaw 工具请求") : item.target_summary || item.source_message || ''))}</h4>
       <p class="approval-intent">{esc(userMessage)}</p>
@@ -155,6 +165,47 @@ export function ActionCard({ item }) {
             <section class="approval-section trust-section">
               <h5>{t("精确授权范围")}</h5>
               <p class="approval-meta">{esc(trust.scope)}{t("· 默认有效")}{esc(trust.ttl_days || 30)}{t("天")}</p>
+            </section>
+          )}
+          {decisionRecord && (
+            <section class="approval-section">
+              <h5>{t("决策依据")}</h5>
+              <div class="approval-tags">
+                {decisionInfo.deciding_layer && (
+                  <span class="chip chip-muted">{t("决定层：")}{esc(decisionInfo.deciding_layer)}</span>
+                )}
+                {decisionInfo.dominant_reason && (
+                  <span class="chip chip-muted">{t("原因：")}{esc(decisionInfo.dominant_reason)}</span>
+                )}
+                {(decisionInfo.reason_codes || [])
+                  .filter((code) => code !== decisionInfo.dominant_reason)
+                  .map((code) => <span class="chip chip-muted" key={code}>{esc(code)}</span>)}
+                {(policyInfo.selected_rule_ids || []).slice(0, 6).map((rule) => (
+                  <span class="chip chip-muted" key={rule}>{esc(rule)}</span>
+                ))}
+              </div>
+              {executionUnknown && (
+                <p class="approval-meta">{t("执行结果未知：派发已发生但没有可信完成证据，既不计成功也不计失败。")}</p>
+              )}
+              {innerCall && <p class="approval-meta">{t("父调用：")}{esc(dshMeta.parent_call_id)}</p>}
+              {(evidenceInfo.missing_features || []).length > 0 && (
+                <p class="approval-meta">{t("缺失证据：")}{esc(evidenceInfo.missing_features.join(", "))}</p>
+              )}
+              {(resourcesInfo.items || []).length > 0 && (
+                <p class="approval-meta">
+                  {t("资源：")}{esc(resourcesInfo.items.map((r) => `${r.role}:${r.type}`).join(", "))}
+                </p>
+              )}
+              <p class="approval-meta">
+                {t("审批发起：")}{esc(decisionRecord.approval?.initiator || '')}
+                {decisionRecord.tool?.execution_surface ? ` · ${t("执行面：")}${esc(decisionRecord.tool.execution_surface)}` : ''}
+              </p>
+              {item.event?.metadata?.task_grant_id && (
+                <p class="approval-meta">{t("任务授权：")}{esc(item.event.metadata.task_grant_id)}</p>
+              )}
+              {item.event?.metadata?.command_class && (
+                <p class="approval-meta">{t("命令类别：")}{esc(item.event.metadata.command_class)}</p>
+              )}
             </section>
           )}
           <section class="approval-section">

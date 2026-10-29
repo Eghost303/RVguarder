@@ -171,3 +171,14 @@ def test_task_authorization_status_requires_auth(dsh) -> None:
     manager, _, _ = dsh
     anonymous = TestClient(create_app(manager))
     assert anonymous.get("/api/dsh/task-authorizations").status_code == 401
+
+
+def test_summary_counts_task_grant_allowances(dsh) -> None:
+    manager, client, workspace = dsh
+    _issue(manager, workspace)
+    body = client.post("/api/dsh/before", json=_call(
+        workspace, "write", {"path": "notes.md", "content": "x"}, call_id="w1")).json()
+    assert body["kind"] == "allow"
+
+    dedup = manager.summary(compact=True)["actions"]["dedup"]
+    assert dedup["task_grant"] >= 1

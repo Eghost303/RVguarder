@@ -80,3 +80,17 @@ def test_incoherent_success_after_dispatch_is_still_rejected(dsh) -> None:
         manager.bridge_result(dict(call), succeeded=True, dispatched=False)
 
     assert "dispatch_evidence_mismatch" in str(excinfo.value)
+
+
+def test_outcome_unknown_is_counted_separately(dsh) -> None:
+    manager, workspace = dsh
+    call = _call(workspace)
+    manager.bridge_before(dict(call))
+    manager.bridge_dispatch(dict(call))
+    manager.bridge_result(dict(call), succeeded=False, dispatched=False)
+
+    counts = manager.summary(compact=True)["actions"]["counts"]
+
+    assert counts["unknown"] == 1
+    assert counts["executed"] == 0
+    assert counts["failed"] == 0

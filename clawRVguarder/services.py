@@ -715,9 +715,19 @@ class GuardServices:
             "pending": sum(1 for item in actions if item.status == "pending_approval"),
             "approved": sum(1 for item in actions if item.status == "approved"),
             "executing": sum(1 for item in actions if item.status == "executing"),
-            "executed": sum(1 for item in actions if item.status == "executed" or item.status == "allow"),
+            "executed": sum(1 for item in actions
+                            if item.status in {"executed", "allow"} and item.execution_state != "unknown"),
             "failed": sum(1 for item in actions if item.status == "failed"),
             "rejected": sum(1 for item in actions if item.status == "rejected"),
+            "blocked": sum(1 for item in actions if item.status == "blocked"),
+            # 结果未知既不记为成功也不记为失败，单独计数。
+            "unknown": sum(1 for item in actions if item.execution_state == "unknown"),
+        }
+        dedup = {
+            "task_grant": sum(1 for item in actions
+                              if (item.event.metadata or {}).get("deciding_layer") == "task_grant"),
+            "command_reuse": sum(1 for item in actions
+                                 if (item.event.metadata or {}).get("deciding_layer") == "task_command_reuse"),
         }
         chat_status = self.chat_status()
         result = {
@@ -727,7 +737,7 @@ class GuardServices:
             "paths": self.context.paths.to_dict(),
             "settings": self.context.settings.to_dict(),
             "capabilities": [item.to_dict() for item in self.collectors.capabilities()],
-            "actions": {"counts": counts, "items": [item.to_dict() for item in list(reversed(actions))[:50]]},
+            "actions": {"counts": counts, "dedup": dedup, "items": [item.to_dict() for item in list(reversed(actions))[:50]]},
             "console": {},
             "chat": chat_status.to_dict(),
             "hook": self.hook_status(),

@@ -31,6 +31,7 @@ const T = {
   status_rejected: '已拒绝',
   status_approved: '已批准',
   status_executing: '执行中',
+  status_unknown_result: '结果未知',
   pendingTitle: '待确认动作',
   noPending: '当前没有待确认动作。',
   recentActions: '最近动作',

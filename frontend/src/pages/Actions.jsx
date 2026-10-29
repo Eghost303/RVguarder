@@ -4,9 +4,15 @@ import { ActionCard } from '../components/ActionCard';
 
 const STATUSES = [
   'pending_approval', 'approved', 'executing',
-  'executed', 'rejected', 'blocked', 'failed',
+  'executed', 'rejected', 'blocked', 'failed', 'unknown_result',
   'proposed', 'allow',
 ];
+
+function matchesFilter(item, filter) {
+  // 结果未知是 execution_state，不是 status；单独作为一个筛选项。
+  if (filter === 'unknown_result') return item.execution_state === 'unknown';
+  return item.status === filter;
+}
 
 export function Actions() {
   const t = useT();
@@ -18,7 +24,7 @@ export function Actions() {
   const pageSize = useStore((s) => s.pageSize);
 
   const items = (summary.actions || {}).items || [];
-  const filtered = items.filter((i) => i.status === actionFilter);
+  const filtered = items.filter((i) => matchesFilter(i, actionFilter));
   const total = Math.max(1, Math.ceil(filtered.length / pageSize));
   const cur = Math.min(Math.max(pages.actions || 1, 1), total);
   const page = filtered.slice((cur - 1) * pageSize, cur * pageSize);
