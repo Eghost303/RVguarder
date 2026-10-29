@@ -352,12 +352,7 @@ def _apply_task_authorization(services: Any, event: Any, decision: Any) -> Any:
     metadata = getattr(event, "metadata", None) or {}
     trace = metadata.get("authorization_trace") or {}
     operation = str((trace.get("operation") or {}).get("family") or "")
-    if operation not in {"file.read", "file.write"}:
-        return decision
     if str(metadata.get("scope_class")) != "workspace":
-        return decision
-    paths = list(getattr(event, "target_paths", None) or [])
-    if len(paths) != 1:
         return decision
     task_id = resolve_task(event)
     if not task_id:
@@ -367,24 +362,50 @@ def _apply_task_authorization(services: Any, event: Any, decision: Any) -> Any:
     workspace_path = getattr(workspace, "workspace_path", None)
     if workspace_path is None:
         return decision
-    grant = store.match(
-        task_id=task_id,
-        principal_id=str(trusted.get("principal_id") or ""),
-        agent_id=str(trusted.get("agent_id") or ""),
-        session_id=str((metadata.get("dsh") or {}).get("session_id") or ""),
-        operation=operation, scope="workspace", path=paths[0],
-        workspace_root=workspace_path,
-    )
-    if grant is None:
+    common = {
+        "task_id": task_id,
+        "principal_id": str(trusted.get("principal_id") or ""),
+        "agent_id": str(trusted.get("agent_id") or ""),
+        "session_id": str((metadata.get("dsh") or {}).get("session_id") or ""),
+    }
+
+    if operation in {"file.read", "file.write"}:
+        paths = list(getattr(event, "target_paths", None) or [])
+        if len(paths) != 1:
+            return decision
+        grant = store.match(operation=operation, scope="workspace", path=paths[0],
+                            workspace_root=workspace_path, **common)
+        if grant is None:
+            return decision
+        _allow_with_reason(decision, metadata, reasons.TASK_GRANT)
+        metadata["task_grant_id"] = grant["grant_id"]
         return decision
+
+    if operation == "process.execute":
+        # 测试/构建命令：同任务内已批准过同类命令才复用；其它执行一律逐次审批。
+        from clawRVguarder.policy.command_classes import classify_command
+
+        command_class = classify_command(getattr(event, "command", None))
+        if command_class is None:
+            return decision
+        metadata["command_class"] = command_class
+        if not store.match_command_approval(command_class=command_class, **common):
+            return decision
+        _allow_with_reason(decision, metadata, reasons.TASK_COMMAND_REUSE)
+        return decision
+
+    return decision
+
+
+def _allow_with_reason(decision: Any, metadata: dict[str, Any], reason_code: str) -> None:
+    """把裁决降为允许，并留下可审计的依据。"""
     decision.action = "allow"
     decision.risk_level = "safe"
-    decision.reason = "符合宿主签发的有界任务授权，自动放行。"
-    policy["reason_codes"] = [reasons.TASK_GRANT]
+    decision.reason = "符合宿主签发的任务范围，自动放行。"
+    policy = dict(getattr(decision, "policy_decision", None) or {})
+    policy["reason_codes"] = [reason_code]
     decision.policy_decision = policy
-    metadata["task_grant_id"] = grant["grant_id"]
-    metadata["deciding_layer"] = "task_grant"
-    return decision
+    metadata["deciding_layer"] = reason_code
 
 
 def _apply_rv_if_available(

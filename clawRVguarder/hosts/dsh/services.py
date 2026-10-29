@@ -483,6 +483,21 @@ class DshServices(DshObservability, GuardServices):
                 db.execute("UPDATE calls SET state='dispatched' WHERE id=?", (action.event.metadata["hook_key"],))
             if permit:
                 self.audit_store.append("dsh_host_grant_consumed", {"grant_id": permit["grant_id"], "call_id": request["call_id"]})
+            command_class = action.event.metadata.get("command_class")
+            if command_class:
+                # 原生审批已放行该类别命令；同任务内后续同类命令按类别复用。
+                trusted_identity = action.event.metadata.get("trusted_identity") or {}
+                task_id = self.resolve_task_id(action.event)
+                if task_id:
+                    self.task_authorization.record_command_approval(
+                        task_id=task_id,
+                        principal_id=str(trusted_identity.get("principal_id") or ""),
+                        agent_id=str(trusted_identity.get("agent_id") or ""),
+                        session_id=str((action.event.metadata.get("dsh") or {}).get("session_id") or ""),
+                        command_class=str(command_class),
+                    )
+                    self.audit_store.append("dsh_task_command_approved",
+                                            {"action_id": action.action_id, "command_class": command_class})
             return {"ok": True, "permit": permit}
 
     def resolve_task_id(self, event) -> str | None:

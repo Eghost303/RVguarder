@@ -36,6 +36,9 @@ HOST_APPROVAL = "host_approval"
 TASK_GRANT = "task_grant"
 """落在宿主签发的有界任务授权范围内，自动放行并审计。"""
 
+TASK_COMMAND_REUSE = "task_command_reuse"
+"""同一任务内已批准过的同类测试/构建命令，按类别复用。"""
+
 BACKEND_FAILURE = "backend_failure"
 """决策服务不可达或返回不可解析结果。"""
 
@@ -56,7 +59,7 @@ UNATTRIBUTED = "unattributed"
 ALL_REASON_CODES = frozenset({
     POLICY_REQUIRES_APPROVAL, UNKNOWN_TOOL, MISSING_EVIDENCE, SCOPE_UNKNOWN,
     PERMISSION_EXCESS, GRANT_INVALID, RV_ESCALATION, HOST_APPROVAL,
-    BACKEND_FAILURE, HARD_BLOCK, COMBO_RISK, TASK_GRANT,
+    BACKEND_FAILURE, HARD_BLOCK, COMBO_RISK, TASK_GRANT, TASK_COMMAND_REUSE,
 })
 
 # 越靠前越具体、越可操作；多个条件同时成立时取最先出现的码。
@@ -74,6 +77,7 @@ PRECEDENCE: tuple[str, ...] = (
     RV_ESCALATION,
     HOST_APPROVAL,
     TASK_GRANT,
+    TASK_COMMAND_REUSE,
     POLICY_REQUIRES_APPROVAL,
 )
 

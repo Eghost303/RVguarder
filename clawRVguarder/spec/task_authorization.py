@@ -74,6 +74,12 @@ class TaskAuthorizationStore:
                 "CREATE TABLE IF NOT EXISTS task_grants ("
                 "grant_id TEXT PRIMARY KEY, task_id TEXT NOT NULL, body TEXT NOT NULL)"
             )
+            db.execute(
+                "CREATE TABLE IF NOT EXISTS task_command_approvals ("
+                "approval_key TEXT PRIMARY KEY, task_id TEXT NOT NULL, principal_id TEXT NOT NULL,"
+                "agent_id TEXT NOT NULL, session_id TEXT NOT NULL, command_class TEXT NOT NULL,"
+                "expires_at REAL NOT NULL)"
+            )
 
     def _connect(self) -> sqlite3.Connection:
         return sqlite3.connect(self.path, timeout=10)
@@ -143,3 +149,28 @@ class TaskAuthorizationStore:
                 continue
             return grant.model_dump()
         return None
+
+    def record_command_approval(self, *, task_id: str, principal_id: str, agent_id: str,
+                                session_id: str, command_class: str,
+                                ttl_seconds: int = 1800) -> None:
+        """记录"本任务内该类别命令已被批准"；只按类别复用，不按工具名。"""
+        if not task_id or not command_class:
+            raise ValueError("invalid_command_approval")
+        if not 0 < int(ttl_seconds) <= MAX_TTL_SECONDS:
+            raise ValueError("command_approval_ttl_out_of_range")
+        key = "|".join([task_id, principal_id, agent_id, session_id, command_class])
+        with self._connect() as db:
+            db.execute(
+                "INSERT OR REPLACE INTO task_command_approvals VALUES (?,?,?,?,?,?,?)",
+                (key, task_id, principal_id, agent_id, session_id, command_class,
+                 time.time() + int(ttl_seconds)),
+            )
+
+    def match_command_approval(self, *, task_id: str, principal_id: str, agent_id: str,
+                               session_id: str, command_class: str) -> bool:
+        key = "|".join([task_id, principal_id, agent_id, session_id, command_class])
+        with self._connect() as db:
+            row = db.execute(
+                "SELECT expires_at FROM task_command_approvals WHERE approval_key=?", (key,)
+            ).fetchone()
+        return bool(row and row[0] > time.time())
