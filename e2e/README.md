@@ -1,4 +1,4 @@
-# E2E（Playwright）
+# E2E（Playwright）· v0.2.1-rc1
 
 本目录用于端到端回归测试：启动 `openclaw-guard` 后，通过浏览器自动化验证 RV 模式开关、Trace 展示、Skills 启停与动作审批等关键链路。
 
@@ -19,6 +19,16 @@ npm test
 env -u HTTP_PROXY -u HTTPS_PROXY -u ALL_PROXY -u http_proxy -u https_proxy -u all_proxy \
   npx playwright test tests/guard-ui.spec.cjs --project=firefox --workers=1
 ```
+
+## DSH 与内嵌界面
+
+```bash
+npx playwright test --config playwright.embedded-unit.config.cjs
+npx playwright test --config playwright.dsh.config.cjs
+npx playwright test --project chromium
+```
+
+当前配置使用系统 Chrome。内嵌组件覆盖挂载隔离、旧响应废弃、主题/语言与焦点、故障重连及 host-agent Remote；独立 DSH 工作台验证扫描、报告和只读审批。真实桌面测试单独执行，不能用 Web 结果替代。宿主测试只使用 `~/.dsh/profiles/rvguarder-dev`；这些浏览器配置的临时后端 fixture 不启动真实 DSH profile。
 
 ## 覆盖点
 

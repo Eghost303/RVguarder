@@ -62,3 +62,5 @@ python dshRVguarder/scripts/verify-release.py dist/dsh-rvguarder-0.2.1-rc1
 ```
 
 ZIP 与 tgz 的文件内容应完全一致。发布准备不运行源码目录的 `npm publish`，源码包保留 private 标记；对外使用冻结整包。本机测试原始日志可能包含宿主启动认证链接，不作为公开附件。
+
+桌面 SDK 提取器同时收集宿主已有的语义子代理 provider 与 preset registry；旧缓存缺少这些包时需要重新提取，不能仅凭核心 SDK 版本一致就认定 host-agent 测试环境完整。测试运行器限制系统临时目录时可为测试进程设置 `TEMP/TMP` 到仓库内的新临时目录，不放宽私有 ACL。

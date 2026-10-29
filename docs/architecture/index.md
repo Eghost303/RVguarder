@@ -1,6 +1,6 @@
 # 架构文档索引
 
-> **核对日期：** 2026-09-20
+> **核对版本：** v0.2.1-rc1（2026-10-29）
 > **文档状态：** 现行架构入口
 
 本目录只放面向当前实现的架构说明。当前实现、测试基线和已知边界以本索引及[安全能力与边界](../rvguarder-security-capabilities-and-boundaries.md)为准。
@@ -17,6 +17,8 @@
 | 5 | [RV 层技术报告](./rv-engine-report.md) | ToolCallIR、ChainRule DSL、窗口与主体证据状态 |
 | 6 | [质量保障方案](./quality-assurance.md) | 测试分层、合约门禁、性能和回归策略 |
 | 7 | [DSH 插件迁移调研与开发计划](./dsh-plugin-migration-feasibility-2026-10-19.md) | DeepSeek Harness 的可行性、扩展点映射与阶段计划 |
+
+当前 DSH 实现包含托管运行时、宿主内嵌 UI、host-agent 语义模式、任务授权及效果证据，见 [架构总览](overview.md) 与 [发布验证](../dev/release-v0.2.1-rc1.md)。
 
 ## 当前架构要点
 
@@ -37,7 +39,7 @@ OpenClaw before_tool_call
 - PMKB 同时校验单步规则、最小必要权限闭包/差分和危险权限组合；证据进入 Guard 页面，审批仍只回到 OpenClaw。历史 `LEGACY-*` 记录只用于回放证据，不再驱动第二个在线规则引擎。
 - RV 分为行为 DSL、PMKB 权限自动机和可选基线 DFA 三族；PMKB 规则为 session 监视器，权限组合关系为 `(principal_id, agent_id, capability_lineage)` 隔离的 principal 监视器。
 - 默认且唯一 RV 规则路径为 DSL；历史 `OPENCLAW_RV_RULE_MODE=fsm` 偏好值只归一化为 DSL，不再加载手写监视器。
-- Hook 后端传输不可达时静默透传所有 Agent 的工具调用，包括写入与执行；Guard 保护及审计回传暂停。后端有响应但返回 HTTP 错误仍按分级错误策略处理。
+- Hook 后端传输不可达时静默透传所有 Agent 的工具调用，包括写入与执行；Guard 保护及审计回传暂停。后端返回 HTTP 错误或不可解析响应时同样透传；DSH 则默认 fail-closed。
 - FastAPI 是默认且唯一 HTTP 入口；旧版 stdlib HTTP 实现已从生产包移除，历史源文件保存在 Git 归档中。
 
 ## 相关入口

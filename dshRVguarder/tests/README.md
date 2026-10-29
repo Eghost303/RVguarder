@@ -1,7 +1,17 @@
-# DSH tests
+# DSH tests · v0.2.1-rc1
 
-Run `npm run check && npm test` with the SDK linked to a supported DSH version (0.2.1-rc.2 or 0.2.1-rc.3). Requires Node24 and the editable Python3.13+ backend on native Windows or Linux/WSL. Windows support does not depend on how Python was installed; select the interpreter with `RVGUARDER_PYTHON` when needed. See [native Windows setup](../docs/windows-native-rc3.md) for dependency and virtual-environment examples.
+Use Node 24 and a native Python 3.13+ backend. Link the SDK to the exact supported DSH rc.2/rc.3 runtime. For host-agent tests the snapshot also needs the same-version `dsh-agent-preset-registry` and `dsh-subagent-spawn-in-process`; the desktop SDK extractor includes these when available without changing the desktop installation.
 
-25 Node tests include actual SDK allow/ask/deny/guard, nested opaque parent IDs, outbox/lease/degraded recovery; real Python+SDK local byte receipts, changed-source rejection, path boundaries and actual Node PTC scheduler with a real local sandbox. A missing real sandbox is reported as skipped, never accepted as verified. Online model credentials are not used.
+```powershell
+npm --prefix dshRVguarder run check
+$env:RVGUARDER_PYTHON = '<native Python executable>'
+$env:RVGUARDER_TEST_PACKAGE = '<unpacked complete package>'
+$env:RVGUARDER_TEST_BACKEND = '<unpacked complete package>/backend/rvguarder-backend.exe'
+npm --prefix dshRVguarder test
+```
 
-Python DSH tests: `python -m pytest tests/test_dsh_adapter.py -q` (47 cases at the v2 repair checkpoint). Browser suites cover both Chromium and Firefox. See docs/repair-2026-10-21.md for actual results and release gaps.
+The suite contains 68 tests covering SDK allow/ask/deny, controlled byte receipts, exact HTTPS grants, ten simultaneous calls, task identity, host semantic isolation, owner Remote validation, theme handling and managed lifecycle. Missing package inputs or a real PTC sandbox produce explicit skips, never acceptance. The ten-call test keeps its concurrency and original timeout.
+
+Run Python tests from the repository root: `python -m pytest tests/test_dsh_adapter.py tests/test_dsh_migration.py -q -rs`. Test fixtures are disposable data, not persistent desktop profiles. Real DSH integration uses only `~/.dsh/profiles/rvguarder-dev`. If a test runner restricts access to system temporary directories, select a fresh writable workspace temporary directory; do not relax ACL validation.
+
+Browser tests and current results are documented in the [release record](../../docs/dev/release-v0.2.1-rc1.md). Browser verification does not substitute for desktop acceptance or online model tests.

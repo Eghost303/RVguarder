@@ -12,6 +12,9 @@ SDK_PACKAGES = (
     "dsh-session", "dsh-system-prompt", "dsh-ptc-runtime-node", "dsh-fs-local",
     "dsh-subprocess-local", "dsh-sandbox-local",
 )
+OPTIONAL_SDK_PACKAGES = (
+    "dsh-agent-preset-registry", "dsh-subagent-spawn-in-process",
+)
 
 
 def extract(archive: Path, output: Path) -> dict:
@@ -47,7 +50,7 @@ def extract(archive: Path, output: Path) -> dict:
         metadata = json.loads(read("dsh/package.json"))
         if metadata.get("name") != "@deepseek-ai/dsh-desktop-runtime" or metadata.get("version") not in {"0.2.1-rc.2", "0.2.1-rc.3"}:
             raise ValueError("unsupported desktop runtime")
-        pending = ["@deepseek-ai/" + name for name in SDK_PACKAGES]
+        pending = ["@deepseek-ai/" + name for name in (*SDK_PACKAGES, *OPTIONAL_SDK_PACKAGES)]
         packages = {}
         while pending:
             name = pending.pop()
@@ -69,6 +72,10 @@ def extract(archive: Path, output: Path) -> dict:
             expected = "4.0.5" if name == "cordis" else metadata["version"]
             if packages[key]["version"] != expected:
                 raise ValueError(f"desktop SDK version mismatch: {key}")
+        for name in OPTIONAL_SDK_PACKAGES:
+            key = "@deepseek-ai/" + name
+            if key in packages and packages[key]["version"] != metadata["version"]:
+                raise ValueError(f"desktop semantic SDK version mismatch: {key}")
         output.mkdir(parents=True)
         (output / "package.json").write_text(json.dumps(metadata, indent=2), encoding="utf-8")
         files = 0
