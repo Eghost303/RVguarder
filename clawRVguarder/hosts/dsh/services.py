@@ -474,7 +474,8 @@ class DshServices(DshObservability, GuardServices):
                 raise BridgeConflict("decision_expired")
             permit = self.evidence.authorize(request)
             # 审批等待期间可能有其他会话/调用提交成功历史；dispatch 前重新评估。
-            from clawRVguarder.engine.pipeline import _annotate_event_context, _apply_rv_if_available, _apply_task_authorization
+            from clawRVguarder.engine.pipeline import (_annotate_event_context, _apply_rv_if_available,
+                                                       _apply_task_authorization, _apply_task_command_reuse)
             event = self.host_adapter.build_event(payload, self.context)
             source = self.host_adapter.source_message(event)
             semantic_audit = action.event.metadata.get("semantic_audit", {})
@@ -498,6 +499,7 @@ class DshServices(DshObservability, GuardServices):
             current = self.policy_engine.decide(event, source_message=source)
             current = _apply_task_authorization(self, event, current)
             current = _apply_rv_if_available(self, event, current)
+            current = _apply_task_command_reuse(self, event, current)
             reviewed = self.controller.decide(event, current, source)
             original = json.loads(row[1])
             new_rules = set(reviewed.decision.rule_ids) - set(action.decision.rule_ids)
@@ -520,6 +522,22 @@ class DshServices(DshObservability, GuardServices):
                 db.execute("UPDATE calls SET state='dispatched' WHERE id=?", (action.event.metadata["hook_key"],))
             if permit:
                 self.audit_store.append("dsh_host_grant_consumed", {"grant_id": permit["grant_id"], "call_id": request["call_id"]})
+            command_class = action.event.metadata.get("command_class")
+            if command_class:
+                # 原生审批已放行该类别命令；仅对宿主显式登记的任务记录复用。
+                dsh_context = action.event.metadata.get("dsh") or {}
+                task_id = self.resolve_task_id(action.event)
+                if task_id:
+                    trusted_identity = action.event.metadata.get("trusted_identity") or {}
+                    self.task_authorization.record_command_approval(
+                        task_id=task_id,
+                        principal_id=str(trusted_identity.get("principal_id") or ""),
+                        agent_id=str(dsh_context.get("agent_id") or ""),
+                        session_id=str(dsh_context.get("session_id") or ""),
+                        command_class=str(command_class),
+                    )
+                    self.audit_store.append("dsh_task_command_approved",
+                                            {"action_id": action.action_id, "command_class": command_class})
             return {"ok": True, "permit": permit}
 
     def resolve_task_id(self, event) -> str | None:
@@ -533,6 +551,17 @@ class DshServices(DshObservability, GuardServices):
             row = db.execute("SELECT task FROM tasks WHERE agent=? AND session=?",
                              (agent, session)).fetchone()
         return row[0] if row else None
+
+    def task_authorization_status(self) -> dict[str, Any]:
+        """面板只读视图：有效任务授权与已批准的命令类别。"""
+        now = time.time()
+        grants = [
+            {**grant, "remaining_seconds": max(0, int(grant["expires_at"] - now))}
+            for grant in self.task_authorization.query()
+            if not grant["revoked"] and grant["expires_at"] > now
+        ]
+        return {"grants": grants,
+                "command_approvals": self.task_authorization.active_command_approvals()}
 
     def hook_status(self) -> dict[str, Any]:
         """最近认证心跳判断桥接在线，恢复未确认状态单独报告。"""

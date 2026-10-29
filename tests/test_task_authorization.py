@@ -142,3 +142,32 @@ def test_without_grant_workspace_write_still_asks(dsh) -> None:
     body = client.post("/api/dsh/before", json=_call(workspace, "write",
                                                      {"path": "notes.md", "content": "x"})).json()
     assert body["kind"] == "ask"
+
+
+def test_task_authorization_status_lists_grants_and_classes(dsh) -> None:
+    manager, client, workspace = dsh
+    grant = _issue(manager, workspace)
+    manager.task_authorization.record_command_approval(
+        task_id="task-1", principal_id=f"dsh:{manager.host_adapter.binding}",
+        agent_id="s1", session_id="s1", command_class="npm-test",
+    )
+
+    body = client.get("/api/dsh/task-authorizations").json()
+
+    assert body["grants"][0]["grant_id"] == grant["grant_id"]
+    assert body["grants"][0]["remaining_seconds"] >= 0
+    assert body["command_approvals"][0]["command_class"] == "npm-test"
+
+
+def test_revoked_grant_is_not_listed(dsh) -> None:
+    manager, client, workspace = dsh
+    grant = _issue(manager, workspace)
+    manager.task_authorization.revoke(grant["grant_id"])
+
+    assert client.get("/api/dsh/task-authorizations").json()["grants"] == []
+
+
+def test_task_authorization_status_requires_auth(dsh) -> None:
+    manager, _, _ = dsh
+    anonymous = TestClient(create_app(manager))
+    assert anonymous.get("/api/dsh/task-authorizations").status_code == 401

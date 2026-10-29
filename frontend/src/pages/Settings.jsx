@@ -1,9 +1,15 @@
 import { useT } from '../i18n';
 import { useEffect, useState } from 'preact/hooks';
 import { ScanProgress } from '../components/ScanProgress';
-import { useApi, apiErrorMessage } from '../api';
+import { useApi, apiErrorMessage, fetchTaskAuthorizations } from '../api';
 import { esc } from '../i18n';
 import { useStore, useGuardStore } from '../store';
+
+function formatRemaining(seconds) {
+  const total = Math.max(0, Number(seconds) || 0);
+  const minutes = Math.floor(total / 60);
+  return minutes > 0 ? `${minutes} 分 ${total % 60} 秒` : `${total} 秒`;
+}
 
 export function Settings() {
   const t = useT();
@@ -11,6 +17,7 @@ export function Settings() {
   const store = useGuardStore();
 
   const [trust, setTrust] = useState([]);
+  const [taskAuth, setTaskAuth] = useState(null);
   const dsh = useStore((s) => s.summary.host?.kind === 'dsh');
   const embedded = useStore((s) => s.embedded);
   const showToast = useStore((s) => s.showToast);
@@ -26,6 +33,15 @@ export function Settings() {
 
   useEffect(() => { if (!dsh && !embedded) loadTrust(); }, [dsh, embedded]);
 
+  useEffect(() => {
+    if (!dsh && !embedded) return;
+    let cancelled = false;
+    fetchTaskAuthorizations()
+      .then((data) => { if (!cancelled) setTaskAuth(Array.isArray(data?.grants) ? data : { grants: [], command_approvals: [] }); })
+      .catch(() => { if (!cancelled) setTaskAuth({ grants: [], command_approvals: [] }); });
+    return () => { cancelled = true; };
+  }, [dsh, embedded]);
+
   const handleRevoke = async (fingerprint) => {
     try {
       await revokeApprovalTrust(fingerprint);
@@ -39,6 +55,45 @@ export function Settings() {
   return (
     <div class="settings-grid">
       <ScanProgress />
+      {(dsh || embedded) && (
+        <article class="card trust-card">
+          <div class="card-head">
+            <h3>{t("任务授权")}</h3>
+            <span class="badge info">{t("只读")}</span>
+          </div>
+          <p class="trust-intro">{t("当前任务的有效授权与已批准的命令类别；越界仍会重新审批。")}</p>
+          {taskAuth === null ? (
+            <div class="empty">{t("读取中…")}</div>
+          ) : (
+            <>
+              {taskAuth.grants?.length ? (
+                <div class="trust-list">
+                  {taskAuth.grants.map((item) => (
+                    <div class="trust-item" key={item.grant_id}>
+                      <div>
+                        <strong>{esc(item.task_id)}</strong>
+                        <p>{t("范围")}{esc((item.operations || []).join(" / "))} · {t("剩余")}{formatRemaining(item.remaining_seconds)}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : <div class="empty">{t("当前没有有效任务授权。")}</div>}
+              {taskAuth.command_approvals?.length ? (
+                <div class="trust-list">
+                  {taskAuth.command_approvals.map((item) => (
+                    <div class="trust-item" key={`${item.task_id}-${item.command_class}`}>
+                      <div>
+                        <strong>{esc(item.command_class)}</strong>
+                        <p>{t("已批准类别")} · {t("剩余")}{formatRemaining(item.remaining_seconds)}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : null}
+            </>
+          )}
+        </article>
+      )}
       {embedded ? (
         <article class="card trust-card">
           <div class="card-head">

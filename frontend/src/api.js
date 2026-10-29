@@ -114,6 +114,11 @@ export async function setDshSemanticMode(mode) {
   });
 }
 
+/** GET /api/dsh/task-authorizations —— 任务授权与命令复用类别（只读） */
+export async function fetchTaskAuthorizations() {
+  return api('/api/dsh/task-authorizations');
+}
+
 /** 报告下载：返回 ArrayBuffer。 */
 export async function downloadReport(format) {
   return getTransport().download('report', { format });

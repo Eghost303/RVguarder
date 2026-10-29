@@ -214,4 +214,9 @@ def configure_app(app, manager: DshServices) -> None:
                 "recovery_required": manager.recovery_required,
                 "hook": manager.hook_status(), "semantic": manager.summary(compact=True)["semantic"]}
 
+    @router.get("/task-authorizations")
+    def task_authorizations():
+        """有效任务授权与命令复用类别；只读，不改变任何裁决。"""
+        return manager.task_authorization_status()
+
     app.include_router(router)

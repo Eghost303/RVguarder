@@ -383,6 +383,56 @@ def _apply_task_authorization(services: Any, event: Any, decision: Any) -> Any:
     return decision
 
 
+def _apply_task_command_reuse(services: Any, event: Any, decision: Any) -> Any:
+    """测试/构建命令复用。
+
+    只降级两种"纯策略"情形：策略本身要求审批，或 RV 因该命令**效果未建模**
+    而要求审批。链式升权（其它 monitor/规则）与阻断一律保持原判。
+    必须在 RV overlay 之后调用。
+    """
+    store = getattr(services, "task_authorization", None)
+    resolve_task = getattr(services, "resolve_task_id", None)
+    if store is None or resolve_task is None or getattr(decision, "action", "") != "ask":
+        return decision
+    metadata = getattr(event, "metadata", None) or {}
+    policy = dict(getattr(decision, "policy_decision", None) or {})
+    codes = set(policy.get("reason_codes") or [])
+    policy_ask = (str(policy.get("effect")) == "openclaw_approval"
+                  and codes == {reasons.POLICY_REQUIRES_APPROVAL})
+    rv = metadata.get("rv_result") or {}
+    unmodeled_ask = (
+        metadata.get("deciding_layer") == "rv"
+        and str(rv.get("verdict") or "") == "ask"
+        and str(rv.get("triggered_rule_id") or "") == "tool_unmodeled_effect_ask"
+        and not rv.get("hard_block_evidence")
+    )
+    if not (policy_ask or unmodeled_ask):
+        return decision
+    if str(metadata.get("scope_class")) != "workspace":
+        return decision
+    task_id = resolve_task(event)
+    if not task_id:
+        return decision
+    from clawRVguarder.policy.command_classes import classify_command
+
+    command_class = classify_command(getattr(event, "command", None))
+    if command_class is None:
+        return decision
+    metadata["command_class"] = command_class
+    trusted = metadata.get("trusted_identity") or {}
+    dsh = metadata.get("dsh") or {}
+    if not store.match_command_approval(
+        task_id=task_id,
+        principal_id=str(trusted.get("principal_id") or ""),
+        agent_id=str(dsh.get("agent_id") or ""),
+        session_id=str(dsh.get("session_id") or ""),
+        command_class=command_class,
+    ):
+        return decision
+    _allow_with_reason(decision, metadata, reasons.TASK_COMMAND_REUSE)
+    return decision
+
+
 def _allow_with_reason(decision: Any, metadata: dict[str, Any], reason_code: str) -> None:
     """把裁决降为允许，并留下可审计的依据。"""
     decision.action = "allow"
@@ -545,6 +595,7 @@ def handle_before_tool_call_pipeline(
     timings["policy_ms"] = round((time.perf_counter() - policy_started) * 1000.0, 3)
     decision = _apply_task_authorization(services, event, decision)
     decision = _apply_rv_if_available(services, event, decision)
+    decision = _apply_task_command_reuse(services, event, decision)
     timings = _ensure_pipeline_timings(event)
     timings.setdefault("rv_ms", 0.0)
     controller_started = time.perf_counter()

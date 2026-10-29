@@ -209,3 +209,19 @@ class TaskAuthorizationStore:
                 "SELECT expires_at FROM task_command_approvals WHERE approval_key=?", (key,)
             ).fetchone()
         return bool(row and row[0] > time.time())
+
+    def active_command_approvals(self) -> list[dict[str, Any]]:
+        """未过期的命令复用记录，供面板只读展示。"""
+        now = time.time()
+        with self._connect() as db:
+            rows = db.execute(
+                "SELECT task_id, principal_id, agent_id, session_id, command_class, expires_at"
+                " FROM task_command_approvals WHERE expires_at > ? ORDER BY expires_at",
+                (now,),
+            ).fetchall()
+        return [
+            {"task_id": row[0], "principal_id": row[1], "agent_id": row[2],
+             "session_id": row[3], "command_class": row[4],
+             "expires_at": row[5], "remaining_seconds": int(row[5] - now)}
+            for row in rows
+        ]
