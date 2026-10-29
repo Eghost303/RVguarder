@@ -1,6 +1,42 @@
 # RVguarder 开发记忆
 
+## rc.6 启动目录修复（2026-10-29）
+
+用户从主目录直接运行 `dsh rvguarder-dev` 复现 rc.5 失败：此前脚本切换目录掩盖了托管后台把启动 cwd 当作固定资源根的问题，换 cwd 还会触发实例绑定差异。rc.6 自动托管以 `<DSH_HOME>/workspaces/<profile>` 为固定受控资源根，不修改宿主/会话 cwd；普通工具的认证 cwd 另行传入事件，资源根仍不得与私有数据/状态/运行时重叠。`resourceWorkspace` 是可选的宿主配置，不能由工具参数设置。外部绑定沿用既有显式配置约束。配置错误改为固定分类并显示，不隐藏为网络故障。
+
+最终 rc.6 来源 de1f163，tgz SHA256 为 acdf88850565ba650d848b40e2bb73e97648b5c5685414c9e52cbb218b40739a，位于 `dist/dsh-rvguarder-0.2.0-rc.6/`，已安装到用户 rvguarder-dev。真实 rc.3 CLI 从用户主目录、DSH_HOME、C盘根及D盘仓库启动4/4均在线且插件已连接，默认cwd不变、实例相同、均正常卸载。空数据冻结程序自动初始化及换cwd后保身份/令牌通过。完整Node三轮各57通过/1真实PTC跳过；Python52/52、组件15/15、配置兼容9/9、文档构建和npm dry-run通过。第一轮完整Node漏建资源根失败已保留，修正后才计最终三轮。不再以便利脚本成功代替直接启动验收。详见 [rc.6复验](../../dshRVguarder/docs/rc6-startup-verification-2026-10-29.md)。rc.5整包已被本轮替代，历史记录不覆盖本节；未推送或发布。
+
+## 开发收尾约定（2026-10-29）
+
+收尾清理已完成：用户退出 DSH 后，确认原进程 67828 无窗口但仍在后台占用旧测试目录，已结束该残留进程并移除 `runtime/review-20261028/` 的最后空目录。旧资料已私有归档并核对 4988 项；备份位于 `~/.dsh/rvguarder-dev-backups/20261029-finalization/`，不属于公开交付。仓库 runtime 仅保留构建环境、SDK 和前端构建资源。
+
+当前供发布整包为`dist/dsh-rvguarder-0.2.0-rc.5/`，来源011e201，SHA256为57aa38eb03aabc22f4d7f82d7ebc70111224ee3349f2bcb3abd20dd7eeabf66b，npm dry-run通过但未发布。已装入用户目录rvguarder-dev并验证真实启动及宿主探针；其他五个配置块逐字节保留。
+
+真实 DSH 开发和桌面集成测试统一使用 `~/.dsh/profiles/rvguarder-dev`，工作区为 `~/.dsh/workspaces/rvguarder-dev`；不再在仓库下创建 desktop profile。入口为 `dshRVguarder/scripts/start-dev-profile.ps1`，见 [开发指南](dsh-development.md)。历史验收结论保留，但用户安装入口统一为 [DSH 插件下载安装](../deployment/dsh.md)，不引导用户执行旧候选的迁移步骤。平台构建产物解除 private 标记并声明 os/cpu，源码开发包继续保持 private，避免发布不含运行时的轻量包。用户自行执行所有推送、PR、Release 和 npm 发布操作。
+
+## rc.5 审查整改与 Windows 整包（2026-10-29）
+
+桌面续验又发现两项：真实主题快照为`getTheme().active.colorScheme`，修正外层字段误读并补齐深色二级文字/风险标签配色；异常退出旧插件租约会使核心拒绝启动，原overview仍报告后端ready，现通过内部共享状态显式呈现recovery-required，不改变拒绝、租约或队列语义。桌面四组语言/主题、六页签、键盘焦点、关闭重开、恢复锁定及正常退出复验完成，UI-04关闭；追加not_run状态中英文映射。最新包来源b1ffdd9，位于dist/dsh-rvguarder-0.2.0-rc.5-desktop-final，SHA256为54f78fdd4e1b11b67b1c7d768a6c78a9bd7250385726843bddee8a8bc47f3237，原577136…和中间eccebe…已替代。最新13项为12通过（限定矩阵）/REG-01待整改，见rc.5复验表。
+
+基线1539653，直接master提交，不推送/发布。新增挂载独立store/transport、宿主语言active/主题订阅、键盘页签和首次失败重连；后端按manifest内容哈希部署到DSH_HOME私有缓存，避免npm安装目录被常驻executable锁住。冻结程序支持离线inspect/apply/rollback，managedBinding原地保留旧实例、令牌、审计/RV/完成队列；迁移不增加Remote方法。用户新安装Windows x64整包后不必单独启动Python；旧实例需一次离线迁移。见[部署](../../dshRVguarder/docs/deployment-rc5.md)和[复验表](../../dshRVguarder/docs/rc5-revalidation-2026-10-29.md)。
+
+十并发曾复现5秒超时，观测包含握手/排队/决策审计/journal提交。修复并发握手重复、audit连接反复关闭和DELETE journal落盘开销；DSH独占连接使用WAL/FULL，原超时及十路Promise.all不变，无工具重跑。最新完整Node连续三轮52通过/1真实PTC沙箱不可用跳过；组件13/13、末次整包冻结生命周期6/6、冻结维护CLI 1/1。Python两个规则链断言在1539653原始DSH/存储实现同样失败，保留为未关闭问题，不改PMKB或授权语义。历史f3990e8审查5通过/3不通过/5待整改保持。rc.2 UI及Linux整包不能据本轮计通过。
+
+## 独立审查与平台整包（2026-10-28）
+
+已独立审查 f3990e8 并填写任务书第13节：原交付5项通过、3项不通过、5项待整改；见 [审查报告](../../dshRVguarder/docs/ui-review-2026-10-28.md)。发现并修复默认 bundle 非法 return 表达式、下载对象被当 Blob 字节、固定 dsh 实例范围、管理实例身份缺失、500/401 错误吞并、响应事后限额及 E2E 未调用清理。UI 主题/语言/焦点、完整故障矩阵、生命周期/迁移矩阵仍待验收，下方2026-10-27“完成”是原交付陈述，不能代替该结论。
+
+当前插件候选0.2.0-rc.4（未发布），新增 `build-standalone.py` + `managed.ts` 平台整包/宿主托管后端，Windows x64 新安装主路径真实rc.3通过8项页面/下载/凭据扫描测试。整包含Python3.13、基础依赖、UI、PMKB/RV；默认managed配置，无需手工Python/令牌/后端。数据位于 `<DSH_HOME>/rvguarder/dsh-<home/profile哈希>/`，随机回环端口、认证就绪、启动失败保持实际guard、stdin EOF退出；Windows pnpm长路径用命名空间路径处理。普通npm pack仍是外部后端轻量包，既有profile覆盖不会被静默迁移，不能清空历史升级。构建、使用与边界见 [DEP-01实现](../../dshRVguarder/docs/deployment-implementation-2026-10-28.md) 和 [部署指南](../../dshRVguarder/docs/deployment.md)。Linux整包、rc.2 UI、完整桌面生命周期仍未验收，POL-01/02未改规则、未称解决。直接master提交，不推送远程。
+
 更新时间：2026-10-26。此文记录本地源码与仓库文档核对后的状态；不是线上部署状态证明。
+
+## DSH 宿主内嵌界面完成（2026-10-27）
+
+DSH-UX-01/02 已实施并在真实桌面 rc.3 验收通过：插件升级为 `dsh-rvguarder@0.2.0-rc.3`（bundle 化），根因是 `listBundles()` 对"无 `dsh.bundle` 且未选入 `dsh.profile.bundles` 的普通依赖"整条跳过。新结构为双条目 bundle（核心 `rvguarder-dsh` + 管理 `rvguarder-admin`）+ 浏览器客户端包 `dist/webclient.js`（settings.section id=rvguarder + plugins.bundle.config 插槽，内嵌 Preact Guard 经宿主 owner Remote 通道 `rvguarderAdmin` 管理，浏览器不接触桥接令牌）。Python 侧仅新增 `GET /api/dsh/audit-export/{json|csv}` 受控下载端点。构建链 `frontend build + build:embedded → tsc×2 + build-client → npm pack`；旧 profile 用 `scripts/migrate-test-profile.mjs` 迁移（幂等、保身份、备份）。验证：插件 Node 24/24、迁移 3/3、管理 9/9；Python DSH/UI 57 通过（1 项 mklink 沙箱环境失败非回归）+ 共享核心 67/67；E2E：内嵌 6/6、独立 DSH 工作台 4/4、OpenClaw 6/6；真实宿主 RPC/插件页/设置页证据在 `runtime/native-rc3-ui-verify/` 与 `runtime/ui-integration-evidence/`。rc.2 内嵌 UI 未实测（核心兼容沿用既有记录）；DEP-01、POL-01/02 保留。详见 [UI 实现报告](../../dshRVguarder/docs/ui-integration-implementation.md)。
+
+## DSH 宿主内嵌界面交接计划（2026-10-26，已实施）
+
+任务书见 [DSH 内嵌管理界面计划](dsh-ui-integration-plan-2026-10-26.md)。该计划已于 2026-10-27 实施（见上方"宿主内嵌界面完成"记录）；后端仍独立启动，整包部署及 POL-01/02 规则问题不在该阶段范围。
 
 ## 人工核验与进度提交（2026-10-26）
 

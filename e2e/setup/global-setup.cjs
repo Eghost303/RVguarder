@@ -59,9 +59,14 @@ module.exports = async () => {
     "0"
   ];
 
-  const child = spawn("python", args, {
+  const python = process.env.RVGUARDER_PYTHON || (fs.existsSync(path.join(repoRoot, ".venv", "bin", "python.exe"))
+    ? path.join(repoRoot, ".venv", "bin", "python.exe")
+    : fs.existsSync(path.join(repoRoot, ".venv", "Scripts", "python.exe"))
+      ? path.join(repoRoot, ".venv", "Scripts", "python.exe")
+      : "python");
+  const child = spawn(python, args, {
     cwd: repoRoot,
-    env: { ...process.env },
+    env: { ...process.env, PYTHONUTF8: "1" },
     stdio: ["ignore", "pipe", "pipe"]
   });
 

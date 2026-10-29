@@ -14,12 +14,32 @@ import {hostProbe} from './probe.js';
 import { Outbox } from './outbox.js';
 import { protocol,type GuardCall,type GuardDecision } from './protocol.js';
 import {HostSemanticDelegator} from './host-semantic.js';
+import { acquireManaged, coreFailureReason, type ManagedConfig } from './managed.js';
 export const name='dsh-rvguarder';
 export const inject=['tools','workingDirectory'];
-export interface Config { backendUrl:string; tokenFile:string; instanceId:string; stateDir?:string; timeoutMs?:number; failMode?:'closed'|'open'; evidenceKeyFile?:string; egressAllowlist?:string[]; egressCaFile?:string; }
+export interface Config extends ManagedConfig { backendUrl:string; tokenFile:string; instanceId:string; stateDir?:string; timeoutMs?:number; failMode?:'closed'|'open'; evidenceKeyFile?:string; egressAllowlist?:string[]; egressCaFile?:string; }
 interface Pending { call:GuardCall; decision:GuardDecision; dispatched:boolean; }
 /** 注册真实 SDK 事件；策略引擎只保留在共享 Python 核心。 */
 export function apply(ctx:Context,config:Config) {
+  if (config?.backendMode !== undefined && !['managed', 'external'].includes(config.backendMode)) throw new Error('Invalid backendMode');
+  if (config?.backendMode !== 'managed') return applyCore(ctx, config);
+  // 启动期间与启动失败后均保持实际执行守卫，不能因异步初始化失败而卸载整个防线。
+  let initialized = false; let stopped = false;
+  let reason = 'RVguarder 整包后端正在启动；暂不执行工具。';
+  ctx.tools.guard(() => initialized ? undefined : reason);
+  ctx.on('tools/pre-execute', (_exec, next) => initialized ? next() : Promise.resolve({ kind: 'deny' as const, reason }));
+  let managed: ReturnType<typeof acquireManaged>;
+  try { managed = acquireManaged(ctx, undefined, config.managedBinding, config.resourceWorkspace); }
+  catch (error) { console.error(`RVguarder managed initialization: ${error instanceof Error ? error.message : 'failed'}`); reason = 'RVguarder 整包后端缺失、损坏或平台不匹配；请重新安装对应平台整包。'; return; }
+  ctx.effect(() => async () => { stopped = true; await managed.release(); }, 'rvguarder-managed-backend');
+  void managed.ready.then(connection => {
+    if (stopped) return;
+    applyCore(ctx, { ...config, ...connection }, error => managed.reportFailure(coreFailureReason(error))); initialized = true;
+  }).catch((error: unknown) => { if (!stopped) managed.reportFailure(coreFailureReason(error)); reason = 'RVguarder 整包后端启动或持久状态检查失败；请核对实例状态后重新启用插件。'; });
+}
+
+/** 注册已具备认证连接的守卫；外部托管和整包托管共用相同决策路径。 */
+function applyCore(ctx:Context,config:Config,onFailure?:(error:unknown)=>void) {
   if (!config?.instanceId || !/^[a-zA-Z0-9_.-]{1,128}$/.test(config.instanceId)) throw new Error('Invalid Guard instanceId');
   if (config.failMode!==undefined && !['closed','open'].includes(config.failMode)) throw new Error('Invalid failMode');
   const timeout=config.timeoutMs??5000;
@@ -38,9 +58,10 @@ export function apply(ctx:Context,config:Config) {
   const identities=new Map<object,GuardCall>();
   const degradedCalls=new Map<object,GuardCall>();
   let failure:unknown=outbox.recoveryRequired ? new Error("Unconfirmed execution from previous process") : undefined;
-  async function ready() {
+  if (failure) onFailure?.(failure);
+  async function ready(forceHello = false) {
     if(failure) throw new Error('Guard persistence failure requires reconciliation');
-    await outbox.flush(client); await client.hello(config.instanceId);
+    await outbox.flush(client); await client.hello(config.instanceId, forceHello);
     await degraded.flush(client).catch(()=>{process.emitWarning("RVguarder degraded audit pending");});
   }
   ctx.on('tools/pre-execute',async(exec,next):Promise<PreToolDecision>=>{
@@ -106,7 +127,7 @@ export function apply(ctx:Context,config:Config) {
     const item=pending.get(exec.token);
     if(item) {
       try { outbox.begin(item.call); }
-      catch(error) { failure=error;throw error; }
+      catch(error) { failure=error;onFailure?.(error);throw error; }
       const ack=await client.post('dispatch',item.call,exec.signal,30000);
       if(ack.ok!==true) throw new Error('Guard dispatch acknowledgement missing');
       controlled?.permitted(exec.token,ack.permit);
@@ -126,12 +147,12 @@ export function apply(ctx:Context,config:Config) {
       outbox.push({call:item.call,dispatched:item.dispatched,succeeded:item.dispatched&&result.isError===false,...(result.isError===false&&receipt?{evidence:receipt}:{})});
       outbox.settle(item.call);
       void outbox.flush(client).catch(()=>{});
-    } catch(error) {failure=error;}
+    } catch(error) {failure=error;onFailure?.(error);}
   });
   let stopped=false;let heartbeatRun:Promise<void>|undefined;
   const heartbeat=()=>{
     if(stopped)return Promise.resolve();if(heartbeatRun)return heartbeatRun;
-    heartbeatRun=(async()=>{await ready();await client.hello(config.instanceId,true);const hostAgent=await hostSemantic.readyCapabilities();if(!stopped)await client.post('probe',hostProbe(ctx,config.instanceId,stateDir,degraded.gap,hostAgent));})().finally(()=>{heartbeatRun=undefined;});
+    heartbeatRun=(async()=>{await ready(true);const hostAgent=await hostSemantic.readyCapabilities();if(!stopped)await client.post('probe',hostProbe(ctx,config.instanceId,stateDir,degraded.gap,hostAgent));})().finally(()=>{heartbeatRun=undefined;});
     return heartbeatRun;
   };
   const timer=setInterval(()=>{void heartbeat().catch(()=>{});},15000);timer.unref();

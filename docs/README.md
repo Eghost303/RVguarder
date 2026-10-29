@@ -7,8 +7,8 @@ actions:
   - text: 快速开始
     link: /deployment/local.html
     type: primary
-  - text: DSH 当前进度与部署
-    link: /dev/dsh-progress-2026-10-26.html
+  - text: DSH 插件下载安装
+    link: /deployment/dsh.html
     type: secondary
 
 features:
@@ -25,7 +25,7 @@ features:
   - title: 📊 运行时验证 RV
     details: 滑动窗口 + ChainRule DSL 生成监视器，检测「搜索→删除→外发」等链式攻击模式。
   - title: 🖥️ Guard 工作台
-    details: 动作状态、风险证据、Trace 时间线、安全规则、基线扫描和 RV 状态集中查看；DSH 当前通过独立页面访问，尚未嵌入宿主。
+    details: 动作状态、风险证据、Trace 时间线、安全规则、基线扫描和 RV 状态集中查看；DSH 可直接在“设置 → RVguarder”中使用内嵌工作台。
 
 ---
 
@@ -42,8 +42,8 @@ features:
   </div>
   <div class="custom-card">
     <h3>📦 当前状态</h3>
-    <p>v0.7.0-dev — PMKB 权限模型、最小权限与跨 session RV 已落地。DSH 当前源码为 0.2.0-rc.2 本地候选，支持 rc.2/rc.3 宿主和 Windows 原生 / Linux/WSL Python。用户确认后端、新 profile 和基础拦截可用；插件页展示、界面整合、部署简化和人工反馈的规则行为仍待处理。源码部署与 PR 不要求 Release。</p>
-    <p><em>The local DSH 0.2.0-rc.2 candidate supports rc.2/rc.3 hosts and native Windows / Linux/WSL Python. Basic startup and interception are verified; plugin-page visibility, embedded UI, deployment convenience, and reported policy behavior remain open. A Release is optional for distribution.</em></p>
+    <p>OpenClaw 与 DSH 共享 PMKB、运行时验证和审计能力。DSH 0.2.0-rc.6 提供 Windows x64 整包，支持 DSH 0.2.1-rc.3，插件安装后自动启动后端，无需另装 Python。</p>
+    <p><em>The DSH Windows x64 package includes its runtime and an embedded management UI.</em></p>
   </div>
 </div>
 
@@ -54,7 +54,7 @@ features:
 | 章节 | 内容 |
 | --- | --- |
 | [本地部署](./deployment/local.md) | 安装与首次启动 |
-| [DSH 阶段进度与团队交接](./dev/dsh-progress-2026-10-26.md) | 已完成工作、人工反馈、一般部署流程和 Release 选择 |
+| [DSH 插件下载安装](./deployment/dsh.md) | npm 安装、GitHub 下载与日常使用 |
 | [运行时 Hook 拦截](./features/runtime-hook.md) | 插件机制与审批结果同步 |
 | [动作审批链](./features/action-gate.md) | 决策流程与 PMKB 策略 |
 | [架构总览](./architecture/overview.md) | 分层设计与代码映射 |

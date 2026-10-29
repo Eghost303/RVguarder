@@ -14,7 +14,10 @@ param(
 $ErrorActionPreference = 'Stop'
 $repo = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..\..'))
 if (!$Workspace) { $Workspace = $repo }
-if (!$Package) { $Package = Join-Path $repo 'dshRVguarder\dsh-rvguarder-0.2.0-rc.2.tgz' }
+if (!$Package) {
+    $pluginVersion = (Get-Content (Join-Path $repo 'dshRVguarder\package.json') -Raw | ConvertFrom-Json).version
+    $Package = Join-Path $repo "dshRVguarder\dsh-rvguarder-$pluginVersion.tgz"
+}
 $Package = [IO.Path]::GetFullPath($Package)
 $DataDirectory = [IO.Path]::GetFullPath($DataDirectory)
 $DshHome = [IO.Path]::GetFullPath($DshHome)

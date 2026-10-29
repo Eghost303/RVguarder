@@ -1,7 +1,8 @@
 import { useStore } from '../store';
-import { esc, t } from '../i18n';
+import { esc, useT } from '../i18n';
 
 export function StatRow() {
+  const t = useT();
   const summary = useStore((s) => s.summary);
   const actions = summary.actions || {};
   const counts = actions.counts || {};
@@ -14,19 +15,19 @@ export function StatRow() {
     <div class="stats-row">
       <div class="stat-card">
         <div class="stat-value" style="color:#f04438">{counts.pending || 0}</div>
-        <div class="stat-label">待确认</div>
+        <div class="stat-label">{t("待确认")}</div>
       </div>
       <div class="stat-card">
         <div class="stat-value" style="color:#f79009">{b + r}</div>
-        <div class="stat-label">已拦截</div>
+        <div class="stat-label">{t("已拦截")}</div>
       </div>
       <div class="stat-card">
         <div class="stat-value" style="color:#12b76a">{counts.executed || 0}</div>
-        <div class="stat-label">已执行</div>
+        <div class="stat-label">{t("已执行")}</div>
       </div>
       <div class="stat-card">
         <div class="stat-value">{total}</div>
-        <div class="stat-label">总动作</div>
+        <div class="stat-label">{t("总动作")}</div>
       </div>
     </div>
   );

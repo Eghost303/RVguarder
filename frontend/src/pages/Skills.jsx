@@ -1,10 +1,13 @@
 import { useEffect } from 'preact/hooks';
 import { useStore } from '../store';
-import { t, esc } from '../i18n';
+import { useT, esc } from '../i18n';
 import { SkillCard } from '../components/SkillCard';
-import { fetchSummary, apiErrorMessage } from '../api';
+import { useApi, apiErrorMessage } from '../api';
 
 export function Skills() {
+  const t = useT();
+  const { fetchSummary } = useApi();
+
   const summary = useStore((s) => s.summary);
   const rulesSearch = useStore((s) => s.rulesSearch);
   const setRulesSearch = useStore((s) => s.setRulesSearch);
@@ -15,7 +18,7 @@ export function Skills() {
     fetchSummary().then(setSummary).catch((error) => showToast(apiErrorMessage(error, t('error_default'))));
   }, []);
 
-  if (summary.host?.kind === 'dsh') return <section class="card">DSH 插件由宿主 profile 管理。</section>;
+  if (summary.host?.kind === 'dsh') return <section class="card">{t("DSH 插件由宿主 profile 管理。")}</section>;
 
   const items = (summary.skills || {}).items || [];
   const q = (rulesSearch || '').trim().toLowerCase();
@@ -36,7 +39,7 @@ export function Skills() {
         <input
           class="rules-search"
           id="skills-s"
-          placeholder="搜索 skill…"
+          placeholder={t("搜索 skill…")}
           value={rulesSearch || ''}
           onInput={(e) => setRulesSearch(e.target.value)}
         />

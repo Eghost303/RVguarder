@@ -195,9 +195,23 @@ def configure_app(app, manager: DshServices) -> None:
             raise HTTPException(404, "report_not_generated")
         return FileResponse(path, filename=path.name, media_type={"json": "application/json", "html": "text/html", "pdf": "application/pdf"}[format])
 
+    @router.get("/audit-export/{format}")
+    def audit_export_download(format: Literal["json", "csv"]):
+        """宿主管理适配器用受控标识下载审计导出；不接受任意路径，限制大小。"""
+        destination = manager.context.paths.output_dir / "audit"
+        manager.audit_store.export(destination)
+        path = destination / f"audit-export.{format}"
+        if not path.is_file():
+            raise HTTPException(404, "audit_export_not_ready")
+        if path.stat().st_size > 64 * 1024 * 1024:
+            raise HTTPException(413, "audit_export_too_large")
+        media = "application/json" if format == "json" else "text/csv"
+        return FileResponse(path, filename=path.name, media_type=media)
+
     @router.get("/status")
     def status():
         return {"protocol": PROTOCOL_VERSION, "host": "dsh", "instance_id": manager.instance_id,
+                "recovery_required": manager.recovery_required,
                 "hook": manager.hook_status(), "semantic": manager.summary(compact=True)["semantic"]}
 
     app.include_router(router)

@@ -1,6 +1,6 @@
 # 本地部署
 
-本页命令面向 OpenClaw 集成。DSH 的现有流程、人工核验结果、已知问题和 Release 是否必需，见 [DSH 阶段交接](../dev/dsh-progress-2026-10-26.md)；具体配置见 [DSH 部署说明](../../dshRVguarder/docs/deployment.md)。DSH 后端使用独立入口，不应通过本页的 `openclaw-guard run` 安装 OpenClaw Hook。
+本页面向 OpenClaw 集成。DSH 用户请阅读 [DSH 插件下载安装](dsh.md)，无需执行本页的 Python 安装命令。
 
 ## 推荐流程
 

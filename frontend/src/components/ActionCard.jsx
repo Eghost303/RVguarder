@@ -1,8 +1,11 @@
 import { useStore } from '../store';
-import { esc, t } from '../i18n';
-import { approveAction, rejectAction, fetchSummary, apiErrorMessage } from '../api';
+import { esc, useT } from '../i18n';
+import { useApi, apiErrorMessage } from '../api';
 
 export function ActionCard({ item }) {
+  const t = useT();
+  const { approveAction, rejectAction, fetchSummary } = useApi();
+
   const optimisticUpdate = useStore((s) => s.optimisticUpdate);
   const setActionLoading = useStore((s) => s.setActionLoading);
   const showToast = useStore((s) => s.showToast);
@@ -24,7 +27,7 @@ export function ActionCard({ item }) {
     try {
       await approveAction(item.action_id);
       optimisticUpdate(item.action_id, 'approved');
-      showToast('✅ 已批准');
+      showToast(t("✅ 已批准"));
       const s = await fetchSummary();
       setSummary(s);
     } catch (error) {
@@ -40,7 +43,7 @@ export function ActionCard({ item }) {
     try {
       await rejectAction(item.action_id);
       optimisticUpdate(item.action_id, 'rejected');
-      showToast('🚫 已拒绝');
+      showToast(t("🚫 已拒绝"));
       const s = await fetchSummary();
       setSummary(s);
     } catch (error) {
@@ -54,14 +57,14 @@ export function ActionCard({ item }) {
   const handleCopy = async () => {
     const command = presentation.command_preview || '';
     if (!command || typeof navigator === 'undefined' || !navigator.clipboard) {
-      showToast('当前环境不支持复制');
+      showToast(t("当前环境不支持复制"));
       return;
     }
     try {
       await navigator.clipboard.writeText(command);
-      showToast('已复制脱敏命令');
+      showToast(t("已复制脱敏命令"));
     } catch (_error) {
-      showToast('复制失败，请手动选择文本');
+      showToast(t("复制失败，请手动选择文本"));
     }
   };
 
@@ -73,20 +76,20 @@ export function ActionCard({ item }) {
         <span class="risk-chip">{esc(d.risk_level || 'safe')}</span>
         <span class="status-chip">{t('status_' + (item.status || 'unknown'))}</span>
       </div>
-      <h4>{esc(presentation.intent_summary || d.user_title || (item.source === 'hook_bridge' ? 'OpenClaw 工具请求' : item.target_summary || item.source_message || ''))}</h4>
+      <h4>{esc(presentation.intent_summary || d.user_title || (item.source === 'hook_bridge' ? t("OpenClaw 工具请求") : item.target_summary || item.source_message || ''))}</h4>
       <p class="approval-intent">{esc(userMessage)}</p>
       {(presentation.target_summary || riskSummary.level) && (
         <div class="approval-summary-grid">
           {presentation.target_summary && (
-            <div><span class="approval-label">目标</span><strong>{esc(presentation.target_summary)}</strong></div>
+            <div><span class="approval-label">{t("目标")}</span><strong>{esc(presentation.target_summary)}</strong></div>
           )}
           {riskSummary.level && (
-            <div><span class="approval-label">风险</span><strong>{esc(riskSummary.level)}</strong></div>
+            <div><span class="approval-label">{t("风险")}</span><strong>{esc(riskSummary.level)}</strong></div>
           )}
         </div>
       )}
       {item.source === 'hook_bridge' && (
-        <div class="sync-hint">{item.event?.metadata?.host === 'dsh' ? '请在 DSH 原生审批处理' : '请在 OpenClaw 审批中心处理'} · 同步状态：{esc(item.sync_state || 'local_only')}</div>
+        <div class="sync-hint">{item.event?.metadata?.host === 'dsh' ? t("请在 DSH 原生审批处理") : t("请在 OpenClaw 审批中心处理")}{t("· 同步状态：")}{esc(item.sync_state || 'local_only')}</div>
       )}
       {rvMode && rvResult?.verdict && (
         <div class={'rv-badge ' + esc(rvResult.verdict)}>
@@ -119,19 +122,19 @@ export function ActionCard({ item }) {
           {presentation.command_preview && (
             <section class="approval-section">
               <div class="approval-section-head">
-                <h5>命令与参数</h5>
-                <button class="btn-text" type="button" onClick={handleCopy}>复制脱敏命令</button>
+                <h5>{t("命令与参数")}</h5>
+                <button class="btn-text" type="button" onClick={handleCopy}>{t("复制脱敏命令")}</button>
               </div>
               <pre>{esc(presentation.command_preview)}</pre>
               {approvalDetails.working_directory && (
-                <p class="approval-meta">工作目录：{esc(approvalDetails.working_directory)}</p>
+                <p class="approval-meta">{t("工作目录：")}{esc(approvalDetails.working_directory)}</p>
               )}
               {approvalDetails.tool_name && (
-                <p class="approval-meta">工具：{esc(approvalDetails.tool_name)}</p>
+                <p class="approval-meta">{t("工具：")}{esc(approvalDetails.tool_name)}</p>
               )}
               {approvalDetails.params && Object.keys(approvalDetails.params).length > 0 && (
                 <details class="params-details">
-                  <summary>查看脱敏参数</summary>
+                  <summary>{t("查看脱敏参数")}</summary>
                   <pre>{esc(JSON.stringify(approvalDetails.params, null, 2))}</pre>
                 </details>
               )}
@@ -139,7 +142,7 @@ export function ActionCard({ item }) {
           )}
           {(approvalDetails.rule_ids || item.matched_rules || []).length > 0 && (
             <section class="approval-section">
-              <h5>规则与权限依据</h5>
+              <h5>{t("规则与权限依据")}</h5>
               <div class="approval-tags">
                 {(approvalDetails.rule_ids || item.matched_rules || []).slice(0, 8).map((rule) => (
                   <span class="chip chip-muted" key={rule}>{esc(rule)}</span>
@@ -150,12 +153,12 @@ export function ActionCard({ item }) {
           )}
           {trust.eligible && trust.scope && (
             <section class="approval-section trust-section">
-              <h5>精确授权范围</h5>
-              <p class="approval-meta">{esc(trust.scope)} · 默认有效 {esc(trust.ttl_days || 30)} 天</p>
+              <h5>{t("精确授权范围")}</h5>
+              <p class="approval-meta">{esc(trust.scope)}{t("· 默认有效")}{esc(trust.ttl_days || 30)}{t("天")}</p>
             </section>
           )}
           <section class="approval-section">
-            <h5>运行时审计</h5>
+            <h5>{t("运行时审计")}</h5>
             <pre>{esc(JSON.stringify({
               decision: d,
               resolution: item.resolution || {},

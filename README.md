@@ -89,25 +89,25 @@ DSH 准备调用工具
 
 ```
 ┌─────────────────────────────────────────────────────────┐
-│                    Guard Dashboard (SPA)                 │
-│      概览 · 动作审批 · 安全规则 · 基线扫描 · RV 面板        │
+│                    Guard Dashboard (SPA)                │
+│      概览 · 动作审批 · 安全规则 · 基线扫描 · RV 面板       │
 └──────────────────────┬──────────────────────────────────┘
                        │ HTTP REST API / SSE
 ┌──────────────────────▼──────────────────────────────────┐
-│                  Guard Bridge (Python)                   │
-│   Semantic + Trace │ PMKB Policy │ RV Engine │ Audit     │
+│                  Guard Bridge (Python)                  │
+│   Semantic + Trace │ PMKB Policy │ RV Engine │ Audit    │
 └──────────────────────┬──────────────────────────────────┘
                        │ POST /api/hook/before-tool-call
 ┌──────────────────────▼──────────────────────────────────┐
-│            OpenClaw Agent Plugin (JavaScript)            │
+│            OpenClaw Agent Plugin (JavaScript)           │
 │   before_tool_call → requireApproval                    │
 │   after_tool_call  → audit logging                      │
 │   Circuit Breaker · Health Check · onResolution         │
 └──────────────────────┬──────────────────────────────────┘
                        │ Plugin SDK
 ┌──────────────────────▼──────────────────────────────────┐
-│                   OpenClaw Gateway                        │
-│            Agent 运行 · 工具调用 · 原生审批 UI             │
+│                   OpenClaw Gateway                      │
+│            Agent 运行 · 工具调用 · 原生审批 UI            │
 └─────────────────────────────────────────────────────────┘
 ```
 
@@ -117,13 +117,15 @@ DSH 准备调用工具
 
 ## 快速开始
 
-### 环境要求
+### OpenClaw
+
+#### 环境要求
 
 - Python 3.13+
 - Node.js 20+（构建前端）
 - 已安装并可运行的 OpenClaw
 
-### 安装
+#### 安装
 
 ```bash
 git clone https://github.com/HorizonExploration/RVguarder.git
@@ -142,7 +144,7 @@ cd ..
 
 Python 主包现为 `clawRVguarder`。更新已有开发环境后，请重新执行 `python -m pip install -e .`；模块启动使用 `python -m clawRVguarder.main run`，命令行仍使用 `openclaw-guard`。
 
-### 启动
+#### 启动
 
 ```bash
 openclaw-guard run
@@ -171,33 +173,15 @@ export DEEPSEEK_API_KEY=...
 
 ### DSH 插件
 
-DSH 源码支持 **DSH 0.2.1-rc.2 / rc.3**、Node 24 与 Python 3.13+，当前本地开发候选为 **0.2.0-rc.2**（未发布，协议 `dsh-guard-v2`）。Python 后端支持 **Windows 原生 Python 和 Linux/WSL Python**；Windows 支持与 Python 的安装渠道无关，只需满足版本和依赖要求，无需为了运行后端启动 WSL。Windows 桌面 rc.3 部署见 [原生开发指南](dshRVguarder/docs/windows-native-rc3.md)。GitHub 已发布的历史候选仍为 0.2.0-rc.1，不包含本轮原生兼容改动。
+**0.2.0-rc.6 · Windows x64 · DSH 0.2.1-rc.3**
 
-**当前已完成基础部署和拦截链路的人工核验，尚未完成宿主产品整合。** 用户确认后端启动、新 profile 接入和基础拦截正常；同时发现 DSH“插件”页未展示插件、Guard 工作台与 DSH 分离、部署仍繁琐，以及本地模式频繁 ask / 完全权限模式下被拦截的现象。规则现象尚待复现定位，本阶段仅记录，未修复。详见 [阶段进度、已知问题与团队交接](docs/dev/dsh-progress-2026-10-26.md)。
-
-一般流程是：准备环境 → 构建工作台和插件 → 初始化实例并安装新 profile → **单独启动 Python 后端** → 启动 DSH profile → 在独立 Guard 页面查看记录。Windows 安装/启动脚本可辅助完成部分步骤，但插件不自动托管 Python 服务，前端也未嵌入 DSH。
-
-**源码部署和提交 PR 不要求 GitHub Release。** 团队也可使用维护者构建的同批次 tgz/wheel，省去源码编译；若以后通过 Release 分发，应标为 pre-release，附匹配产物、说明、哈希和已知问题。当前候选不是一键安装包，发布附件不会自动解决上述运行与界面问题。
-
-当前候选从源码构建后安装；历史发布包另见 [GitHub Releases](https://github.com/HorizonExploration/RVguarder/releases)：
-
-```bash
-dsh plugin --profile <profile> add ./dsh-rvguarder-0.2.0-rc.2.tgz
+```powershell
+dsh plugin --profile desktop add dsh-rvguarder@0.2.0-rc.6
 ```
 
-从源码构建：
+重新启动 DSH，在 **插件 → 已安装** 中启用 RVguarder，再打开 **设置 → RVguarder**。整包自带运行环境，**无需安装 Python 或单独启动后端**。
 
-```bash
-cd dshRVguarder
-npm ci --ignore-scripts --legacy-peer-deps
-node scripts/link-sdk.mjs '<DSH 安装根目录>'
-npm run check && npm test
-npm pack
-```
-
-使用 `python dshRVguarder/scripts/build-release.py --output <新目录>` 构建配套 tgz、wheel、说明和哈希清单。v2 必须配套安装本轮后端；0.1.0 队列先由旧版本排空，不与 `dsh-guard-v1` 混用。
-
-共享服务、隔离 profile、Windows 原生及 Linux/WSL 部署与启动目录约束见 [DSH 部署说明](dshRVguarder/docs/deployment.md)。
+[插件下载安装与使用说明](docs/deployment/dsh.md) 提供 npm 安装、GitHub Release 下载及日常操作。本版本为预发布版本，[验证范围与已知问题](dshRVguarder/docs/rc6-startup-verification-2026-10-29.md) 请在使用前阅读。
 
 ---
 
@@ -260,7 +244,7 @@ ChainRule DSL 监视器触发：
 
 ```
 clawRVguarder/        Python 后端与 CLI（FastAPI、PMKB、RV、审计、OpenClaw 集成）
-dshRVguarder/         DSH 0.2.1-rc.2 / rc.3 适配插件（0.2.0-rc.2 本地开发候选，未发布）
+dshRVguarder/         DSH 0.2.1-rc.2 / rc.3 适配插件（0.2.0-rc.6：内嵌管理界面与托管运行环境）
 frontend/              Preact 工作台（Vite 构建，产物输出 runtime/ui/）
 policies/permissions/  PMKB 单一源（schema、operations、rules、traces、relations、vectors）
 tests/                 后端测试与文档/发布契约

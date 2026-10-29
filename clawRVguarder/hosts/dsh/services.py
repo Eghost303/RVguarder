@@ -20,6 +20,7 @@ from .adapter import DshAdapter, PROTOCOL_VERSION, SUPPORTED_SDK_VERSIONS
 from .semantic import DshSemanticEnhancer
 from clawRVguarder.storage.private_files import ensure_private_directory, private_file
 import os
+from contextlib import contextmanager
 
 
 class BridgeConflict(ValueError):
@@ -65,12 +66,18 @@ class DshServices(DshObservability, GuardServices):
             lease = getattr(self, "_lease", None)
             if lease is not None:
                 lease.close()
+            journal = getattr(self, "_journal_connection", None)
+            if journal is not None:
+                journal.close()
             raise
 
     def _initialize(self, project_dir: Path, *, dsh_home: Path, profile: str, workspace: Path,
                  instance_id: str = "dsh-local", semantic_mode: str = "auto") -> None:
         self.instance_id = instance_id
         self.bridge_lock = threading.RLock()
+        if os.environ.get("RVGUARDER_DSH_TIMINGS") == "1":
+            from .timing import MeasuredRLock
+            self.bridge_lock = MeasuredRLock()
         self.last_seen = 0.0
         self.hello_count = 0
         self.sdk_version: str | None = None
@@ -127,6 +134,9 @@ class DshServices(DshObservability, GuardServices):
         target = OpenClawTarget(root=dsh_home, config_path=dsh_home / "profiles" / profile / "package.json",
                                 workspace_path=workspace, profile=profile)
         super().__init__(AppContext(paths, target, GuardSettings()), host_adapter=adapter)
+        from clawRVguarder.storage.db_store import SQLiteStore
+        if isinstance(self.audit_store._db, SQLiteStore):
+            self.audit_store._db.enable_connection_reuse()
         self.semantic_enhancer = DshSemanticEnhancer(policy_version=self.policy_engine.bundle.version,
             api_key="" if semantic_mode in {"local", "host-agent"} else None,
             config_path=paths.runtime_dir / "guard-config.json")
@@ -135,6 +145,11 @@ class DshServices(DshObservability, GuardServices):
             raise ValueError("llm_mode_requires_host_api_key")
         self.action_service.host_kind = "dsh"
         self.journal = paths.runtime_dir / "dsh-calls.sqlite3"
+        self._journal_lock = threading.RLock()
+        self._journal_connection = sqlite3.connect(self.journal, timeout=10, check_same_thread=False)
+        # WAL 避免每个桥接事务反复创建/删除回滚日志；FULL 同步仍在返回前落盘。
+        self._journal_connection.execute("PRAGMA journal_mode=WAL")
+        self._journal_connection.execute("PRAGMA synchronous=FULL")
         with self._journal() as db:
             db.execute("CREATE TABLE IF NOT EXISTS calls (id TEXT PRIMARY KEY, digest TEXT NOT NULL, response TEXT, state TEXT NOT NULL, completion TEXT)")
             db.execute("CREATE TABLE IF NOT EXISTS metadata (key TEXT PRIMARY KEY, value TEXT NOT NULL)")
@@ -162,11 +177,28 @@ class DshServices(DshObservability, GuardServices):
 
     def close(self) -> None:
         """释放实例所有权；调用者必须先停止 HTTP 服务及所有请求。"""
+        with self._journal_lock:
+            self._journal_connection.close()
+        self.audit_store._db.close()
         self._lease.close()
 
-    def _journal(self) -> sqlite3.Connection:
-        """每次操作使用独立 SQLite 连接，避免跨线程共享连接。"""
-        return sqlite3.connect(self.journal, timeout=10)
+    @contextmanager
+    def _journal(self):
+        """在实例内串行复用连接；事务提交/回滚边界保持不变。"""
+        with self._journal_lock:
+            connection = self._journal_connection
+            try:
+                yield connection
+            except BaseException:
+                connection.rollback()
+                raise
+            else:
+                started = time.perf_counter()
+                writing = connection.in_transaction
+                connection.commit()
+                if writing:
+                    from .timing import emit_timing
+                    emit_timing("journal_commit", started)
 
     def _interrupted_calls(self) -> bool:
         """检查决策/提交中断标记，阻止不确定状态下继续授权。"""
@@ -205,12 +237,15 @@ class DshServices(DshObservability, GuardServices):
                 # 历史写盘/决策异常保留 deciding，后续请求不能绕过该故障。
                 db.execute("INSERT INTO calls(id,digest,state) VALUES(?,?,'deciding')", (key, digest))
             try:
+                started = time.perf_counter()
                 host_semantic_response = self.consume_host_semantic(request)
                 result = self.handle_before_tool_call(
                     payload,
                     host_semantic_response=host_semantic_response,
                     host_semantic_mode=self.semantic_mode == "host-agent",
                 )
+                from .timing import emit_timing
+                emit_timing("decision_and_audit", started)
                 record = result["action_record"]
                 action = self._find_action(record["action_id"])
                 decision_record = action.event.metadata.get("decision_record")

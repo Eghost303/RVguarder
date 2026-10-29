@@ -1,10 +1,16 @@
 # DSH 原生部署阶段进度与团队交接（2026-10-26）
 
+## 2026-10-28 后续进度
+
+已完成 f3990e8 独立审查并逐项填写任务书第13节，原交付5项通过、3项不通过、5项待整改；见 [审查报告](https://github.com/Eghost303/RVguarder/blob/master/dshRVguarder/docs/ui-review-2026-10-28.md)。rc.4 新增 Windows x64 整包/宿主后端托管，真实 rc.3 无手工后端的新安装流程与下载内容验证通过；见 [DEP-01 实现](https://github.com/Eghost303/RVguarder/blob/master/dshRVguarder/docs/deployment-implementation-2026-10-28.md)。以下为2026-10-26/27历史阶段记录，不能覆盖该独立结论。POL-01/02未修改规则。
+
 ## 当前结论
 
 本阶段交付的是 **Windows 原生 Python 后端适配 + DSH rc.3 接入 + 可复现的开发部署工具**。用户已完成后端启动、新建 DSH profile 接入和基础拦截的人工测试，确认基础运行、对接和拦截链路可用。
 
 这仍是插件 `0.2.0-rc.2` 本地开发候选，支持 DSH `0.2.1-rc.2` / `0.2.1-rc.3`，通信协议为 `dsh-guard-v2`。它尚不是具备宿主内嵌界面、一键安装和完整规则验收的正式产品。本阶段只记录下方问题，不修复插件页展示、界面整合、自动托管后端或规则行为。
+
+后续 UX-01/02 的开发交接已写入 [DSH 内嵌管理界面计划](dsh-ui-integration-plan-2026-10-26.md)，**该计划已于 2026-10-27 实施并在真实桌面 rc.3 完成验收**（插件 bundle 化进入"插件 → 已安装"，"设置 → RVguarder"内嵌管理页，宿主 owner 认证通道）；实现、构建/迁移/回滚步骤与证据见 [UI 实现报告](https://github.com/Eghost303/RVguarder/blob/master/dshRVguarder/docs/ui-integration-implementation.md)。rc.2 上的内嵌 UI 未实测。整包部署（DEP-01）和规则适配（POL-01/02）另行安排，不改变本轮完成范围。
 
 Python 后端同时支持 **Windows 原生 Python 和 Linux/WSL Python**，要求 Python 3.13+ 及兼容依赖；Windows 支持不限定安装渠道，也不要求运行 WSL。平台支持与逐个 Python 发行渠道的实际验收是两个范围，本次 Windows 测试使用本机现有解释器。
 
@@ -35,8 +41,8 @@ DSH 的任务与工具调用
 ```
 
 - **DSH 插件代码已加载**：已有真实 CLI 安装、宿主加载和握手证据，用户也确认了实际拦截。
-- **DSH 插件页中可见**：目前人工核验未看到 RVguarder 项，不应把加载成功写成插件页集成完成。
-- **Guard 工作台已存在**：目前在后端地址单独访问，没有嵌入 DSH 页面。
+- **DSH 插件页中可见**：已解决（2026-10-27）。插件以 `dsh.bundle` 层安装，"插件 → 已安装"显示 `dsh-rvguarder@0.2.0-rc.3`，启停/移除沿用宿主机制。
+- **Guard 工作台已存在**：已内嵌（2026-10-27）。"设置 → RVguarder"在宿主内管理（概览/调用与审批/规则与 RV/扫描与报告/审计/语义模式）；独立工作台保留作开发/诊断/OpenClaw 路径。
 - **后端仍是外部进程**：插件不会自动启动、停止或升级 Python 服务。
 
 当前包没有声明 `dsh.bundle`，采用独立依赖加 profile `insert/id` patch 的启用方式；CLI 的 plain dependency 提示不等于加载失败。它与插件页未展示现象是否存在直接关系，尚未定位。
@@ -45,9 +51,9 @@ DSH 的任务与工具调用
 
 | 编号 | 观察到的现象 | 当前结论与后续核验 |
 | --- | --- | --- |
-| DSH-UX-01 | DSH 的“插件”页中看不到已接入的 RVguarder 项 | 展示/管理入口未完成；后续核对宿主插件清单、profile layer 和展示元数据，尚未确认根因 |
-| DSH-UX-02 | RVguarder 前端与 DSH 界面分离 | 工作台当前独立提供；宿主内嵌页面、导航和认证整合待设计 |
-| DSH-DEP-01 | 需要准备 Python/Node 依赖、构建 UI/插件、安装 profile，并单独启动后端 | 已有脚本减少重复操作，但不是开箱即用安装器；后端生命周期托管和整包部署待实现 |
+| DSH-UX-01 | DSH 的“插件”页中看不到已接入的 RVguarder 项 | **已解决（2026-10-27）**：根因为普通依赖且无 `dsh.bundle` 时 `listBundles()` 整条跳过；bundle 化后真实 rc.3 验收通过 |
+| DSH-UX-02 | RVguarder 前端与 DSH 界面分离 | **已解决（2026-10-27）**：内嵌 Preact 管理页 + 宿主 owner Remote 通道 + 局部页签导航，真实 rc.3 E2E 6/6 通过 |
+| DSH-DEP-01 | 需要准备 Python/Node 依赖、构建 UI/插件、安装 profile，并单独启动后端 | rc.4已实现Windows x64整包/后端托管新安装；Linux/arm64、完整桌面生命周期与旧实例迁移仍待专项验收 |
 | DSH-POL-01 | 本地规则模式下，人工测试中请求似乎普遍被判为 `ask`，需要人工审批 | 用户观察，未做逐请求归因，不能断言所有请求必为 ask；后续结合实际工具映射、参数、身份、匹配规则与缺失证据复现 |
 | DSH-POL-02 | DSH 开启“完全权限”模式后，人工测试中操作被后端拦截 | 用户观察，待区分 ask/deny、可信上下文、原生审批和真正执行前复核；DSH 的权限模式不会自动成为 Guard 授权，但当前行为是否符合预期尚需验证 |
 
@@ -80,7 +86,7 @@ DSH 的任务与工具调用
 dsh.cmd --profile rvguarder-dev --port 8790
 ```
 
-默认 Guard 工作台为 `http://127.0.0.1:8781`，上述 DSH 测试界面为 `http://127.0.0.1:8790`。首次工作台登录使用实例令牌链接；它们目前是分开的入口。详细构建、路径、登录、更新和临时目录说明见 [Windows 原生开发指南](../../dshRVguarder/docs/windows-native-rc3.md)；Linux/WSL 见 [通用部署说明](../../dshRVguarder/docs/deployment.md)。个人安装路径均为示例，不是团队成员的固定路径。
+默认 Guard 工作台为 `http://127.0.0.1:8781`，上述 DSH 测试界面为 `http://127.0.0.1:8790`。首次工作台登录使用实例令牌链接；它们目前是分开的入口。详细构建、路径、登录、更新和临时目录说明见 [Windows 原生开发指南](https://github.com/Eghost303/RVguarder/blob/master/dshRVguarder/docs/windows-native-rc3.md)；Linux/WSL 见 [通用部署说明](https://github.com/Eghost303/RVguarder/blob/master/dshRVguarder/docs/deployment.md)。个人安装路径均为示例，不是团队成员的固定路径。
 
 ### 方式 B：使用配套构建产物
 
@@ -126,7 +132,7 @@ python -X utf8 dshRVguarder/scripts/build-release.py `
 | 配套 wheel | 隔离安装、79 条规则、工作台资源检查通过 | 本机构建产物，不等于已发布 Release |
 | 用户当前人工测试 | 后端启动、新 profile 接入、基础运行和拦截正常 | 同时发现上表五项问题，规则与产品体验未验收完毕 |
 
-Windows ACL 不隔离持有同一完整用户令牌的任意进程。完整沙箱矩阵、在线模型、委派、多插件组合、长时间稳定性及其他尚未完成的门槛仍需独立验收。历史基线见 [v2 修复记录](../../dshRVguarder/docs/repair-2026-10-21.md)。
+Windows ACL 不隔离持有同一完整用户令牌的任意进程。完整沙箱矩阵、在线模型、委派、多插件组合、长时间稳定性及其他尚未完成的门槛仍需独立验收。历史基线见 [v2 修复记录](https://github.com/Eghost303/RVguarder/blob/master/dshRVguarder/docs/repair-2026-10-21.md)。
 
 ## 本地提交与下一步 PR
 

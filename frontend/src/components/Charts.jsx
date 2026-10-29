@@ -1,3 +1,4 @@
+import { useT } from '../i18n';
 import { useStore } from '../store';
 import { esc } from '../i18n';
 
@@ -20,6 +21,7 @@ const ACTION_LABELS = {
 
 /** 决策分布环形图。data: [{ label, value, color }] */
 export function Donut({ data, size = 116, thickness = 12 }) {
+  const t = useT();
   const total = data.reduce((s, d) => s + d.value, 0);
   const r = (size - thickness) / 2;
   const c = 2 * Math.PI * r;
@@ -66,6 +68,7 @@ export function Donut({ data, size = 116, thickness = 12 }) {
 
 /** 近期风险趋势柱状图（旧→新）。items 为 actions items。 */
 export function RiskBars({ items, max = 24 }) {
+  const t = useT();
   const recent = items.slice(0, max).reverse();
   const lvl = { allow: 1, ask: 2, block: 3 };
   const w = 8;
@@ -104,6 +107,7 @@ export function RiskBars({ items, max = 24 }) {
 
 /** 安全决策分布 + 风险趋势聚合卡片。 */
 export function InsightsCard() {
+  const t = useT();
   const summary = useStore((s) => s.summary);
   const items = (summary.actions || {}).items || [];
 
@@ -114,7 +118,7 @@ export function InsightsCard() {
   });
 
   const donutData = Object.entries(dist).map(([k, v]) => ({
-    label: ACTION_LABELS[k] || k,
+    label: t(ACTION_LABELS[k] || k),
     value: v,
     color: ACTION_COLORS[k] || '#98a2b3',
   }));
@@ -122,7 +126,7 @@ export function InsightsCard() {
   return (
     <section class="card insight-card">
       <div class="card-head">
-        <h3>安全决策分布</h3>
+        <h3>{t("安全决策分布")}</h3>
       </div>
       <div class="insight-body">
         <Donut data={donutData} />
@@ -138,7 +142,7 @@ export function InsightsCard() {
       </div>
       {items.length > 0 && (
         <div class="trend-block">
-          <div class="trend-head">近期风险趋势</div>
+          <div class="trend-head">{t("近期风险趋势")}</div>
           <RiskBars items={items} />
         </div>
       )}

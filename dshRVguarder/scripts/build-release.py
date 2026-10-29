@@ -25,6 +25,7 @@ def main() -> None:
     npm = 'npm.cmd' if sys.platform == 'win32' else 'npm'
     if not args.frontend_built:
         subprocess.run([npm, 'run', 'build'], cwd=root / 'frontend', check=True)
+        subprocess.run([npm, 'run', 'build:embedded'], cwd=root / 'frontend', check=True)
     with tempfile.TemporaryDirectory(prefix='rvguarder-release-') as temp:
         staging = Path(temp)
         subprocess.run([sys.executable, '-m', 'pip', 'wheel', str(root), '--no-deps', '--no-build-isolation', '--wheel-dir', str(staging)], check=True)

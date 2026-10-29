@@ -1,0 +1,22 @@
+# dsh-rvguarder bundle 层：核心守卫 + 宿主管理适配器（UI）。
+# 核心（rvguarder-dsh）与管理（rvguarder-admin）分成两个条目：
+# 管理适配器加载失败不影响核心守卫的拦截与完成队列。
+# 默认配置经 !!js 在条目加载时求值（process 全局可用，require 不可用）；
+# profile 用户层可用 id 定向 patch 整体替换 config（须重述保留字段）。
+- insert:
+    - id: rvguarder-dsh
+      name: dsh-rvguarder
+      config:
+        backendUrl: 'http://127.0.0.1:8781'
+        instanceId: dsh-local
+        tokenFile: !!js "(process.env.USERPROFILE || process.env.HOME) + '/.rvguarder/dsh-local/runtime/dsh-token'"
+        stateDir: !!js "(process.env.USERPROFILE || process.env.HOME) + '/.rvguarder/dsh-local/runtime/plugin-state'"
+        timeoutMs: 5000
+        failMode: closed
+    - id: rvguarder-admin
+      name: dsh-rvguarder/admin
+      config:
+        backendUrl: 'http://127.0.0.1:8781'
+        instanceId: dsh-local
+        tokenFile: !!js "(process.env.USERPROFILE || process.env.HOME) + '/.rvguarder/dsh-local/runtime/dsh-token'"
+        timeoutMs: 8000

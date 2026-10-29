@@ -6,6 +6,7 @@ export class BridgeUnavailable extends Error {}
 export class GuardClient {
   private helloAt=0;
   semanticMode:'auto'|'local'|'llm'|'host-agent'='auto';
+  private helloRun?: Promise<void>;
   readonly base: string;
   readonly token: string;
   constructor(base: string, tokenFile: string, readonly timeoutMs = 5000) {
@@ -16,6 +17,7 @@ export class GuardClient {
     if (this.token.length < 32) throw new Error('Invalid Guard token');
   }
   async post(path: string, body: unknown, signal?: AbortSignal, budgetMs = this.timeoutMs): Promise<Record<string,unknown>> {
+    const started = performance.now();
     let response: Response;
     try { response = await fetch(this.base+'/api/dsh/'+path, { method:'POST', redirect:'error',
       headers:{'Content-Type':'application/json','x-rvguarder-token':this.token}, body:JSON.stringify(body),
@@ -23,15 +25,20 @@ export class GuardClient {
     if (response.status >= 500) {this.helloAt=0;throw new BridgeUnavailable('Guard service unavailable');}
     if (!response.ok) throw new Error(`Guard bridge returned HTTP ${response.status}`);
     const result = await response.json() as Record<string,unknown>;
+    if (process.env.RVGUARDER_DSH_TIMINGS === '1') console.error(JSON.stringify({ event: 'dsh.bridge.http', stage: path, elapsed_ms: Math.round((performance.now() - started) * 100) / 100 }));
     if (!result || typeof result !== 'object') throw new Error('Invalid Guard response');
     return result;
   }
   async hello(instanceId: string,force=false) {
+    if(this.helloRun) return this.helloRun;
     if(!force && Date.now()-this.helloAt<5000)return;
-    const r = await this.post('hello',{protocol,instance_id:instanceId,sdk_version:sdkVersion});
-    if (r.protocol !== protocol || r.instance_id !== instanceId || r.recovery_required !== false) throw new Error('Guard handshake rejected or requires recovery');
-    if(['auto','local','llm','host-agent'].includes(String(r.semantic_mode))) this.semanticMode=r.semantic_mode as GuardClient['semanticMode'];
-    this.helloAt=Date.now();
+    this.helloRun=(async()=>{
+      const r = await this.post('hello',{protocol,instance_id:instanceId,sdk_version:sdkVersion});
+      if (r.protocol !== protocol || r.instance_id !== instanceId || r.recovery_required !== false) throw new Error('Guard handshake rejected or requires recovery');
+      if(['auto','local','llm','host-agent'].includes(String(r.semantic_mode))) this.semanticMode=r.semantic_mode as GuardClient['semanticMode'];
+      this.helloAt=Date.now();
+    })().finally(()=>{this.helloRun=undefined;});
+    return this.helloRun;
   }
   async before(call: GuardCall, signal: AbortSignal): Promise<GuardDecision> {
     const r = await this.post('before',call,signal);

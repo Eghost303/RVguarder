@@ -7,7 +7,7 @@ export default defineUserConfig({
   title: "RVguarder",
   description: "RVguarder 文档站：OpenClaw Agent 插件的快速开始、架构、部署、安全能力与运维说明。",
   base: "/",
-  pagePatterns: ["**/*.md", "!superpowers/**", "!archive/**"],
+  pagePatterns: ["**/*.md", "!superpowers/**", "!archive/**", "!research/**", "!dev/project-memory.md"],
   bundler: viteBundler(),
   head: [
     ["meta", { name: "theme-color", content: "#111827" }],
@@ -19,6 +19,7 @@ export default defineUserConfig({
     navbar: [
       { text: "首页", link: "/" },
       { text: "快速开始", link: "/deployment/local.html" },
+      { text: "DSH 插件", link: "/deployment/dsh.html" },
       { text: "架构", link: "/architecture/overview.html" },
       { text: "核心功能", link: "/features/baseline.html" },
       { text: "运行时 Hook", link: "/features/runtime-hook.html" },
@@ -59,6 +60,7 @@ export default defineUserConfig({
         {
           text: "部署说明",
           children: [
+            "/deployment/dsh.md",
             "/deployment/local.md",
             "/deployment/docker-k8s.md",
           ],
@@ -99,7 +101,9 @@ export default defineUserConfig({
         {
           text: "开发文档",
           children: [
+            "/dev/dsh-development.md",
             "/dev/dsh-progress-2026-10-26.md",
+            "/dev/dsh-ui-integration-plan-2026-10-26.md",
             "/dev/frontend.md",
           ],
         },

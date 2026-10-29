@@ -50,3 +50,9 @@ tests/test_capability_experiment_*.py
 clawRVguarder/rv/profiles/atlas-*.json
 /.pnpm-store/
 /dshRVguarder/*.tgz
+
+# Build and test scratch directories
+/pip-*/
+docs/.vuepress/dist/
+playwright-report/
+e2e/playwright-report/

@@ -1,5 +1,20 @@
 # v0.7.0-dev 工程统一与文档清查
 
+## 2026-10-29 — DSH rc.5 Windows x64 候选
+
+- 宿主 active 语言快照/主题订阅、中英文静态文本、局部主题和键盘页签；每个挂载独有 store/transport，关闭后丢弃旧响应。
+- 托管运行时按 manifest 内容哈希复制到 DSH_HOME 私有缓存并保留旧版；overview 增加脱敏部署、启动与故障状态。
+- 冻结程序新增离线 migrate inspect/apply/rollback；managedBinding 沿用实例、令牌、RV、审计和完成队列，不增加迁移 Remote 方法。
+- 合并并发握手，复用独占数据库连接，DSH journal 使用 WAL + FULL；保留决策和落盘顺序。完整 Node 回归连续三轮49通过/1真实PTC沙箱跳过。
+- 复验、安装/迁移命令与剩余问题见 dshRVguarder/docs/rc5-revalidation-2026-10-29.md、deployment-rc5.md。原提交历史结论保留；POL-01/02、PMKB及授权语义未改，未推送、未发布远程。
+
+## 2026-10-28 — DSH 独立审查与平台整包（0.2.0-rc.4，本地候选）
+
+- 独立核对 f3990e8 并填写 UI 任务书第13节：原交付5项通过、3项不通过、5项待整改，未把rc.2 UI/故障矩阵判为通过。
+- 修复默认 bundle 表达式、内嵌下载字节、实际实例范围、管理身份/错误状态/流式限额、重连与 E2E 清理。
+- 新增按平台冻结的完整后端与宿主进程托管，Windows x64新安装无需Python/源码/手动后端；最终tgz真实rc.3页面/下载/凭据扫描8/8、冻结运行时生命周期5/5、保护/管理/迁移29/29。修复pnpm Windows长路径启动及快速重启竞争。
+- Python相关123项通过；扩展Node十并发出现一次连接超时、专项复跑通过，真实PTC沙箱仍跳过，不声称全量全绿。Linux/arm64整包、完整桌面生命周期/迁移/故障矩阵与POL-01/02仍待验收。未发布、未推送。
+
 ## 2026-10-26 — DSH 原生部署与 rc.3 接入阶段交付（0.2.0-rc.2，本地候选）
 
 - Python 后端支持 Windows 原生 Python 与 Linux/WSL Python；Windows 使用原生 ACL/文件句柄处理私有状态和资源证据，不限定 Python 安装渠道。

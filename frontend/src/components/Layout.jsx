@@ -1,8 +1,8 @@
 import { useGuardSync } from '../useGuardSync';
 import { Link } from 'preact-router';
 import { useStore } from '../store';
-import { t } from '../i18n';
-import { fetchSummary, rvToggle, apiErrorMessage } from '../api';
+import { useT } from '../i18n';
+import { useApi, apiErrorMessage } from '../api';
 import { Toast } from './Toast';
 import { HostPanel } from './HostPanel';
 
@@ -15,6 +15,9 @@ function useIsActive(view, currentPath) {
 }
 
 export function Layout({ children, currentPath }) {
+  const t = useT();
+  const { fetchSummary, rvToggle } = useApi();
+
   useGuardSync();
   const hostKind = useStore((s) => s.summary.host?.kind);
   const rvMode = useStore((s) => s.rvMode);
@@ -29,7 +32,7 @@ export function Layout({ children, currentPath }) {
     try {
       await rvToggle(on);
       setRvMode(on);
-      showToast(on ? '🔄 RV 模式已开启 — 安全执行链路实时追踪' : '🔄 RV 模式已关闭 — 恢复标准视图');
+      showToast(on ? t("🔄 RV 模式已开启 — 安全执行链路实时追踪") : t("🔄 RV 模式已关闭 — 恢复标准视图"));
     } catch (error) {
       showToast(apiErrorMessage(error, t('error_default')));
     }
@@ -57,7 +60,7 @@ export function Layout({ children, currentPath }) {
       <aside class="sidebar">
         <div class="brand">
           <h1>{t('appName')}</h1>
-          <p>{hostKind === 'dsh' ? 'DSH Agent 安全插件' : t('appSub')}</p>
+          <p>{hostKind === 'dsh' ? t("DSH Agent 安全插件") : t('appSub')}</p>
         </div>
         <nav class="nav">
           {navItems.filter(([view]) => hostKind !== 'dsh' || view !== 'skills').map(([view, icon, label]) => (
@@ -79,9 +82,9 @@ export function Layout({ children, currentPath }) {
             class="topbar-btn theme-btn"
             id="theme-toggle"
             onClick={toggleTheme}
-            title={theme === 'dark' ? '切换亮色主题' : '切换暗色主题'}
+            title={theme === 'dark' ? t("切换亮色主题") : t("切换暗色主题")}
           >
-            {theme === 'dark' ? '☀️ 亮色' : '🌙 暗色'}
+            {theme === 'dark' ? t("☀️ 亮色") : t("🌙 暗色")}
           </button>
           <div class="rv-toggle">
             <span>{t('rvMode')}</span>

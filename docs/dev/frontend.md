@@ -2,6 +2,8 @@
 
 本文件说明 RVguarder 前端的开发、构建与部署方式。
 
+DSH 的原生插件页展示及“设置 → RVguarder”内嵌入口目前处于计划阶段，尚未实现。交给 DSH 的开发任务、宿主接口、认证边界及验收标准见 [内嵌管理界面计划](dsh-ui-integration-plan-2026-10-26.md)；下文仍说明当前独立工作台的开发方式。
+
 ## 架构
 
 ```
@@ -138,3 +140,5 @@ def build_ui(target_dir: Path, summary=None) -> None:
 ```
 
 `clawRVguarder/web/routes/static.py`（FastAPI）负责托管 `runtime/ui/` 下的静态文件（`/`、`/assets/*`、前端路由的 SPA fallback）；FastAPI 是唯一 HTTP 入口。
+
+2026-10-28：rc.4 内嵌下载 transport 统一返回 ArrayBuffer，浏览器测试实际解析报告/审计 JSON；实例持久化范围来自认证 overview，管理错误与恢复锁定显式展示。平台整包与后端托管见 [DEP-01实现](https://github.com/Eghost303/RVguarder/blob/master/dshRVguarder/docs/deployment-implementation-2026-10-28.md)，原UI交付的逐项结论见 [独立审查](https://github.com/Eghost303/RVguarder/blob/master/dshRVguarder/docs/ui-review-2026-10-28.md)。主题/语言/焦点和完整故障矩阵仍待验收。

@@ -63,6 +63,19 @@ async function fixture(t,{kind='allow',answer='allowed-once',failMode='closed',s
   return {ctx,invoke,events,executions:()=>executions,fail:()=>{fail=true;},backendUrl,tokenFile,temp,semanticSpec:()=>semanticSpec,semanticChildToolResult:()=>semanticChildToolResult};
 }
 
+test('concurrent handshakes retain host-agent mode for every caller', async t => {
+  const f = await fixture(t, { semanticMode: 'host-agent' });
+  const client = new GuardClient(f.backendUrl, f.tokenFile);
+  const before = f.events.filter(([path]) => path.endsWith('/hello')).length;
+  await Promise.all(Array.from({ length: 10 }, () => client.hello('test')));
+  assert.equal(client.semanticMode, 'host-agent');
+  const after = f.events.filter(([path]) => path.endsWith('/hello')).length;
+  // The plugin's independent startup heartbeat may also handshake once.
+  assert.ok(after - before <= 2);
+  await client.hello('test', true);
+  assert.equal(client.semanticMode, 'host-agent');
+});
+
 test('real SDK executes allowed call, final event has no result content',async t=>{
   const f=await fixture(t);const result=await f.invoke();assert.equal(result.isError,false);assert.equal(f.executions(),1);
   assert.equal(f.events.find(([path])=>path.endsWith('/hello'))?.[1].sdk_version,sdkVersion);
@@ -72,6 +85,27 @@ test('real SDK executes allowed call, final event has no result content',async t
 });
 test('real SDK denial never reaches tool body',async t=>{
   const f=await fixture(t,{kind:'deny'});assert.equal((await f.invoke()).isError,true);assert.equal(f.executions(),0);
+});
+
+test('concurrent calls share one authenticated handshake without sharing decisions', async t => {
+  const f = await fixture(t);
+  const results = await Promise.all(Array.from({ length: 10 }, (_, index) => f.invoke('parallel-' + index)));
+  assert.ok(results.every(result => !result.isError));
+  assert.equal(f.events.filter(([path]) => path.endsWith('/hello')).length, 1);
+  assert.equal(f.events.filter(([path]) => path.endsWith('/before')).length, 10);
+  assert.equal(f.executions(), 10);
+});
+
+test('managed initialization failure keeps a real execution guard even with fail-open configured', async t => {
+  const ctx = new Context(); new SystemPrompt(ctx, {}); new ToolRuntime(ctx, {});
+  t.after(() => ctx.fiber.dispose());
+  let executions = 0;
+  ctx.tools.register(defineTool({ name: 'probe', description: 'startup boundary fixture', parameters: {}, output: { schema: { type: 'string' }, render: (_a, value) => [{ type: 'text', text: value }] }, execute() { executions++; return 'unexpected'; } }));
+  // 无可信 profileContext 的环境必须保留拦截，不能因初始化抛错使插件整条卸载。
+  apply(ctx, { backendMode: 'managed', failMode: 'open' });
+  const result = await ctx.tools.execute({ name: 'probe', arguments: {}, callId: 'startup-failure', agent: { id: 'test' }, signal: new AbortController().signal });
+  assert.equal(result.isError, true);
+  assert.equal(executions, 0);
 });
 test('native ask approved then syncs dispatch before body',async t=>{
   const f=await fixture(t,{kind:'ask'});assert.equal((await f.invoke()).isError,false);assert.equal(f.executions(),1);

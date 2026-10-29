@@ -1,6 +1,6 @@
 # 部署与使用 RVguarder
 
-[返回首页](../../README.md) · [下载测试候选包](https://github.com/HorizonExploration/RVguarder/releases/tag/v0.7.0-dev-candidate.20261009) · [测试范围与保护边界](../rvguarder-security-capabilities-and-boundaries.md)
+[返回首页](https://github.com/Eghost303/RVguarder/blob/master/README.md) · [下载测试候选包](https://github.com/HorizonExploration/RVguarder/releases/tag/v0.7.0-dev-candidate.20261009) · [测试范围与保护边界](../rvguarder-security-capabilities-and-boundaries.md)
 
 ## 准备环境
 
