@@ -167,6 +167,7 @@ class DshServices(DshObservability, GuardServices):
         self.evidence = DshEvidenceBridge(self)
         self.host_authorization_bridge = self.evidence
         self.task_authorization = TaskAuthorizationStore(paths.runtime_dir / "authorization")
+        self.task_authorization.begin_runtime()
         adapter.probe_provider = self.capabilities
         # 核心初始化已恢复已有 RV 快照；中断中的提交不能默认为成功或自动重跑。
         self.recovery_required = self._interrupted_calls()
@@ -473,7 +474,7 @@ class DshServices(DshObservability, GuardServices):
                 raise BridgeConflict("decision_expired")
             permit = self.evidence.authorize(request)
             # 审批等待期间可能有其他会话/调用提交成功历史；dispatch 前重新评估。
-            from clawRVguarder.engine.pipeline import _annotate_event_context, _apply_rv_if_available
+            from clawRVguarder.engine.pipeline import _annotate_event_context, _apply_rv_if_available, _apply_task_authorization
             event = self.host_adapter.build_event(payload, self.context)
             source = self.host_adapter.source_message(event)
             semantic_audit = action.event.metadata.get("semantic_audit", {})
@@ -495,6 +496,7 @@ class DshServices(DshObservability, GuardServices):
                 host_semantic_mode=self.semantic_mode == "host-agent",
             )
             current = self.policy_engine.decide(event, source_message=source)
+            current = _apply_task_authorization(self, event, current)
             current = _apply_rv_if_available(self, event, current)
             reviewed = self.controller.decide(event, current, source)
             original = json.loads(row[1])
@@ -518,25 +520,10 @@ class DshServices(DshObservability, GuardServices):
                 db.execute("UPDATE calls SET state='dispatched' WHERE id=?", (action.event.metadata["hook_key"],))
             if permit:
                 self.audit_store.append("dsh_host_grant_consumed", {"grant_id": permit["grant_id"], "call_id": request["call_id"]})
-            command_class = action.event.metadata.get("command_class")
-            if command_class:
-                # 原生审批已放行该类别命令；同任务内后续同类命令按类别复用。
-                trusted_identity = action.event.metadata.get("trusted_identity") or {}
-                task_id = self.resolve_task_id(action.event)
-                if task_id:
-                    self.task_authorization.record_command_approval(
-                        task_id=task_id,
-                        principal_id=str(trusted_identity.get("principal_id") or ""),
-                        agent_id=str(trusted_identity.get("agent_id") or ""),
-                        session_id=str((action.event.metadata.get("dsh") or {}).get("session_id") or ""),
-                        command_class=str(command_class),
-                    )
-                    self.audit_store.append("dsh_task_command_approved",
-                                            {"action_id": action.action_id, "command_class": command_class})
             return {"ok": True, "permit": permit}
 
     def resolve_task_id(self, event) -> str | None:
-        """任务授权绑定宿主登记的任务；未登记时按原始会话隔离。"""
+        """任务授权只接受宿主显式登记任务；会话 ID 不自动构成任务授权。"""
         metadata = getattr(event, "metadata", None)
         dsh = (metadata.get("dsh") if isinstance(metadata, dict) else None) or {}
         agent, session = dsh.get("agent_id"), dsh.get("session_id")
@@ -545,7 +532,7 @@ class DshServices(DshObservability, GuardServices):
         with self._journal() as db:
             row = db.execute("SELECT task FROM tasks WHERE agent=? AND session=?",
                              (agent, session)).fetchone()
-        return row[0] if row else f"session:{session}"
+        return row[0] if row else None
 
     def hook_status(self) -> dict[str, Any]:
         """最近认证心跳判断桥接在线，恢复未确认状态单独报告。"""

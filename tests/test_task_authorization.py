@@ -45,11 +45,19 @@ def _call(workspace: Path, tool: str, arguments: dict, *, call_id: str = "c1") -
     }
 
 
+def _register_task(manager: DshServices, agent: str = "s1", session: str = "s1",
+                   task: str = "task-1") -> None:
+    with manager._journal() as db:
+        db.execute("INSERT OR REPLACE INTO tasks VALUES (?,?,?)", (agent, session, task))
+
+
 def _issue(manager: DshServices, workspace: Path, *, operations=None, ttl: int = 1800) -> dict:
+    # 任务授权只对宿主显式登记的任务生效；会话 ID 不再自动构成任务。
+    _register_task(manager)
     return manager.task_authorization.issue(
-        task_id="session:s1",
+        task_id="task-1",
         principal_id=f"dsh:{manager.host_adapter.binding}",
-        agent_id="dsh-instance:dsh-local",
+        agent_id="s1",
         session_id="s1",
         workspace_root=workspace,
         operations=operations or ["file.read", "file.write"],
@@ -67,6 +75,7 @@ def test_excluded_paths_cover_credentials_and_env() -> None:
 
 def test_store_match_requires_every_dimension(tmp_path: Path) -> None:
     store = TaskAuthorizationStore(tmp_path / "auth")
+    store.begin_runtime()
     grant = store.issue(task_id="t1", principal_id="dsh:abc", agent_id="a1", session_id="s1",
                         workspace_root=tmp_path, operations=["file.write"], ttl_seconds=60)
     base = dict(task_id="t1", principal_id="dsh:abc", agent_id="a1", session_id="s1",
