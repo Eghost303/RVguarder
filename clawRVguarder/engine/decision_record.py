@@ -148,6 +148,10 @@ def build_decision_record(event: Any, decision: Any, *, action: Any = None) -> d
             "root_call_id": _bounded_text(dsh.get("root_call_id")),
             "parent_agent_id": _bounded_text(dsh.get("parent_agent_id")),
             "task_id": _bounded_text(metadata.get("task_id")),
+            "delegation": {
+                "state": _bounded_text(_mapping(trusted.get("delegation")).get("state")) or "unrecorded",
+                "scope": _mapping(trusted.get("delegation")).get("scope"),
+            },
         },
         "tool": {
             # 适配层会把原始工具名换成别名；原始名只保留在宿主上下文里。

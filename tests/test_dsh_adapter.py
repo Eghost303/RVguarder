@@ -439,7 +439,9 @@ def test_child_agent_does_not_inherit_root_identity(dsh):
     response = client.post("/api/dsh/before", json=request).json()
     identity = manager._find_action(response["action_id"]).event.metadata["trusted_identity"]
     assert identity["agent_id"] == "dsh-agent:child"
-    assert identity["capability_lineage"] == ["dsh-agent:child"]
+    # 有序委派链：父在前、自己在后；身份仍是子 Agent，不继承根身份。
+    assert identity["capability_lineage"] == ["dsh-agent:root", "dsh-agent:child"]
+    assert identity["delegation"]["state"] == "unrecorded"
 
 
 def test_private_exact_tool_mapping_does_not_guess_mcp_names(dsh):

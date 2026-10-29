@@ -189,11 +189,26 @@ class DshAdapter:
         elif self.tool_aliases.get(raw_tool) == "exec":
             # 映射到 exec 的 MCP 执行器方言未知，不能当作已完整建模的 shell。
             event.metadata["shell_dialect"] = "mapped_unknown"
+        dsh_ctx = payload["_dsh"]
+        parent_agent = dsh_ctx.get("parent_agent_id")
+        agent_identity = (f"dsh-agent:{dsh_ctx['agent_id']}" if parent_agent
+                          else f"dsh-instance:{self.instance_id}")
+        # 有序委派链：父在前、自己在后；单跳记录会把链路说短。
+        lineage = ([f"dsh-agent:{parent_agent}", agent_identity] if parent_agent
+                   else [f"dsh-instance:{self.instance_id}"])
+        delegation = {
+            "state": "declared" if dsh_ctx.get("parent_call_id") else "unrecorded",
+            "parent_call_id": dsh_ctx.get("parent_call_id"),
+            "parent_agent_id": parent_agent,
+            # 宿主没有提供可验证的委派范围时保持未知，不据此授予任何权限。
+            "scope": None,
+        }
         event.metadata["trusted_identity"] = {
             "principal_id": f"dsh:{self.binding}", "principal_type": "agent",
             # DSH agent.id 是 session ID；同一个受控 profile 的主体能力跨会话聚合。
-            "agent_id": (f"dsh-agent:{payload['_dsh']['agent_id']}" if payload["_dsh"].get("parent_agent_id") else f"dsh-instance:{self.instance_id}"),
-            "capability_lineage": ([f"dsh-agent:{payload['_dsh']['agent_id']}"] if payload["_dsh"].get("parent_agent_id") else [f"dsh-instance:{self.instance_id}"]),
+            "agent_id": agent_identity,
+            "capability_lineage": lineage,
+            "delegation": delegation,
             "trust": "verified", "binding": "dsh_instance_token"}
         return event
 
