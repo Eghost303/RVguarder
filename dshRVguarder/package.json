@@ -1,9 +1,9 @@
 {
   "name": "dsh-rvguarder",
-  "version": "0.2.0-rc.6",
+  "version": "0.2.1-rc1",
   "private": true,
   "type": "module",
-  "description": "DSH 0.2.1-rc.2 / rc.3 的 RVguarder 适配插件：核心守卫 + 宿主内嵌管理界面",
+  "description": "RVguarder for DSH: managed runtime, embedded UI, PMKB authorization and runtime verification",
   "scripts": {
     "check": "tsc --noEmit && tsc --noEmit -p tsconfig.client.json && node scripts/verify-client-shape.mjs",
     "build": "tsc",
@@ -91,5 +91,14 @@
     "@deepseek-ai/dsh-subagent-spawn-in-process": {
       "optional": true
     }
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/HorizonExploration/RVguarder.git",
+    "directory": "dshRVguarder"
+  },
+  "homepage": "https://github.com/HorizonExploration/RVguarder#readme",
+  "bugs": {
+    "url": "https://github.com/HorizonExploration/RVguarder/issues"
   }
 }

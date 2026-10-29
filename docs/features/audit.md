@@ -1,5 +1,10 @@
 # 审计与取证
 
+## v0.2.1-rc1 决策证据
+
+DSH 决策记录增加稳定原因码、决策层、操作映射来源、资源角色和委派链。执行效果区分 expected、potential 与 observed；只有确认成功的完成事件进入成功历史。丢失 dispatch 确认不等同执行失败，未知结果须先核实。任务授权和命令类别复用分别记录 `task_grant`、`task_command_reuse`，便于回放允许依据。
+
+
 ## 存储架构
 
 审计存储基于 `DBStoreInterface` 抽象接口，由 `get_db_store()` 工厂按连接串 / `DBConfig` 与 `DB_STORE_MODE`（或 `OPENCLAW_GUARD_DB_STORE_MODE`）环境变量选择后端，实例会被缓存复用：

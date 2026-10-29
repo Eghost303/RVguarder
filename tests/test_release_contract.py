@@ -1,8 +1,9 @@
-"""Release-level contracts for the v0.7.0-dev engineering baseline."""
+"""Release-level contracts for the v0.2.1-rc1 engineering baseline."""
 
 from __future__ import annotations
 
 from pathlib import Path
+import json
 from unittest.mock import MagicMock, patch
 
 from clawRVguarder import __version__
@@ -13,9 +14,12 @@ from clawRVguarder.policy.catalog import PolicyBundle
 ROOT = Path(__file__).parents[1]
 
 
-def test_product_and_package_versions_share_the_v070_development_line():
-    assert __version__ == "0.7.0-dev"
-    assert 'version = "0.7.0.dev0"' in (ROOT / "pyproject.toml").read_text(encoding="utf-8")
+def test_product_and_package_versions_share_the_release_version():
+    assert __version__ == "0.2.1-rc1"
+    assert 'version = "0.2.1rc1"' in (ROOT / "pyproject.toml").read_text(encoding="utf-8")
+    package = json.loads((ROOT / "dshRVguarder/package.json").read_text(encoding="utf-8"))
+    lock = json.loads((ROOT / "dshRVguarder/package-lock.json").read_text(encoding="utf-8"))
+    assert package["version"] == lock["version"] == lock["packages"][""]["version"] == __version__
 
 
 def test_pmkb_bundle_components_are_all_on_120():

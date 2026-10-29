@@ -1,5 +1,12 @@
 # HTTP 接口
 
+## v0.2.1-rc1 的 DSH 管理通道
+
+DSH 内嵌页面通过宿主 owner Remote `rvguarderAdmin` 访问本实例，不直接持有回环桥接令牌。overview 包含部署模式、启动状态、固定故障分类及后端确认的语义状态；语义模式接受 `auto/local/llm/host-agent`。`host-agent` 不满足能力门禁时返回明确拒绝，页面不得自行宣告切换成功。
+
+后台 `/api/dsh/semantic/prepare`、`/api/dsh/semantic/submit` 是认证插件专用的单次调用语义通道；普通浏览器会话不能使用它们。`GET /api/dsh/audit-export/{json|csv}` 提供审计下载。DSH 原生审批为唯一决策入口，浏览器不能改写调用审批或签发任务授权。
+
+
 当前本地 Web 工作台仅使用 FastAPI HTTP 服务，主要接口如下。
 
 ## 服务模式

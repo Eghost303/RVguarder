@@ -1,5 +1,14 @@
 # 架构总览
 
+## v0.2.1-rc1 的 DSH 接入
+
+DSH 使用 `tools/pre-execute`、`ctx.tools.guard()` 与完成回调接入共享核心，不执行 OpenClaw Hook 安装。Windows 整包包含冻结后端和内嵌工作台；宿主 owner Remote 提供管理认证，浏览器不持有后台令牌。按 profile 固定后台数据及受控资源根，普通调用的工作目录来自认证的 SDK 调用上下文。
+
+工具映射表保留版本、类型化资源角色与明确缺口；委派链单独记录声明和已知状态。语义模式支持本地、独立 LLM 和宿主子代理，建议证据不代替授权。PMKB/RV 区分预期、潜在和已观察效果；未确认执行保持 unknown，不写成成功历史。有界任务授权与命令类别审批复用只覆盖满足既定证据及身份约束的策略审批，不能覆盖 RV 升权。
+
+代码入口：`hosts/dsh/`、`dshRVguarder/src/`、`spec/task_authorization.py`、`policy/command_classes.py` 和 `engine/decision_record.py`。发布范围见 [本次验证](../dev/release-v0.2.1-rc1.md)。
+
+
 RVguarder 采用分层、非侵入、模块化设计，核心原则是：**不修改 OpenClaw 源码，不替换系统库，通过外部壳、本地插件和行为代理完成安全增强。**
 
 ## 当前分层结构

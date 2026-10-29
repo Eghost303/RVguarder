@@ -1,5 +1,7 @@
 # Windows 原生 Python / DSH rc.3 开发
 
+> 历史验收记录，保留原版本与原结论；当前 **v0.2.1-rc1** 的使用入口和范围见 [安装指南](deployment.md) 与 [版本说明](release-current.md)。
+
 更新：2026-10-26。插件为 `0.2.0-rc.2` **本地开发候选**，不是 GitHub 上已发布的 rc.1。支持明确列出的 DSH `0.2.1-rc.2`、`0.2.1-rc.3`；本轮使用已有桌面 rc.3 验证，没有安装第二份 DSH，没有启动 WSL。
 
 Python 后端支持 **Windows 原生 Python 和 Linux/WSL Python**，要求 Python 3.13+ 及兼容依赖。Windows 支持不限定 Python 的下载来源、发行渠道或安装工具：Windows 使用原生 ACL 和文件句柄，Linux/WSL 保留 POSIX 权限和文件描述符实现。MSYS2 仅是本机验收环境所用的一个发行渠道，不是运行前提；下文的本机路径和包管理命令均为示例。
