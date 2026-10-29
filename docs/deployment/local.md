@@ -1,12 +1,14 @@
 # 本地部署
 
-本页面向 OpenClaw 集成。DSH 用户请阅读 [DSH 插件下载安装](dsh.md)，无需执行本页的 Python 安装命令。
+当前版本 **v0.2.1-rc1**。本页面向 OpenClaw 集成，Release wheel 的安装见 [部署与使用](../ops/quickstart.md)。DSH 用户请阅读 [DSH 插件下载安装](dsh.md)，无需执行本页的 Python 安装命令。
 
 ## 推荐流程
 
 ```bash
 cd RVguarder
 pip install -e .
+npm --prefix frontend ci
+npm --prefix frontend run build
 openclaw-guard run
 ```
 

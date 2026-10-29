@@ -19,7 +19,7 @@ features:
   - title: ⚡ 后端静默透传
     details: OpenClaw 侧后端传输不可达时所有 Agent 的工具调用（含写入与执行）由 OpenClaw 自身规则继续处理，Guard 防护暂停；后端恢复后自动启用。DSH 侧默认 fail-closed，可显式配置 fail-open。
   - title: 🧠 语义理解增强
-    details: DeepSeek LLM 驱动的语义分析引擎，理解自然语言约束而非简单关键词匹配。7 维度 50+ 标签，双模式运行（LLM / 本地规则）。
+    details: DeepSeek LLM 驱动的语义分析引擎，理解自然语言约束而非简单关键词匹配。7 维度 50+ 标签，支持本地分析、独立 LLM 和 DSH 当前模型路由。
   - title: 🧩 权限知识库 PMKB
     details: 版本化操作目录、Authorization Trace、最小权限闭包/差分和危险权限组合图，直接参与 before_tool_call 决策并输出可解释证据。
   - title: 📊 运行时验证 RV
@@ -42,12 +42,14 @@ features:
   </div>
   <div class="custom-card">
     <h3>📦 当前状态</h3>
-    <p>OpenClaw 与 DSH 共享 PMKB、运行时验证和审计能力。DSH 0.2.0-rc.6 提供 Windows x64 整包，支持 DSH 0.2.1-rc.3，插件安装后自动启动后端，无需另装 Python。</p>
+    <p>OpenClaw 与 DSH 共享 PMKB、运行时验证和审计能力。DSH 0.2.1-rc1 提供 Windows x64 整包，支持 DSH 0.2.1-rc.3，插件安装后自动启动后端，无需另装 Python。</p>
     <p><em>The DSH Windows x64 package includes its runtime and an embedded management UI.</em></p>
   </div>
 </div>
 
 ---
+
+当前发布：**v0.2.1-rc1**。[更新与验证记录](./dev/release-v0.2.1-rc1.md)。
 
 ## 文档导航
 

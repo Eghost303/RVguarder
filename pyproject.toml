@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "openclaw-guard"
-version = "0.7.0.dev0"
-description = "RVguarder: an OpenClaw agent plugin for pre-execution approval, PMKB authorization modeling, and runtime verification."
+version = "0.2.1rc1"
+description = "RVguarder: an OpenClaw and DSH agent plugin for pre-execution approval, PMKB authorization modeling, and runtime verification."
 requires-python = ">=3.13"
 authors = [
   { name = "Codex" }

@@ -1,5 +1,7 @@
 # DSH 原生部署阶段进度与团队交接（2026-10-26）
 
+> 历史阶段记录：版本、命令和结论保留为当时快照。当前版本 **v0.2.1-rc1**，安装请使用 [现行指南](../deployment/dsh.md)，验收以 [本轮发布记录](../dev/release-v0.2.1-rc1.md) 为准。
+
 ## 2026-10-28 后续进度
 
 已完成 f3990e8 独立审查并逐项填写任务书第13节，原交付5项通过、3项不通过、5项待整改；见 [审查报告](https://github.com/Eghost303/RVguarder/blob/master/dshRVguarder/docs/ui-review-2026-10-28.md)。rc.4 新增 Windows x64 整包/宿主后端托管，真实 rc.3 无手工后端的新安装流程与下载内容验证通过；见 [DEP-01 实现](https://github.com/Eghost303/RVguarder/blob/master/dshRVguarder/docs/deployment-implementation-2026-10-28.md)。以下为2026-10-26/27历史阶段记录，不能覆盖该独立结论。POL-01/02未修改规则。

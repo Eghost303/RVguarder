@@ -1,6 +1,6 @@
 # 发展路线图 · Roadmap
 
-当前版本：**v0.7.0-dev** — PMKB 权限模型、覆盖感知匹配、最小权限闭包/差分、风险组合图、主体能力跨 session RV 和 OpenClaw 单一审批契约已实现。PMKB `1.2.0` 的 79 条 native rules 立即参与运行时决策；47 条历史规则均有 native owner，迁移清单只用于 provenance/replay。
+当前版本：**v0.2.1-rc1** — PMKB 权限模型、覆盖感知匹配、最小权限闭包/差分、风险组合图、主体能力跨 session RV 和 OpenClaw 单一审批契约已实现。PMKB `1.2.0` 的 79 条 native rules 立即参与运行时决策；47 条历史规则均有 native owner，迁移清单只用于 provenance/replay。
 
 ---
 
@@ -31,28 +31,15 @@
 
 ### DSH 插件（当前主线）
 
-工程目录：[`dshRVguarder/`](https://github.com/Eghost303/RVguarder/blob/master/dshRVguarder/README.md)，当前源码为 **0.2.0-rc.4 本地开发候选（未发布）**，支持 DSH `0.2.1-rc.2` / `0.2.1-rc.3`，协议 `dsh-guard-v2`。Windows 原生 Python 与 Linux/WSL 路径均保留，用户已确认后端启动、新 profile 接入和基础拦截正常。已公开的历史 rc.1 仍见 [GitHub Releases](https://github.com/HorizonExploration/RVguarder/releases)；此前门槛见 [v2 修复记录](https://github.com/Eghost303/RVguarder/blob/master/dshRVguarder/docs/repair-2026-10-21.md)，当前交接与部署方式见 [阶段记录](../dev/dsh-progress-2026-10-26.md)。
+当前候选 **v0.2.1-rc1** 整合上游安全能力与 Windows x64 整包。安装和使用见 [DSH 插件下载安装](../deployment/dsh.md)，本次验证见 [发布记录](../dev/release-v0.2.1-rc1.md)。下表中的旧版本是历史里程碑，不代表当前发行版本。
 
-当前已接通基础能力、内嵌入口及 Windows x64 平台整包新安装，后续验收与待办如下：
-
-UX-01/02 已形成 [交给 DSH 实施的内嵌管理界面计划](../dev/dsh-ui-integration-plan-2026-10-26.md)，范围为原生插件清单、设置入口、页面/导航/认证整合；已实施且完成Codex独立复核，原交付存在未通过/待整改项，见 [独立审查](https://github.com/Eghost303/RVguarder/blob/master/dshRVguarder/docs/ui-review-2026-10-28.md)。rc.4增加Windows x64整包与自动托管，完整跨平台/生命周期验收仍待完成。
-
-- [x] DSH“插件”页中的真实bundle展示和管理入口（DSH-UX-01）；默认bundle加载问题已在rc.4修复。
-- [ ] Guard 工作台与 DSH 的界面、导航和认证整合（DSH-UX-02）。
-- [ ] 环境准备、配套包安装及 Python 后端生命周期的部署简化（DSH-DEP-01）；Windows x64新安装主路径已通过；跨平台/桌面生命周期/旧实例迁移仍待验收。
-- [ ] 复现本地规则模式频繁 ask，以及完全权限模式下被拦截的人工反馈（DSH-POL-01/02）；根因未定，不能标为已修复。
-- [ ] 完成候选验收后，再按需决定是否通过 pre-release 分发匹配产物；源码 PR 和本地部署不依赖 Release。
-
-> 2026-10-20 范围修订：RV、PMKB、基线扫描、Dashboard、LLM 增强与审计一并进入首个完整 DSH 版本。
-> 实施建议调整为 **TypeScript 宿主适配 + Python 共享核心 + Preact 工作台**；Phase 0 验证部署与接口后定稿。DSH 默认 fail-closed，可配置 fail-open；OpenClaw 继续 fail-open。
-> 完整工作包、验收矩阵与风险见 [DSH 全功能迁移计划](../architecture/dsh-plugin-migration-feasibility-2026-10-19.md)。
-
-- [ ] **Phase 0：宿主与部署实测** — 版本锁定、工具字段/身份、native/PTC/子 Agent、审批/取消/共存、事件顺序、Python 3.13+、本地传输/服务生命周期、Dashboard 与平台/性能基线
-- [ ] **Phase 1：共享核心与完整决策链** — HostAdapter、隔离 OpenClaw 初始化副作用、认证协议、DSH 工具映射、PMKB + RV + LLM/本地双模、DSH 原生审批、完成回写与审计
-- [ ] **Phase 2：状态、基线与工作台** — 跨会话证据、去重/并发/恢复、DSH 专用扫描、JSON/HTML/PDF、Dashboard 核心页面/API/SSE/模式配置
-- [ ] **Phase 3：全功能发布验收** — TS/Python/UI/规则配套发布、安装升级卸载、多平台与故障注入、回放/E2E、性能和 OpenClaw 回归
-
-各阶段是同一版本的依赖顺序，不是裁剪功能；上述能力全部验收后才视为完整迁移交付。纯 TS 全量重写不列为首期实施路线。
+- [x] 插件 bundle 展示、设置页内嵌管理、宿主 owner 认证、中英文及亮暗主题。
+- [x] Windows x64 托管运行环境、私有运行时缓存、按 profile 数据绑定与无 cwd 限制的直接启动。
+- [x] 宿主子代理语义分析与工具隔离、类型化工具映射、多资源角色、委派链及决策归因。
+- [x] 已观察执行效果建模、有界任务授权、任务内命令类别审批复用。
+- [ ] 在线模型真实任务、真实 PTC 沙箱、长期稳定性和完整多插件共存验收。
+- [ ] rc.2 内嵌 UI、Linux/arm64 平台整包验收。
+- [ ] 按用户场景继续衡量审批次数、误报与危险行为召回率；本轮不宣称所有日常误拦截已消除。
 
 ### P0（OpenClaw 维护项）
 

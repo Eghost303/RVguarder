@@ -1,5 +1,5 @@
 """RVguarder — OpenClaw agent plugin."""
 
-__version__ = "0.7.0-dev"
+__version__ = "0.2.1-rc1"
 PRODUCT_NAME = "RVguarder"
 PRODUCT_NAME_ZH = "RVguarder"

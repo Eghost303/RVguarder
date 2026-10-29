@@ -1,6 +1,10 @@
 # AGENTS.md — RVguarder
 
-> OpenClaw Agent 插件：执行前审批、PMKB 授权建模与运行时验证 | v0.7.0-dev（PMKB 1.2.0）
+> OpenClaw Agent 插件：执行前审批、PMKB 授权建模与运行时验证 | v0.2.1-rc1（PMKB 1.2.0）
+
+## 当前发布
+
+当前产品和 DSH 插件为 **v0.2.1-rc1**，Python 元数据为 `0.2.1rc1`；合并基线 `d61139b`。用户入口见 [下载安装](docs/deployment/dsh.md)，当前能力与限制见 [版本说明](dshRVguarder/docs/release-current.md)。下方带日期的 rc.3～rc.6 记录保留历史结论，不替代当前版本。
 
 ## 开发记忆
 
@@ -215,7 +219,7 @@ cd e2e && npm install && npm run install:browsers && npm test
 
 ## 当前状态
 
-- **版本**: v0.7.0-dev（PMKB 1.2.0 基线已接入）
+- **版本**: v0.2.1-rc1（PMKB 1.2.0 基线已接入）
 - **Python 版本要求**: 3.13+
 - **许可证**: Apache 2.0
 - **作者**: Codex

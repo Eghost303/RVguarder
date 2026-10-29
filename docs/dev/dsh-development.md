@@ -26,14 +26,15 @@ npm --prefix dshRVguarder ci --ignore-scripts --legacy-peer-deps
 node dshRVguarder/scripts/link-sdk.mjs '<DSH SDK 根目录>'
 npm --prefix dshRVguarder run check
 npm --prefix dshRVguarder test
-python -m pip install -e . pyinstaller
+python -m pip install -r dshRVguarder/requirements-standalone.txt
+python -m pip install --no-deps -e .
 python dshRVguarder/scripts/build-standalone.py --frontend-built --output dist/dsh-rvguarder-build
 ```
 
 `--output` 必须指定新目录。将生成的 Windows x64 tgz 安装到开发 profile：
 
 ```powershell
-dsh plugin --profile rvguarder-dev add .\dist\dsh-rvguarder-build\dsh-rvguarder-0.2.0-rc.6-win32-x64.tgz
+dsh plugin --profile rvguarder-dev add .\dist\dsh-rvguarder-build\dsh-rvguarder-0.2.1-rc1-win32-x64.tgz
 ```
 
 平台整包是用户安装和集成测试使用的产物。源码目录中的 `npm pack` 用于开发，不能替代整包构建。
@@ -51,3 +52,15 @@ node dshRVguarder/scripts/verify-dev-startup.mjs --output runtime/startup-proof
 ```
 
 输出目录必须是新目录。此脚本仅使用现有 `rvguarder-dev` profile，从用户目录、DSH_HOME、盘符根和仓库目录分别启动，读取宿主侧概览验证连接和实例身份，再正常卸载每个测试宿主。它不执行 Agent 工具、不修改会话工作目录，不读取启动链接或认证令牌。不要将其原始宿主日志作为公开附件；使用生成的 JSON 验收摘要。
+
+## 发布构建
+
+当前版本为 `0.2.1-rc1`。产品/npm 版本使用此格式，Python 元数据使用 `0.2.1rc1`，SDK 和 PMKB 独立版本不随产品变化。整包构建从干净提交执行，输出包含 tgz、根目录可直接安装的 distribution ZIP、安装说明、版本说明、来源信息、许可证及 SHA256SUMS。
+
+```powershell
+python dshRVguarder/scripts/verify-release.py dist/dsh-rvguarder-0.2.1-rc1
+```
+
+ZIP 与 tgz 的文件内容应完全一致。发布准备不运行源码目录的 `npm publish`，源码包保留 private 标记；对外使用冻结整包。本机测试原始日志可能包含宿主启动认证链接，不作为公开附件。
+
+桌面 SDK 提取器同时收集宿主已有的语义子代理 provider 与 preset registry；旧缓存缺少这些包时需要重新提取，不能仅凭核心 SDK 版本一致就认定 host-agent 测试环境完整。测试运行器限制系统临时目录时可为测试进程设置 `TEMP/TMP` 到仓库内的新临时目录，不放宽私有 ACL。

@@ -11,6 +11,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import zipfile
 
 
 def main() -> None:
@@ -54,8 +55,11 @@ def main() -> None:
              str(root / "dshRVguarder/scripts/backend-entry.py")])
         package = stage / "package"
         package.mkdir()
-        for directory in ("dist", "locale", "docs"):
+        for directory in ("dist", "locale"):
             shutil.copytree(root / "dshRVguarder" / directory, package / directory)
+        (package / "docs").mkdir()
+        for name in ("deployment.md", "release-current.md"):
+            shutil.copy2(root / "dshRVguarder/docs" / name, package / "docs" / name)
         for name in ("package.json", "README.md", "cordis.patch.yml"):
             shutil.copy2(root / "dshRVguarder" / name, package / name)
         metadata = json.loads((package / "package.json").read_text(encoding="utf-8"))
@@ -64,12 +68,15 @@ def main() -> None:
         metadata["os"] = [target]
         metadata["cpu"] = [arch]
         metadata["publishConfig"] = {"access": "public", "tag": "next"}
-        metadata["repository"] = {"type": "git", "url": "git+https://github.com/Eghost303/RVguarder.git", "directory": "dshRVguarder"}
-        metadata["homepage"] = "https://github.com/Eghost303/RVguarder#readme"
-        metadata["bugs"] = {"url": "https://github.com/Eghost303/RVguarder/issues"}
+        metadata["repository"] = {"type": "git", "url": "git+https://github.com/HorizonExploration/RVguarder.git", "directory": "dshRVguarder"}
+        metadata["homepage"] = "https://github.com/HorizonExploration/RVguarder#readme"
+        metadata["bugs"] = {"url": "https://github.com/HorizonExploration/RVguarder/issues"}
         metadata["files"].extend(["backend", "LICENSE"])
         (package / "package.json").write_text(json.dumps(metadata, indent=2) + "\n", encoding="utf-8")
         shutil.copy2(root / "LICENSE", package / "LICENSE")
+        shutil.copy2(root / "SECURITY.md", package / "SECURITY.md")
+        metadata["files"].append("SECURITY.md")
+        (package / "package.json").write_text(json.dumps(metadata, indent=2) + "\n", encoding="utf-8")
         patch = [{"insert": [
             {"id": "rvguarder-dsh", "name": "dsh-rvguarder", "config": {"backendMode": "managed", "failMode": "closed", "timeoutMs": 5000}},
             {"id": "rvguarder-admin", "name": "dsh-rvguarder/admin", "config": {"backendMode": "managed"}},
@@ -109,8 +116,19 @@ def main() -> None:
         output.mkdir(parents=True)
         destination = output / f"{metadata['name']}-{metadata['version']}-{target}-{arch}.tgz"
         shutil.copy2(tgz, destination)
-        (output / "SHA256SUMS").write_text(f"{hashlib.sha256(destination.read_bytes()).hexdigest()}  {destination.name}\n", encoding="utf-8")
         shutil.copy2(root / "dshRVguarder/docs/deployment.md", output / "INSTALL.md")
+        shutil.copy2(root / "dshRVguarder/docs/release-current.md", output / "RELEASE-NOTES.md")
+        shutil.copy2(root / "LICENSE", output / "LICENSE")
+        shutil.copy2(backend / "build-info.json", output / "BUILD-INFO.json")
+        # 解压后 package.json 直接位于根目录，可提交到独立 GitHub 发行仓库。
+        distribution = output / f"{metadata['name']}-{metadata['version']}-{target}-{arch}-distribution.zip"
+        with zipfile.ZipFile(distribution, "w", zipfile.ZIP_DEFLATED) as archive:
+            for file in sorted(package.rglob("*")):
+                if file.is_file():
+                    archive.write(file, file.relative_to(package).as_posix())
+        checksums = "".join(f"{hashlib.sha256(file.read_bytes()).hexdigest()}  {file.name}\n"
+                            for file in sorted(output.iterdir()) if file.is_file())
+        (output / "SHA256SUMS").write_text(checksums, encoding="utf-8")
     print(output)
 
 

@@ -2,19 +2,21 @@
 
 为 DeepSeek Harness 提供执行前审批、语义风险分析、运行时验证、基线扫描与审计。
 
-**0.2.0-rc.6 · Windows x64 · DSH 0.2.1-rc.3**
+**0.2.1-rc1 · Windows x64 · DSH 0.2.1-rc.3**
 
 ```powershell
-dsh plugin --profile desktop add dsh-rvguarder@0.2.0-rc.6
+dsh plugin --profile desktop add dsh-rvguarder@0.2.1-rc1
 ```
 
 重新启动 DSH，在 **插件 → 已安装** 中启用 RVguarder，然后打开 **设置 → RVguarder**。整包自带运行环境，无需安装 Python 或单独启动后端。
 
 - [下载安装与使用](docs/deployment.md)
-- [验证范围与已知问题](docs/rc6-startup-verification-2026-10-29.md)
-- [参与开发](https://github.com/Eghost303/RVguarder/blob/master/docs/dev/dsh-development.md)
+- [验证范围与已知问题](docs/release-current.md)
+- [参与开发](https://github.com/HorizonExploration/RVguarder/blob/master/docs/dev/dsh-development.md)
 
 本版本为预发布版本，建议先在独立 profile 中试用。界面支持中英文和亮暗主题，工具审批使用 DSH 原生入口。
+
+npm 对应版本须由维护者先发布。也可下载 [上游 Release](https://github.com/HorizonExploration/RVguarder/releases/tag/v0.2.1-rc1) 的完整 tgz；独立 GitHub 发行仓库安装方式见上方安装指南。
 
 受控外发默认禁用：配置双端精确HTTPS白名单后，还需每次调用的宿主单次授权。私有凭据的实际Agent隔离仍是正式发布门槛。
 

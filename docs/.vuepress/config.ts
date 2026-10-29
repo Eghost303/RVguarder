@@ -5,7 +5,7 @@ import { defineUserConfig } from "vuepress";
 export default defineUserConfig({
   lang: "zh-CN",
   title: "RVguarder",
-  description: "RVguarder 文档站：OpenClaw Agent 插件的快速开始、架构、部署、安全能力与运维说明。",
+  description: "RVguarder v0.2.1-rc1：OpenClaw / DSH 插件安装、架构、安全能力与运维说明。",
   base: "/",
   pagePatterns: ["**/*.md", "!superpowers/**", "!archive/**", "!research/**", "!dev/project-memory.md"],
   bundler: viteBundler(),

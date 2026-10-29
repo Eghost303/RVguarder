@@ -1,5 +1,7 @@
 # DSH 插件迁移调研与开发计划：安全现状、生态与可行性评估
 
+> 历史阶段记录：版本、命令和结论保留为当时快照。当前版本 **v0.2.1-rc1**，安装请使用 [现行指南](../deployment/dsh.md)，验收以 [本轮发布记录](../dev/release-v0.2.1-rc1.md) 为准。
+
 > 调研日期：2026-10-19 ｜ 状态：调研完成、开发决策已确认，Phase 0 实测未开始
 > 关联文档：[RVguarder 安全能力与防护边界总报告](../rvguarder-security-capabilities-and-boundaries.md)、[RV 权限自动机架构](./rv-permission-automata.md)、[RV vs 主流 Agent 安全工具对比](../comparison/rvguard-vs-agent-security-tools.md)
 > 目的：在正式开发 DSH 插件之前，确认「轨迹上用自动机监视规则违反」这套机制在 DeepSeek Harness（下称 DSH）上是否仍然成立、价值落点在哪里、有哪些硬约束。

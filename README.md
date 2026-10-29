@@ -10,14 +10,14 @@
 ![DSH](https://img.shields.io/badge/DSH-0.2.1--rc.2%20%2F%20rc.3-2563EB)
 ![PMKB](https://img.shields.io/badge/PMKB-1.2.0-2563EB)
 ![RV](https://img.shields.io/badge/RV-ChainRule%20DSL-7C3AED)
-![Status](https://img.shields.io/badge/Status-v0.7.0--dev-0F766E)
+![Status](https://img.shields.io/badge/Status-v0.2.1--rc1-0F766E)
 
 RVguarder 同时适配 OpenClaw 与 DSH 两个宿主：OpenClaw 侧通过官方 Plugin SDK 的
 `before_tool_call` 钩子接入，DSH 侧通过 `tools/pre-execute` 与 `ctx.tools.guard()` 接入，
 共享同一套 Python 决策内核。两种接入都不修改宿主源码，在 Agent 真正调用工具之前完成：
 
 - **权限判定** — 把工具调用归一化为 Authorization Trace，由 PMKB 给出可解释的授权结果
-- **执行前审批** — 高风险操作返回 `requireApproval`，Agent 挂起并交给 OpenClaw 原生审批卡片
+- **执行前审批** — 高风险操作交给当前宿主的原生审批，Agent 等待用户决定
 - **行为序列验证** — ChainRule DSL 监视器在滑动窗口内识别「读取敏感数据 → 打包 → 外发」等链式风险
 - **全链路审计** — SQLite + JSONL 双写，哈希链防篡改，支持导出
 
@@ -56,7 +56,7 @@ RVguarder 选择插件路径：
 | **最小权限校验** | PermissionClosure + PermissionDiff 计算请求权限与必要权限的差值 |
 | **运行时验证 RV** | 滑动窗口 + ChainRule DSL 监视器，检测跨步链式攻击 |
 | **跨 session 主体验证** | session-local 与 principal-global 状态分离，TTL 有界持久化 |
-| **语义理解增强** | SemanticEnhancer：7 维度标签体系，支持 LLM 与本地规则双模式 |
+| **语义理解增强** | SemanticEnhancer：7 维度标签体系，支持本地规则、独立 LLM 与 DSH 宿主子代理模式 |
 | **审计链** | SQLite + JSONL 双写，SHA-256 哈希链防篡改 |
 | **基线安全扫描** | 配置、端口、用户、依赖扫描，输出 JSON/HTML/PDF 报告 |
 | **Web 工作台** | Preact SPA：动作状态、Trace 时间线、风险证据、RV 状态面板 |
@@ -111,7 +111,7 @@ DSH 准备调用工具
 └─────────────────────────────────────────────────────────┘
 ```
 
-审批所有权只有一个：OpenClaw 原生审批卡片。Guard 只提供证据与只读状态，不创建第二个审批源。
+审批由当前宿主的原生窗口完成：OpenClaw 原生审批卡片或 DSH 原生审批。Guard 只提供证据与只读状态，不创建第二个审批源。
 
 ---
 
@@ -173,15 +173,23 @@ export DEEPSEEK_API_KEY=...
 
 ### DSH 插件
 
-**0.2.0-rc.6 · Windows x64 · DSH 0.2.1-rc.3**
+**0.2.1-rc1 · Windows x64 · DSH 0.2.1-rc.3**
 
 ```powershell
-dsh plugin --profile desktop add dsh-rvguarder@0.2.0-rc.6
+dsh plugin --profile desktop add dsh-rvguarder@0.2.1-rc1
 ```
 
 重新启动 DSH，在 **插件 → 已安装** 中启用 RVguarder，再打开 **设置 → RVguarder**。整包自带运行环境，**无需安装 Python 或单独启动后端**。
 
-[插件下载安装与使用说明](docs/deployment/dsh.md) 提供 npm 安装、GitHub Release 下载及日常操作。本版本为预发布版本，[验证范围与已知问题](dshRVguarder/docs/rc6-startup-verification-2026-10-29.md) 请在使用前阅读。
+[插件下载安装与使用说明](docs/deployment/dsh.md) 提供 npm 安装、GitHub Release 下载及日常操作。本版本为预发布版本，[验证范围与已知问题](dshRVguarder/docs/release-current.md) 请在使用前阅读。
+
+---
+
+## v0.2.1-rc1 更新
+
+本版本整合 DSH 托管运行环境与内嵌工作台，并加入宿主模型路由语义分析、有界任务授权和任务内命令类别审批复用。工具映射、资源角色、委派链与已观察执行效果均进入决策证据；执行结果未知时不写成成功历史。
+
+详见 [版本更新与支持范围](dshRVguarder/docs/release-current.md)。npm 和独立 GitHub 发行仓库安装需对应版本先发布；完整包也可从 [上游 Release](https://github.com/HorizonExploration/RVguarder/releases/tag/v0.2.1-rc1) 下载。
 
 ---
 
@@ -244,7 +252,7 @@ ChainRule DSL 监视器触发：
 
 ```
 clawRVguarder/        Python 后端与 CLI（FastAPI、PMKB、RV、审计、OpenClaw 集成）
-dshRVguarder/         DSH 0.2.1-rc.2 / rc.3 适配插件（0.2.0-rc.6：内嵌管理界面与托管运行环境）
+dshRVguarder/         DSH 0.2.1-rc.2 / rc.3 适配插件（0.2.1-rc1：内嵌管理界面与托管运行环境）
 frontend/              Preact 工作台（Vite 构建，产物输出 runtime/ui/）
 policies/permissions/  PMKB 单一源（schema、operations、rules、traces、relations、vectors）
 tests/                 后端测试与文档/发布契约
