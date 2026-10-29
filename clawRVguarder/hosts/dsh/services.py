@@ -107,8 +107,23 @@ class DshServices(DshObservability, GuardServices):
         mappings_path = paths.runtime_dir / "dsh-tool-mappings.json"
         if mappings_path.is_symlink():
             raise ValueError("tool_mappings_must_not_be_symlink")
-        mappings = json.loads(mappings_path.read_text()) if mappings_path.is_file() else None
-        adapter = DshAdapter(instance_id, sha256_text(self.bridge_token)[:32], workspace, token_path, mappings=mappings)
+        mapping_schema, mappings = 1, None
+        if mappings_path.is_file():
+            raw_mappings = mappings_path.read_text()
+            if len(raw_mappings) > 1_048_576:
+                raise ValueError("tool_mappings_too_large")
+            parsed_mappings = json.loads(raw_mappings)
+            if isinstance(parsed_mappings, dict) and "schema_version" in parsed_mappings:
+                # 带版本信封的文件不再按 v1 裸对象解释。
+                if parsed_mappings.get("schema_version") != 2:
+                    raise ValueError("unsupported_tool_mappings_schema")
+                if set(parsed_mappings) != {"schema_version", "tools"} or not isinstance(parsed_mappings.get("tools"), dict):
+                    raise ValueError("invalid_tool_mappings_envelope")
+                mappings, mapping_schema = parsed_mappings["tools"], 2
+            else:
+                mappings = parsed_mappings
+        adapter = DshAdapter(instance_id, sha256_text(self.bridge_token)[:32], workspace, token_path,
+                             mappings=mappings, mapping_schema=mapping_schema)
         target = OpenClawTarget(root=dsh_home, config_path=dsh_home / "profiles" / profile / "package.json",
                                 workspace_path=workspace, profile=profile)
         super().__init__(AppContext(paths, target, GuardSettings()), host_adapter=adapter)

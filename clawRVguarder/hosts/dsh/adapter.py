@@ -36,20 +36,72 @@ def local_path(value: str) -> str:
 class DshAdapter:
     """每个服务进程绑定一个可信 DSH 实例与工作区。"""
 
-    def __init__(self, instance_id: str, binding: str, workspace: Path, token_path: Path, mappings: dict | None = None) -> None:
+    ALLOWED_CANONICAL = frozenset({"read", "write", "edit", "exec", "web_fetch", "web_search"})
+    ALLOWED_CANONICAL_ARGS = frozenset({"path", "command", "url", "query", "content"})
+    # 这些名字会被 trace 注入或被宿主拥有，不能由映射声明为来源。
+    RESERVED_SOURCES = frozenset({"cwd", "workingDirectory", "working_directory",
+                                  "action_type", "command_safety", "argv"})
+
+    def __init__(self, instance_id: str, binding: str, workspace: Path, token_path: Path,
+                 mappings: dict | None = None, mapping_schema: int = 1) -> None:
         self.instance_id, self.binding = instance_id, binding
         self.workspace, self.token_path = workspace, token_path
         self.mappings = mappings or {}
+        self.mapping_schema = mapping_schema
         if not isinstance(self.mappings, dict):
             raise ValueError("tool_mappings_must_be_object")
+        if mapping_schema not in {1, 2}:
+            raise ValueError("unsupported_tool_mapping_schema")
         for tool, entry in self.mappings.items():
-            if not isinstance(tool, str) or not tool or len(tool) > 256 or tool in TOOL_ALIASES or not isinstance(entry, dict):
-                raise ValueError("invalid_or_overridden_tool_mapping")
-            if set(entry) != {"canonical", "arguments"} or entry["canonical"] not in {"read", "write", "edit", "exec", "web_fetch", "web_search"}:
-                raise ValueError("unsupported_tool_mapping")
-            if not isinstance(entry["arguments"], dict) or any(k not in {"path", "command", "url", "query", "content"} or not isinstance(v, str) or not v for k, v in entry["arguments"].items()):
-                raise ValueError("invalid_tool_argument_mapping")
+            self._validate_mapping_entry(tool, entry)
         self.tool_aliases = {**TOOL_ALIASES, **{name: entry["canonical"] for name, entry in self.mappings.items()}}
+
+    def _validate_mapping_entry(self, tool: Any, entry: Any) -> None:
+        """v1/v2 映射条目校验；失败即启动拒绝，不做静默降级。"""
+        if (not isinstance(tool, str) or not tool or len(tool) > 256
+                or tool in TOOL_ALIASES or tool.startswith("rvguard_")
+                or not isinstance(entry, dict)):
+            raise ValueError("invalid_or_overridden_tool_mapping")
+        canonical = entry.get("canonical")
+        if not isinstance(canonical, str) or canonical not in self.ALLOWED_CANONICAL:
+            raise ValueError("unsupported_tool_mapping")
+        if self.mapping_schema == 1:
+            if set(entry) != {"canonical", "arguments"}:
+                raise ValueError("unsupported_tool_mapping")
+            self._validate_arguments(entry.get("arguments"), v2=False)
+            return
+        if not {"canonical", "arguments"} <= set(entry) <= {"canonical", "arguments", "server_id", "schema_sha256"}:
+            raise ValueError("unsupported_tool_mapping")
+        for key in ("server_id", "schema_sha256"):
+            value = entry.get(key)
+            if value is not None and (not isinstance(value, str) or not value or len(value) > 256):
+                raise ValueError("invalid_tool_mapping_identity")
+        self._validate_arguments(entry.get("arguments"), v2=True)
+
+    def _validate_arguments(self, arguments: Any, *, v2: bool) -> None:
+        if not isinstance(arguments, dict):
+            raise ValueError("invalid_tool_argument_mapping")
+        seen: set[str] = set()
+        for canonical, spec in arguments.items():
+            if canonical not in self.ALLOWED_CANONICAL_ARGS:
+                raise ValueError("invalid_tool_argument_mapping")
+            if v2:
+                if (not isinstance(spec, dict) or set(spec) - {"source", "role", "required", "type"}):
+                    raise ValueError("invalid_tool_argument_mapping")
+                source = spec.get("source")
+                role = spec.get("role", "target")
+                if role not in {"target", "destination", "source", "context", "unknown"}:
+                    raise ValueError("invalid_tool_argument_role")
+                if not isinstance(spec.get("required", False), bool):
+                    raise ValueError("invalid_tool_argument_mapping")
+                if spec.get("type", "string") not in {"string", "string_list"}:
+                    raise ValueError("invalid_tool_argument_type")
+            else:
+                source = spec
+            if (not isinstance(source, str) or not source.strip() or len(source) > 256
+                    or source in self.RESERVED_SOURCES or source in seen):
+                raise ValueError("invalid_tool_argument_mapping")
+            seen.add(source)
 
     def runtime_hook(self, context: AppContext) -> dict[str, Any]:
         """返回桥接状态，不生成 OpenClaw 插件或修改宿主配置。"""
@@ -61,20 +113,41 @@ class DshAdapter:
         from .baseline import DshBaselineScanner
         return BaselineService(context, latest_path, scanner_factory=lambda ctx: DshBaselineScanner(ctx, probe_provider=getattr(self, "probe_provider", None)))
 
+    def _apply_mapping(self, name: str, args: dict[str, Any]) -> tuple[dict[str, Any], list[str], list[str]]:
+        """按映射投影参数；返回 (params, 缺失的声明来源, 未建模的入参)。"""
+        entry = self.mappings[name]["arguments"]
+        if self.mapping_schema == 1:
+            pairs = [(canonical, source) for canonical, source in entry.items()]
+        else:
+            pairs = [(canonical, spec["source"]) for canonical, spec in entry.items()]
+        params: dict[str, Any] = {}
+        missing: list[str] = []
+        declared: set[str] = set()
+        for canonical, source in pairs:
+            declared.add(source)
+            if source in args:
+                params[canonical] = args[source]
+            else:
+                missing.append(canonical)
+        # 未声明的入参不能静默消失：它们会作为覆盖缺口进入 trace。
+        unmodeled = sorted(key for key in args if key not in declared)
+        return params, missing, unmodeled
+
     def payload(self, request: dict[str, Any]) -> dict[str, Any]:
         """认证后构造内部 Hook 合约；身份、绑定及实例字段均由服务端赋值。"""
         args = dict(request["arguments"])
         name = request["tool_name"]
+        unmodeled: list[str] = []
+        missing_sources: list[str] = []
         if name in self.mappings:
             # 仅宿主私有配置可以声明具体 MCP/自定义工具的有限能力。
-            mapping = self.mappings[name]
-            args = {canonical: args[source] for canonical, source in mapping["arguments"].items() if source in args}
+            args, missing_sources, unmodeled = self._apply_mapping(name, args)
             if isinstance(args.get("path"), str):
                 args["path"] = local_path(args["path"])
-        if name in {"read", "write", "edit", "read_image"} and isinstance(args.get("file_path"), str):
+        elif name in {"read", "write", "edit", "read_image"} and isinstance(args.get("file_path"), str):
             args["path"] = local_path(args["file_path"])
             del args["file_path"]
-        if name.startswith("rvguard_"):
+        elif name.startswith("rvguard_"):
             if name in {"rvguard_copy", "rvguard_transform"}:
                 args["path"] = local_path(str(args.get("destination") or ""))
             else:
@@ -88,6 +161,7 @@ class DshAdapter:
                 "runId": namespace, "toolCallId": request["call_id"],
                 "agentId": request["agent_id"], "sessionId": namespace, "sessionKey": namespace,
                 "_hook_auth_verified": True, "_hook_auth_binding": self.binding,
+                "mcpUnmodeled": unmodeled, "mcpMissingSources": missing_sources,
                 "_dsh": {"instance_id": self.instance_id, "session_id": request["session_id"],
                          "agent_id": request["agent_id"], "tool_name": name,
                          "root_call_id": request["root_call_id"], "cwd": request["cwd"],
@@ -102,10 +176,19 @@ class DshAdapter:
                                "host_workspace": str(self.workspace), "dsh": payload["_dsh"]})
         event.metadata["tool_origin"] = "dsh_native" if payload["_dsh"]["tool_name"] in TOOL_ALIASES else "host_mapped" if payload["_dsh"]["tool_name"] in self.mappings else "unknown"
         raw_tool = payload["_dsh"]["tool_name"]
+        unmodeled = payload.get("mcpUnmodeled") or []
+        missing_sources = payload.get("mcpMissingSources") or []
+        if unmodeled:
+            event.metadata["mcp_unmodeled_arguments"] = list(unmodeled)
+        if missing_sources:
+            event.metadata["mcp_missing_sources"] = list(missing_sources)
         if raw_tool in {"pwsh", "powershell"}:
             event.metadata["shell_dialect"] = "pwsh"
         elif raw_tool in {"bash", "exec", "shell"}:
             event.metadata["shell_dialect"] = "bash"
+        elif self.tool_aliases.get(raw_tool) == "exec":
+            # 映射到 exec 的 MCP 执行器方言未知，不能当作已完整建模的 shell。
+            event.metadata["shell_dialect"] = "mapped_unknown"
         event.metadata["trusted_identity"] = {
             "principal_id": f"dsh:{self.binding}", "principal_type": "agent",
             # DSH agent.id 是 session ID；同一个受控 profile 的主体能力跨会话聚合。

@@ -246,6 +246,10 @@ def _apply_unobserved_surface_gaps(coverage: CoverageResult, family: str, event:
     dialect = str(event.metadata.get("shell_dialect") or "")
     if dialect and dialect != "bash":
         extra.append("shell.dialect_unmodeled")
+    if event.metadata.get("mcp_unmodeled_arguments"):
+        extra.append("mcp.argument_unmodeled")
+    if event.metadata.get("mcp_missing_sources"):
+        extra.append("mcp.required_argument_missing")
     if not extra:
         return coverage
     missing = list(dict.fromkeys([*coverage.missing_features, *extra]))
