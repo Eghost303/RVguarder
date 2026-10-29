@@ -2,37 +2,37 @@
 
 RVguarder 提供工具执行前审批、风险分析、运行时验证、基线扫描与审计。管理入口为 **设置 → RVguarder**，审批使用 DSH 原生窗口。
 
-当前版本 **v0.2.1-rc1**，适用于 **Windows x64 / DSH 0.2.1-rc.3**。整包自带运行环境，**无需安装 Python，也无需单独启动后端**。这是预发布版本，建议先在独立 profile 中试用。
+当前版本 **v0.2.1-rc.1**，适用于 **Windows x64 / DSH 0.2.1-rc.3**。整包自带运行环境，**无需安装 Python，也无需单独启动后端**。这是预发布版本，建议先在独立 profile 中试用。
 
 ## 从 npm 安装
 
 退出目标 DSH 窗口，运行：
 
 ```powershell
-dsh plugin --profile desktop add dsh-rvguarder@0.2.1-rc1
+dsh plugin --profile desktop add dsh-rvguarder@0.2.1-rc.1
 ```
 
-也可在 DSH 内置插件下载器选择 **from npm**，填写 `dsh-rvguarder@0.2.1-rc1`。npm 对应版本须由维护者先发布。
+也可在 DSH 内置插件下载器选择 **from npm**，填写 `dsh-rvguarder@0.2.1-rc.1`。npm 对应版本须由维护者先发布。
 
 ## 从 GitHub Release 下载
 
-1. 打开上游 [v0.2.1-rc1 Release](https://github.com/HorizonExploration/RVguarder/releases/tag/v0.2.1-rc1)。
-2. 下载 `dsh-rvguarder-0.2.1-rc1-win32-x64.tgz` 与 `SHA256SUMS`。
+1. 打开上游 [v0.2.1-rc.1 Release](https://github.com/HorizonExploration/RVguarder/releases/tag/v0.2.1-rc.1)。
+2. 下载 `dsh-rvguarder-0.2.1-rc.1-win32-x64.tgz` 与 `SHA256SUMS`。
 3. 在下载目录核对哈希并安装：
 
 ```powershell
-Get-FileHash .\dsh-rvguarder-0.2.1-rc1-win32-x64.tgz -Algorithm SHA256
-dsh plugin --profile desktop add .\dsh-rvguarder-0.2.1-rc1-win32-x64.tgz
+Get-FileHash .\dsh-rvguarder-0.2.1-rc.1-win32-x64.tgz -Algorithm SHA256
+dsh plugin --profile desktop add .\dsh-rvguarder-0.2.1-rc.1-win32-x64.tgz
 ```
 
 哈希应与 `SHA256SUMS` 一致。选择 Release 附件中的完整 `.tgz`，不要选择 GitHub 自动生成的源码压缩包。
 
 ## 从 GitHub 发行仓库安装
 
-维护者将本版本完整包发布到独立发行仓库并创建 `v0.2.1-rc1` 标签后，可使用以下形式（将 `OWNER/DISTRIBUTION_REPO` 替换为实际发行仓库）：
+维护者将本版本完整包发布到独立发行仓库并创建 `v0.2.1-rc.1` 标签后，可使用以下形式（将 `OWNER/DISTRIBUTION_REPO` 替换为实际发行仓库）：
 
 ```powershell
-dsh plugin --profile desktop add github:OWNER/DISTRIBUTION_REPO#v0.2.1-rc1
+dsh plugin --profile desktop add github:OWNER/DISTRIBUTION_REPO#v0.2.1-rc.1
 ```
 
 DSH 下载器选择 **from GitHub**，填入相同的仓库和标签。发行仓库根目录必须包含插件 `package.json`、`dist/`、`backend/` 与 bundle 清单。`HorizonExploration/RVguarder` 是源码仓库，直接安装其 GitHub 地址不等于安装完整运行环境。
@@ -55,7 +55,7 @@ DSH 下载器选择 **from GitHub**，填入相同的仓库和标签。发行仓
 命令中的 `desktop` 是桌面默认 profile，其他 profile 替换名称即可。项目开发统一使用 `rvguarder-dev`：
 
 ```powershell
-dsh plugin --profile rvguarder-dev add dsh-rvguarder@0.2.1-rc1
+dsh plugin --profile rvguarder-dev add dsh-rvguarder@0.2.1-rc.1
 dsh rvguarder-dev
 ```
 

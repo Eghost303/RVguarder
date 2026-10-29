@@ -1,6 +1,6 @@
 # 支持 Windows 原生 Python 与 DSH rc.3，记录开发部署阶段交付
 
-> 历史阶段记录：版本、命令和结论保留为当时快照。当前版本 **v0.2.1-rc1**，安装请使用 [现行指南](../deployment/dsh.md)，验收以 [本轮发布记录](../dev/release-v0.2.1-rc1.md) 为准。
+> 历史阶段记录：版本、命令和结论保留为当时快照。当前版本 **v0.2.1-rc.1**，安装请使用 [现行指南](../deployment/dsh.md)，验收以 [本轮发布记录](../dev/release-v0.2.1-rc.1.md) 为准。
 
 现有 DSH 桥接在 Windows 上仍依赖 POSIX 私有文件接口，且将 SDK 版本固定为 rc.2。本改动补齐 Windows 原生 ACL/文件句柄实现，在保留 Linux/WSL 路径的同时，支持使用已安装的 DSH rc.3 桌面运行时加载插件。
 

@@ -42,14 +42,14 @@ features:
   </div>
   <div class="custom-card">
     <h3>📦 当前状态</h3>
-    <p>OpenClaw 与 DSH 共享 PMKB、运行时验证和审计能力。DSH 0.2.1-rc1 提供 Windows x64 整包，支持 DSH 0.2.1-rc.3，插件安装后自动启动后端，无需另装 Python。</p>
+    <p>OpenClaw 与 DSH 共享 PMKB、运行时验证和审计能力。DSH 0.2.1-rc.1 提供 Windows x64 整包，支持 DSH 0.2.1-rc.3，插件安装后自动启动后端，无需另装 Python。</p>
     <p><em>The DSH Windows x64 package includes its runtime and an embedded management UI.</em></p>
   </div>
 </div>
 
 ---
 
-当前发布：**v0.2.1-rc1**。[更新与验证记录](./dev/release-v0.2.1-rc1.md)。
+当前发布：**v0.2.1-rc.1**。[更新与验证记录](./dev/release-v0.2.1-rc.1.md)。
 
 ## 文档导航
 

@@ -1,10 +1,15 @@
 # RVguarder 开发记忆
 
-## v0.2.1-rc1 发布准备（2026-10-29）
+## RC 写法统一（2026-10-30）
 
-基于 d61139b 合并树统一产品/npm 版本 0.2.1-rc1、Python 元数据 0.2.1rc1；SDK rc.2/rc.3 与 PMKB 1.2.0 不跟随产品改号。当前指南指向上游 HorizonExploration/RVguarder，提供整包 tgz 与根目录可直接安装的独立发行仓库 ZIP。历史审查保留原版本；旧 rc.6 包不是合并树产物。上游合并已修复旧两项 Python 链断言，最新测试结论以 [发布记录](release-v0.2.1-rc1.md) 为准。用户自行推送和执行所有发布操作。
+文档、版本引用和发行文件名统一为 rc.1；npm 与产品版本同步为 0.2.1-rc.1，Python 构建工具内部的规范化元数据不作手工破坏。当前新包及 SHA256SUMS 位于 dist/dsh-rvguarder-0.2.1-rc.1；下方旧哈希和来源保留为历史记录。本轮没有改 Git 索引或提交，没有改用户 profile。
 
-最终 Windows 整包来源 06e4974（干净树），tgz SHA256 5d7b902290aa6a9e17068256534cf116bedddffafdaf5ac9609efe40c86c64fa，位于 dist/dsh-rvguarder-0.2.1-rc1；另含逐文件相同的发行仓库 ZIP、Python wheel、来源与摘要。全量 Python929通过/19跳过，最终 Node67通过/1真实PTC跳过，冻结维护16通过，浏览器26通过，文档39页和npm dry-run通过。首轮 TEMP 访问限制、npm缓存EPERM与缺SDK provider导致的失败记录保留；完善桌面SDK提取可选依赖闭包后才计通过。用户现有profile未改动；本轮无新桌面截图/在线模型验收。
+
+## v0.2.1-rc.1 发布准备（2026-10-29）
+
+基于 d61139b 合并树统一产品/npm 版本 0.2.1-rc.1、Python 元数据 0.2.1rc.1；SDK rc.2/rc.3 与 PMKB 1.2.0 不跟随产品改号。当前指南指向上游 HorizonExploration/RVguarder，提供整包 tgz 与根目录可直接安装的独立发行仓库 ZIP。历史审查保留原版本；旧 rc.6 包不是合并树产物。上游合并已修复旧两项 Python 链断言，最新测试结论以 [发布记录](release-v0.2.1-rc.1.md) 为准。用户自行推送和执行所有发布操作。
+
+最终 Windows 整包来源 06e4974（干净树），tgz SHA256 5d7b902290aa6a9e17068256534cf116bedddffafdaf5ac9609efe40c86c64fa，位于 dist/dsh-rvguarder-0.2.1-rc.1；另含逐文件相同的发行仓库 ZIP、Python wheel、来源与摘要。全量 Python929通过/19跳过，最终 Node67通过/1真实PTC跳过，冻结维护16通过，浏览器26通过，文档39页和npm dry-run通过。首轮 TEMP 访问限制、npm缓存EPERM与缺SDK provider导致的失败记录保留；完善桌面SDK提取可选依赖闭包后才计通过。用户现有profile未改动；本轮无新桌面截图/在线模型验收。
 
 ## rc.6 启动目录修复（2026-10-29）
 

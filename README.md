@@ -10,7 +10,7 @@
 ![DSH](https://img.shields.io/badge/DSH-0.2.1--rc.2%20%2F%20rc.3-2563EB)
 ![PMKB](https://img.shields.io/badge/PMKB-1.2.0-2563EB)
 ![RV](https://img.shields.io/badge/RV-ChainRule%20DSL-7C3AED)
-![Status](https://img.shields.io/badge/Status-v0.2.1--rc1-0F766E)
+![Status](https://img.shields.io/badge/Status-v0.2.1--rc.1-0F766E)
 
 RVguarder 同时适配 OpenClaw 与 DSH 两个宿主：OpenClaw 侧通过官方 Plugin SDK 的
 `before_tool_call` 钩子接入，DSH 侧通过 `tools/pre-execute` 与 `ctx.tools.guard()` 接入，
@@ -173,10 +173,10 @@ export DEEPSEEK_API_KEY=...
 
 ### DSH 插件
 
-**0.2.1-rc1 · Windows x64 · DSH 0.2.1-rc.3**
+**0.2.1-rc.1 · Windows x64 · DSH 0.2.1-rc.3**
 
 ```powershell
-dsh plugin --profile desktop add dsh-rvguarder@0.2.1-rc1
+dsh plugin --profile desktop add dsh-rvguarder@0.2.1-rc.1
 ```
 
 重新启动 DSH，在 **插件 → 已安装** 中启用 RVguarder，再打开 **设置 → RVguarder**。整包自带运行环境，**无需安装 Python 或单独启动后端**。
@@ -185,11 +185,11 @@ dsh plugin --profile desktop add dsh-rvguarder@0.2.1-rc1
 
 ---
 
-## v0.2.1-rc1 更新
+## v0.2.1-rc.1 更新
 
 本版本整合 DSH 托管运行环境与内嵌工作台，并加入宿主模型路由语义分析、有界任务授权和任务内命令类别审批复用。工具映射、资源角色、委派链与已观察执行效果均进入决策证据；执行结果未知时不写成成功历史。
 
-详见 [版本更新与支持范围](dshRVguarder/docs/release-current.md)。npm 和独立 GitHub 发行仓库安装需对应版本先发布；完整包也可从 [上游 Release](https://github.com/HorizonExploration/RVguarder/releases/tag/v0.2.1-rc1) 下载。
+详见 [版本更新与支持范围](dshRVguarder/docs/release-current.md)。npm 和独立 GitHub 发行仓库安装需对应版本先发布；完整包也可从 [上游 Release](https://github.com/HorizonExploration/RVguarder/releases/tag/v0.2.1-rc.1) 下载。
 
 ---
 
@@ -252,7 +252,7 @@ ChainRule DSL 监视器触发：
 
 ```
 clawRVguarder/        Python 后端与 CLI（FastAPI、PMKB、RV、审计、OpenClaw 集成）
-dshRVguarder/         DSH 0.2.1-rc.2 / rc.3 适配插件（0.2.1-rc1：内嵌管理界面与托管运行环境）
+dshRVguarder/         DSH 0.2.1-rc.2 / rc.3 适配插件（0.2.1-rc.1：内嵌管理界面与托管运行环境）
 frontend/              Preact 工作台（Vite 构建，产物输出 runtime/ui/）
 policies/permissions/  PMKB 单一源（schema、operations、rules、traces、relations、vectors）
 tests/                 后端测试与文档/发布契约

@@ -1,12 +1,15 @@
-# v0.2.1-rc1 发布验证
+# v0.2.1-rc.1 发布验证
 
-日期：2026-10-29。合并基线 `d61139b`，保留上游任务授权、宿主子代理隔离、效果模型及本地 UI/托管生命周期能力。本轮统一产品/npm 为 `0.2.1-rc1`，Python 为 `0.2.1rc1`；PMKB `1.2.0`、DSH SDK `0.2.1-rc.2 / rc.3` 独立版本不变。
+> 2026-10-30 写法统一：当前对外版本为 **v0.2.1-rc.1**。本次从未提交的本地工作树重新构建，真实来源及 dirty 状态见 BUILD-INFO.json；未创建提交或修改 Git 索引。版本一致性测试4/4、TypeScript和39页文档构建通过，未重跑之前的全量验收。下方旧构建和测试结果保留为历史记录；当前附件摘要以 SHA256SUMS 为准。
+
+
+日期：2026-10-29。合并基线 `d61139b`，保留上游任务授权、宿主子代理隔离、效果模型及本地 UI/托管生命周期能力。本轮统一产品/npm 为 `0.2.1-rc.1`，Python 为 `0.2.1rc.1`；PMKB `1.2.0`、DSH SDK `0.2.1-rc.2 / rc.3` 独立版本不变。
 
 ## 发布内容
 
-- `dsh-rvguarder-0.2.1-rc1-win32-x64.tgz`：用户安装及 npm 发布使用的完整插件。
-- `dsh-rvguarder-0.2.1-rc1-win32-x64-distribution.zip`：与 tgz 逐文件一致，解压后根目录可用于独立 GitHub 发行仓库。
-- `openclaw_guard-0.2.1rc1-py3-none-any.whl`：OpenClaw/Python 用户入口，需 Python 3.13+。
+- `dsh-rvguarder-0.2.1-rc.1-win32-x64.tgz`：用户安装及 npm 发布使用的完整插件。
+- `dsh-rvguarder-0.2.1-rc.1-win32-x64-distribution.zip`：与 tgz 逐文件一致，解压后根目录可用于独立 GitHub 发行仓库。
+- `openclaw_guard-0.2.1rc.1-py3-none-any.whl`：OpenClaw/Python 用户入口，需 Python 3.13+。
 - 安装说明、版本说明、许可证、构建来源、验证结果及 SHA-256 清单。
 
 当前安装指南统一指向上游 `HorizonExploration/RVguarder`。npm 名称仍为 `dsh-rvguarder`，独立 GitHub 发行仓库地址待维护者创建后确认。二进制包不携带源码开发脚本或历史迁移指引，源码包继续 private；本轮不执行远程发布。
@@ -24,7 +27,7 @@
 | 内嵌 UI 组件 | 16/16，通过 host-agent Remote、语言/主题、焦点、实例隔离和故障重连。 |
 | DSH 独立工作台 / OpenClaw 浏览器 | 4/4、6/6；系统 Chrome。 |
 | VuePress | 39 页构建通过，无新增坏链接；仅 browserslist 数据提醒。 |
-| Python wheel | Python -I 隔离导入通过，版本 0.2.1-rc1，PMKB 1.2.0 / 79 规则，包含工作台静态资源。 |
+| Python wheel | Python -I 隔离导入通过，版本 0.2.1-rc.1，PMKB 1.2.0 / 79 规则，包含工作台静态资源。 |
 | tgz / 发行仓库 ZIP | 327 个文件逐字节一致，288 个运行时文件摘要通过；无凭据/运行数据库/完成队列。 |
 | npm publish dry-run | 最终 tgz 通过；未登录发布、未上传。公共 registry 查询包名返回 E404，不能称 npm 已可下载安装。 |
 
@@ -38,9 +41,9 @@ Python 跳过项涉及可选 SQLAlchemy、未配置冻结程序输入及需真�
 
 ## 发布文件校验
 
-最终 tgz SHA-256：`5d7b902290aa6a9e17068256534cf116bedddffafdaf5ac9609efe40c86c64fa`。
+最终 tgz SHA-256：`37d9f9b07a427a346726752391bec2e9fc72a5a19b0996ff1a4ec79c6381841e`。
 
-Python wheel SHA-256：`d65c9c7da724c5ead30da85b8a49e7e41739a07db1fc0ecd5150f94a645c91a2`。完整附件摘要见交付目录 SHA256SUMS；附件未纳入源码 Git。验收记录的后续提交只补证据，不改变整包源代码。
+Python wheel SHA-256：`b1e3b58318519d30a27c0d1619bd79c3bda178e64943015886c8b4f458d1a738`。完整附件摘要见交付目录 SHA256SUMS；附件未纳入源码 Git。验收记录的后续提交只补证据，不改变整包源代码。
 
 ## 范围
 
