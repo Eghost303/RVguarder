@@ -4,6 +4,8 @@
 
 基于 d61139b 合并树统一产品/npm 版本 0.2.1-rc1、Python 元数据 0.2.1rc1；SDK rc.2/rc.3 与 PMKB 1.2.0 不跟随产品改号。当前指南指向上游 HorizonExploration/RVguarder，提供整包 tgz 与根目录可直接安装的独立发行仓库 ZIP。历史审查保留原版本；旧 rc.6 包不是合并树产物。上游合并已修复旧两项 Python 链断言，最新测试结论以 [发布记录](release-v0.2.1-rc1.md) 为准。用户自行推送和执行所有发布操作。
 
+最终 Windows 整包来源 06e4974（干净树），tgz SHA256 5d7b902290aa6a9e17068256534cf116bedddffafdaf5ac9609efe40c86c64fa，位于 dist/dsh-rvguarder-0.2.1-rc1；另含逐文件相同的发行仓库 ZIP、Python wheel、来源与摘要。全量 Python929通过/19跳过，最终 Node67通过/1真实PTC跳过，冻结维护16通过，浏览器26通过，文档39页和npm dry-run通过。首轮 TEMP 访问限制、npm缓存EPERM与缺SDK provider导致的失败记录保留；完善桌面SDK提取可选依赖闭包后才计通过。用户现有profile未改动；本轮无新桌面截图/在线模型验收。
+
 ## rc.6 启动目录修复（2026-10-29）
 
 用户从主目录直接运行 `dsh rvguarder-dev` 复现 rc.5 失败：此前脚本切换目录掩盖了托管后台把启动 cwd 当作固定资源根的问题，换 cwd 还会触发实例绑定差异。rc.6 自动托管以 `<DSH_HOME>/workspaces/<profile>` 为固定受控资源根，不修改宿主/会话 cwd；普通工具的认证 cwd 另行传入事件，资源根仍不得与私有数据/状态/运行时重叠。`resourceWorkspace` 是可选的宿主配置，不能由工具参数设置。外部绑定沿用既有显式配置约束。配置错误改为固定分类并显示，不隐藏为网络故障。
