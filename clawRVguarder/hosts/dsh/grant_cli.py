@@ -27,9 +27,38 @@ def main(argv: list[str] | None = None) -> int:
     for key in ("agent", "session", "task", "run", "call", "path", "recipient"):
         issue.add_argument("--" + key, required=True)
     issue.add_argument("--ttl", type=int, default=300)
+    task_issue = commands.add_parser("task-issue")
+    for key in ("agent", "session", "task"):
+        task_issue.add_argument("--" + key, required=True)
+    task_issue.add_argument("--principal", default="")
+    task_issue.add_argument("--operations", default="file.read,file.write")
+    task_issue.add_argument("--ttl", type=int, default=1800)
+    task_revoke = commands.add_parser("task-revoke")
+    task_revoke.add_argument("--grant-id", required=True)
+    commands.add_parser("task-query")
     args = parser.parse_args(argv)
     runtime = args.project_dir.resolve() / "runtime"
     workspace = args.workspace.resolve()
+    if args.command.startswith("task-"):
+        from clawRVguarder.spec.task_authorization import TaskAuthorizationStore
+
+        task_store = TaskAuthorizationStore(runtime / "authorization")
+        if args.command == "task-query":
+            result = {"grants": task_store.query()}
+        elif args.command == "task-revoke":
+            result = {"revoked": task_store.revoke(args.grant_id)}
+        else:
+            token_path = runtime / "dsh-token"
+            principal = args.principal or ("dsh:" + sha256_text(
+                token_path.read_text(encoding="utf-8").strip())[:32])
+            result = task_store.issue(
+                task_id=args.task, principal_id=principal, agent_id=args.agent,
+                session_id=args.session, workspace_root=workspace,
+                operations=[item.strip() for item in args.operations.split(",") if item.strip()],
+                ttl_seconds=args.ttl,
+            )
+        print(json.dumps(result, ensure_ascii=False))
+        return 0
     with sqlite3.connect(f"file:{runtime / 'dsh-calls.sqlite3'}?mode=ro", uri=True) as db:
         row = db.execute("SELECT value FROM metadata WHERE key='binding'").fetchone()
         state = json.loads(row[0]) if row else {}

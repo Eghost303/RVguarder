@@ -33,6 +33,9 @@ RV_ESCALATION = "rv_escalation"
 HOST_APPROVAL = "host_approval"
 """由宿主原生审批机制发起的审批（非 Guard 规则触发）。"""
 
+TASK_GRANT = "task_grant"
+"""落在宿主签发的有界任务授权范围内，自动放行并审计。"""
+
 BACKEND_FAILURE = "backend_failure"
 """决策服务不可达或返回不可解析结果。"""
 
@@ -53,7 +56,7 @@ UNATTRIBUTED = "unattributed"
 ALL_REASON_CODES = frozenset({
     POLICY_REQUIRES_APPROVAL, UNKNOWN_TOOL, MISSING_EVIDENCE, SCOPE_UNKNOWN,
     PERMISSION_EXCESS, GRANT_INVALID, RV_ESCALATION, HOST_APPROVAL,
-    BACKEND_FAILURE, HARD_BLOCK, COMBO_RISK,
+    BACKEND_FAILURE, HARD_BLOCK, COMBO_RISK, TASK_GRANT,
 })
 
 # 越靠前越具体、越可操作；多个条件同时成立时取最先出现的码。
@@ -70,6 +73,7 @@ PRECEDENCE: tuple[str, ...] = (
     MISSING_EVIDENCE,
     RV_ESCALATION,
     HOST_APPROVAL,
+    TASK_GRANT,
     POLICY_REQUIRES_APPROVAL,
 )
 

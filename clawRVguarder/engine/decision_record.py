@@ -122,6 +122,9 @@ def build_decision_record(event: Any, decision: Any, *, action: Any = None) -> d
         else:
             codes = [reasons.UNATTRIBUTED]
             dominant = reasons.UNATTRIBUTED
+    elif codes:
+        # 允许但有明确依据（例如有界任务授权）时同样记录支配原因。
+        dominant = codes[0]
 
     host_kind = str(metadata.get("host") or "openclaw")
     record: dict[str, Any] = {

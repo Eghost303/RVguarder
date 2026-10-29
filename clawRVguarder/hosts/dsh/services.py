@@ -148,8 +148,10 @@ class DshServices(DshObservability, GuardServices):
             db.execute("CREATE TABLE IF NOT EXISTS degraded (id TEXT PRIMARY KEY, body TEXT NOT NULL)")
             db.execute("CREATE TABLE IF NOT EXISTS probes (id INTEGER PRIMARY KEY CHECK(id=1), body TEXT NOT NULL, received REAL NOT NULL)")
         from .evidence import DshEvidenceBridge
+        from clawRVguarder.spec.task_authorization import TaskAuthorizationStore
         self.evidence = DshEvidenceBridge(self)
         self.host_authorization_bridge = self.evidence
+        self.task_authorization = TaskAuthorizationStore(paths.runtime_dir / "authorization")
         adapter.probe_provider = self.capabilities
         # 核心初始化已恢复已有 RV 快照；中断中的提交不能默认为成功或自动重跑。
         self.recovery_required = self._interrupted_calls()
@@ -482,6 +484,18 @@ class DshServices(DshObservability, GuardServices):
             if permit:
                 self.audit_store.append("dsh_host_grant_consumed", {"grant_id": permit["grant_id"], "call_id": request["call_id"]})
             return {"ok": True, "permit": permit}
+
+    def resolve_task_id(self, event) -> str | None:
+        """任务授权绑定宿主登记的任务；未登记时按原始会话隔离。"""
+        metadata = getattr(event, "metadata", None)
+        dsh = (metadata.get("dsh") if isinstance(metadata, dict) else None) or {}
+        agent, session = dsh.get("agent_id"), dsh.get("session_id")
+        if not agent or not session:
+            return None
+        with self._journal() as db:
+            row = db.execute("SELECT task FROM tasks WHERE agent=? AND session=?",
+                             (agent, session)).fetchone()
+        return row[0] if row else f"session:{session}"
 
     def hook_status(self) -> dict[str, Any]:
         """最近认证心跳判断桥接在线，恢复未确认状态单独报告。"""

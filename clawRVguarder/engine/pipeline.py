@@ -26,6 +26,7 @@ from clawRVguarder.engine.command_safety import analyze_command
 from clawRVguarder.engine.approval import build_approval_presentation
 from clawRVguarder.engine.decision_record import build_decision_record
 from clawRVguarder.engine.experiment_components import current as _experiment_components
+from clawRVguarder.policy import reasons
 from clawRVguarder.utils import utc_now_iso
 if TYPE_CHECKING:
     from clawRVguarder.services import GuardServices
@@ -332,6 +333,60 @@ def _mark_step_observed(step: dict[str, Any], completion_evidence: dict[str, Any
     }
 
 
+def _apply_task_authorization(services: Any, event: Any, decision: Any) -> Any:
+    """把落在有界任务授权内的"纯策略审批"降为允许。
+
+    只处理和 RV 之前完全由策略要求审批的调用：任何未知工具、缺失证据、
+    权限差分、组合风险或 RV 升权都不会被任务授权覆盖。
+    """
+    store = getattr(services, "task_authorization", None)
+    resolve_task = getattr(services, "resolve_task_id", None)
+    if store is None or resolve_task is None or getattr(decision, "action", "") != "ask":
+        return decision
+    policy = dict(getattr(decision, "policy_decision", None) or {})
+    if str(policy.get("effect")) != "openclaw_approval":
+        return decision
+    # 只允许"策略本身要求审批"这一种原因；其他原因一律保持原裁决。
+    if set(policy.get("reason_codes") or []) != {reasons.POLICY_REQUIRES_APPROVAL}:
+        return decision
+    metadata = getattr(event, "metadata", None) or {}
+    trace = metadata.get("authorization_trace") or {}
+    operation = str((trace.get("operation") or {}).get("family") or "")
+    if operation not in {"file.read", "file.write"}:
+        return decision
+    if str(metadata.get("scope_class")) != "workspace":
+        return decision
+    paths = list(getattr(event, "target_paths", None) or [])
+    if len(paths) != 1:
+        return decision
+    task_id = resolve_task(event)
+    if not task_id:
+        return decision
+    trusted = metadata.get("trusted_identity") or {}
+    workspace = getattr(getattr(services, "context", None), "target", None)
+    workspace_path = getattr(workspace, "workspace_path", None)
+    if workspace_path is None:
+        return decision
+    grant = store.match(
+        task_id=task_id,
+        principal_id=str(trusted.get("principal_id") or ""),
+        agent_id=str(trusted.get("agent_id") or ""),
+        session_id=str((metadata.get("dsh") or {}).get("session_id") or ""),
+        operation=operation, scope="workspace", path=paths[0],
+        workspace_root=workspace_path,
+    )
+    if grant is None:
+        return decision
+    decision.action = "allow"
+    decision.risk_level = "safe"
+    decision.reason = "符合宿主签发的有界任务授权，自动放行。"
+    policy["reason_codes"] = [reasons.TASK_GRANT]
+    decision.policy_decision = policy
+    metadata["task_grant_id"] = grant["grant_id"]
+    metadata["deciding_layer"] = "task_grant"
+    return decision
+
+
 def _apply_rv_if_available(
     services: GuardServices,
     event: Any,
@@ -480,6 +535,7 @@ def handle_before_tool_call_pipeline(
     timings = _ensure_pipeline_timings(event)
     timings["policy_ms"] = round((time.perf_counter() - policy_started) * 1000.0, 3)
     decision = _apply_rv_if_available(services, event, decision)
+    decision = _apply_task_authorization(services, event, decision)
     timings = _ensure_pipeline_timings(event)
     timings.setdefault("rv_ms", 0.0)
     controller_started = time.perf_counter()
