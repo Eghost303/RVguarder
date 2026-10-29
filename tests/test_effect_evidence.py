@@ -50,6 +50,8 @@ def test_pre_execution_effects_are_never_observed(bundle, tmp_path: Path) -> Non
     assert "write" in step["effects"]
     assert _statuses(step) <= {"expected", "potential", "unknown"}
     assert "observed" not in _statuses(step)
+    # 执行前不得出现"已观测"标签，避免链式规则把它当成已发生。
+    assert not [prop for prop in step["props"] if prop.startswith("effect_observed:")]
 
 
 def test_read_only_command_effects_are_expected(bundle, tmp_path: Path) -> None:

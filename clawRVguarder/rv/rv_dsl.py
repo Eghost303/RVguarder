@@ -66,6 +66,12 @@ class ToolGuard(BaseModel):
     operation_families: list[str] = Field(default_factory=list)
     effects_any_of: list[str] = Field(default_factory=list)
     execution_states: list[Literal["proposed", "succeeded", "legacy_replay"]] = Field(default_factory=list)
+    # 显式要求效果的证据等级；为空时保持旧语义（匹配预期能力并集）。
+    effect_statuses: list[Literal["expected", "potential", "observed", "unknown"]] = Field(default_factory=list)
+    observation_states: list[Literal[
+        "not_started", "dispatched", "reported_succeeded",
+        "reported_failed", "outcome_unknown", "verified_succeeded",
+    ]] = Field(default_factory=list)
 
 
 class StepRequirement(BaseModel):
@@ -217,6 +223,17 @@ def _matches_requirement(
             return False
         if req.tool.execution_states and step.get("execution_state") not in req.tool.execution_states:
             return False
+        if req.tool.effect_statuses:
+            evidence = step.get("effect_evidence") or []
+            statuses = {str(item.get("status")) for item in evidence if isinstance(item, dict)}
+            # 旧记录没有证据分级：不能因此被当作 observed。
+            if not statuses.intersection(req.tool.effect_statuses):
+                return False
+        if req.tool.observation_states:
+            observation = step.get("observation")
+            state = str(observation.get("state")) if isinstance(observation, dict) else "not_started"
+            if state not in req.tool.observation_states:
+                return False
     if req.event:
         if not (event == req.event or req.event in props):
             return False

@@ -160,7 +160,24 @@ def build_tool_call_step(event: Any, authorization_trace: Any) -> dict[str, Any]
     # 删除所有动作声明以及调用者伪造的效果命名空间。
     labels = {label for label in labels if label not in LEGACY_EFFECTS and not label.startswith(("effect:", "contract:"))}
     labels.update(structural)
+    # 执行前只有预期/潜在能力，没有已观测效果；`effects` 保持兼容并集。
+    effect_evidence = [
+        EffectEvidence(
+            effect=effect,
+            status=("potential" if effect in potential and effect not in expected_effects
+                    else "unknown" if family == "unknown_tool" else "expected"),
+            basis=effect_basis if family != "unknown_tool" else "unknown",
+            source="pre_execution",
+        )
+        for effect in effects
+    ]
     labels.update(f"effect:{effect}" for effect in effects)
+    # 只有已观测效果才追加 effect_observed:* ；旧规则不受影响。
+    labels.update(
+        f"effect_observed:{item.effect}"
+        for item in effect_evidence
+        if item.status == "observed"
+    )
     resource = trace.get("resource") or {}
     data = trace.get("data") or {}
     context = trace.get("context") or {}
@@ -179,17 +196,6 @@ def build_tool_call_step(event: Any, authorization_trace: Any) -> dict[str, Any]
     # 留在授权Trace，不得污染执行器签名所覆盖的参数哈希。
     native_arguments = event.raw_payload.get("params") if isinstance(event.raw_payload, dict) else None
     call_arguments = dict(native_arguments) if isinstance(native_arguments, dict) else dict(operation.get("arguments") or {})
-    # 执行前只有预期/潜在能力，没有已观测效果；`effects` 保持兼容并集。
-    effect_evidence = [
-        EffectEvidence(
-            effect=effect,
-            status=("potential" if effect in potential and effect not in expected_effects
-                    else "unknown" if family == "unknown_tool" else "expected"),
-            basis=effect_basis if family != "unknown_tool" else "unknown",
-            source="pre_execution",
-        )
-        for effect in effects
-    ]
     return ToolCallIR(
         step_id=identity, event="tool_call", event_model="tool-call-v1",
         tool_name=tool_name,
