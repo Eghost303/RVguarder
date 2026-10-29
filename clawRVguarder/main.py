@@ -1,6 +1,6 @@
 """CLI 入口（argparse）。
 
-v0.2.1-rc1: FastAPI 是唯一生产 HTTP 入口；旧版 stdlib HTTP 实现已移出生产包。
+v0.2.1-rc.1: FastAPI 是唯一生产 HTTP 入口；旧版 stdlib HTTP 实现已移出生产包。
 """
 
 from __future__ import annotations

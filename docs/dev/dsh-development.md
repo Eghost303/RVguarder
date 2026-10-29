@@ -34,7 +34,7 @@ python dshRVguarder/scripts/build-standalone.py --frontend-built --output dist/d
 `--output` 必须指定新目录。将生成的 Windows x64 tgz 安装到开发 profile：
 
 ```powershell
-dsh plugin --profile rvguarder-dev add .\dist\dsh-rvguarder-build\dsh-rvguarder-0.2.1-rc1-win32-x64.tgz
+dsh plugin --profile rvguarder-dev add .\dist\dsh-rvguarder-build\dsh-rvguarder-0.2.1-rc.1-win32-x64.tgz
 ```
 
 平台整包是用户安装和集成测试使用的产物。源码目录中的 `npm pack` 用于开发，不能替代整包构建。
@@ -55,10 +55,10 @@ node dshRVguarder/scripts/verify-dev-startup.mjs --output runtime/startup-proof
 
 ## 发布构建
 
-当前版本为 `0.2.1-rc1`。产品/npm 版本使用此格式，Python 元数据使用 `0.2.1rc1`，SDK 和 PMKB 独立版本不随产品变化。整包构建从干净提交执行，输出包含 tgz、根目录可直接安装的 distribution ZIP、安装说明、版本说明、来源信息、许可证及 SHA256SUMS。
+当前版本为 `0.2.1-rc.1`。产品/npm 版本使用此格式，Python 元数据使用 `0.2.1rc.1`，SDK 和 PMKB 独立版本不随产品变化。整包构建从干净提交执行，输出包含 tgz、根目录可直接安装的 distribution ZIP、安装说明、版本说明、来源信息、许可证及 SHA256SUMS。
 
 ```powershell
-python dshRVguarder/scripts/verify-release.py dist/dsh-rvguarder-0.2.1-rc1
+python dshRVguarder/scripts/verify-release.py dist/dsh-rvguarder-0.2.1-rc.1
 ```
 
 ZIP 与 tgz 的文件内容应完全一致。发布准备不运行源码目录的 `npm publish`，源码包保留 private 标记；对外使用冻结整包。本机测试原始日志可能包含宿主启动认证链接，不作为公开附件。

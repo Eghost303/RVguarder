@@ -2,7 +2,7 @@
 
 ## DSH 整包需要另开 Python 吗？
 
-v0.2.1-rc1 Windows x64 整包不需要。插件自动启动和停止后台，使用“设置 → RVguarder”管理。可从任意目录运行 `dsh rvguarder-dev`，不必先切换工作目录。下载安装见 [DSH 指南](../deployment/dsh.md)。源码开发的轻量插件包不含冻结运行环境，不能替代整包。
+v0.2.1-rc.1 Windows x64 整包不需要。插件自动启动和停止后台，使用“设置 → RVguarder”管理。可从任意目录运行 `dsh rvguarder-dev`，不必先切换工作目录。下载安装见 [DSH 指南](../deployment/dsh.md)。源码开发的轻量插件包不含冻结运行环境，不能替代整包。
 
 ## DSH 能直接安装主源码仓库地址吗？
 

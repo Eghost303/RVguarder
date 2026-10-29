@@ -1,4 +1,4 @@
-"""Release-level contracts for the v0.2.1-rc1 engineering baseline."""
+"""Release-level contracts for the v0.2.1-rc.1 engineering baseline."""
 
 from __future__ import annotations
 
@@ -15,8 +15,8 @@ ROOT = Path(__file__).parents[1]
 
 
 def test_product_and_package_versions_share_the_release_version():
-    assert __version__ == "0.2.1-rc1"
-    assert 'version = "0.2.1rc1"' in (ROOT / "pyproject.toml").read_text(encoding="utf-8")
+    assert __version__ == "0.2.1-rc.1"
+    assert 'version = "0.2.1rc.1"' in (ROOT / "pyproject.toml").read_text(encoding="utf-8")
     package = json.loads((ROOT / "dshRVguarder/package.json").read_text(encoding="utf-8"))
     lock = json.loads((ROOT / "dshRVguarder/package-lock.json").read_text(encoding="utf-8"))
     assert package["version"] == lock["version"] == lock["packages"][""]["version"] == __version__

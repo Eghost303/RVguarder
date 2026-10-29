@@ -1,6 +1,6 @@
 # HTTP 接口
 
-## v0.2.1-rc1 的 DSH 管理通道
+## v0.2.1-rc.1 的 DSH 管理通道
 
 DSH 内嵌页面通过宿主 owner Remote `rvguarderAdmin` 访问本实例，不直接持有回环桥接令牌。overview 包含部署模式、启动状态、固定故障分类及后端确认的语义状态；语义模式接受 `auto/local/llm/host-agent`。`host-agent` 不满足能力门禁时返回明确拒绝，页面不得自行宣告切换成功。
 

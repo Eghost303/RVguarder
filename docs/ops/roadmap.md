@@ -1,6 +1,6 @@
 # 发展路线图 · Roadmap
 
-当前版本：**v0.2.1-rc1** — PMKB 权限模型、覆盖感知匹配、最小权限闭包/差分、风险组合图、主体能力跨 session RV 和 OpenClaw 单一审批契约已实现。PMKB `1.2.0` 的 79 条 native rules 立即参与运行时决策；47 条历史规则均有 native owner，迁移清单只用于 provenance/replay。
+当前版本：**v0.2.1-rc.1** — PMKB 权限模型、覆盖感知匹配、最小权限闭包/差分、风险组合图、主体能力跨 session RV 和 OpenClaw 单一审批契约已实现。PMKB `1.2.0` 的 79 条 native rules 立即参与运行时决策；47 条历史规则均有 native owner，迁移清单只用于 provenance/replay。
 
 ---
 
@@ -31,7 +31,7 @@
 
 ### DSH 插件（当前主线）
 
-当前候选 **v0.2.1-rc1** 整合上游安全能力与 Windows x64 整包。安装和使用见 [DSH 插件下载安装](../deployment/dsh.md)，本次验证见 [发布记录](../dev/release-v0.2.1-rc1.md)。下表中的旧版本是历史里程碑，不代表当前发行版本。
+当前候选 **v0.2.1-rc.1** 整合上游安全能力与 Windows x64 整包。安装和使用见 [DSH 插件下载安装](../deployment/dsh.md)，本次验证见 [发布记录](../dev/release-v0.2.1-rc.1.md)。下表中的旧版本是历史里程碑，不代表当前发行版本。
 
 - [x] 插件 bundle 展示、设置页内嵌管理、宿主 owner 认证、中英文及亮暗主题。
 - [x] Windows x64 托管运行环境、私有运行时缓存、按 profile 数据绑定与无 cwd 限制的直接启动。

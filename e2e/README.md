@@ -1,4 +1,4 @@
-# E2E（Playwright）· v0.2.1-rc1
+# E2E（Playwright）· v0.2.1-rc.1
 
 本目录用于端到端回归测试：启动 `openclaw-guard` 后，通过浏览器自动化验证 RV 模式开关、Trace 展示、Skills 启停与动作审批等关键链路。
 

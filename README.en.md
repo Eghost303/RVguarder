@@ -10,7 +10,7 @@ English | [简体中文](README.md)
 ![DSH](https://img.shields.io/badge/DSH-0.2.1--rc.2%20%2F%20rc.3-2563EB)
 ![PMKB](https://img.shields.io/badge/PMKB-1.2.0-2563EB)
 ![RV](https://img.shields.io/badge/RV-ChainRule%20DSL-7C3AED)
-![Status](https://img.shields.io/badge/Status-v0.2.1--rc1-0F766E)
+![Status](https://img.shields.io/badge/Status-v0.2.1--rc.1-0F766E)
 
 RVguarder targets two hosts. On OpenClaw it hooks into the official Plugin SDK via
 `before_tool_call`; on DSH it hooks into `tools/pre-execute` and `ctx.tools.guard()`.
@@ -180,10 +180,10 @@ Without it, the local-rule mode is used: lower latency, same availability.
 
 ### DSH plugin
 
-**0.2.1-rc1 · Windows x64 · DSH 0.2.1-rc.3**
+**0.2.1-rc.1 · Windows x64 · DSH 0.2.1-rc.3**
 
 ```powershell
-dsh plugin --profile desktop add dsh-rvguarder@0.2.1-rc1
+dsh plugin --profile desktop add dsh-rvguarder@0.2.1-rc.1
 ```
 
 Restart DSH, enable RVguarder under **Plugins → Installed**, then open **Settings → RVguarder**. The package includes its runtime; no separate Python installation or backend process is required.
@@ -192,11 +192,11 @@ See [download and installation](docs/deployment/dsh.md) for npm, GitHub Release 
 
 ---
 
-## v0.2.1-rc1 changes
+## v0.2.1-rc.1 changes
 
 This candidate combines the managed DSH runtime and embedded dashboard with host-agent semantic analysis, bounded task authorization and command-class approval reuse within a task. Tool mappings, resource roles, delegation chains and observed execution effects improve decision evidence; unknown outcomes are not recorded as successful history.
 
-See [release scope](dshRVguarder/docs/release-current.md) and the [upstream Release](https://github.com/HorizonExploration/RVguarder/releases/tag/v0.2.1-rc1). npm and standalone GitHub distribution installation require the corresponding package or repository tag to be published first.
+See [release scope](dshRVguarder/docs/release-current.md) and the [upstream Release](https://github.com/HorizonExploration/RVguarder/releases/tag/v0.2.1-rc.1). npm and standalone GitHub distribution installation require the corresponding package or repository tag to be published first.
 
 ---
 
@@ -262,7 +262,7 @@ State is stored in `runtime/rv-state.json`, bounded by TTL and size limits.
 
 ```
 clawRVguarder/        Python backend and CLI (FastAPI, PMKB, RV, audit, OpenClaw integration)
-dshRVguarder/         DSH 0.2.1-rc.2 / rc.3 adapter plugin (0.2.1-rc1: embedded management UI and managed runtime)
+dshRVguarder/         DSH 0.2.1-rc.2 / rc.3 adapter plugin (0.2.1-rc.1: embedded management UI and managed runtime)
 frontend/             Preact workbench (Vite build, output to runtime/ui/)
 policies/permissions/ PMKB single source (schema, operations, rules, traces, relations, vectors)
 tests/                Backend tests and documentation/release contracts

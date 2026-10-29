@@ -1,6 +1,6 @@
 {
   "name": "dsh-rvguarder",
-  "version": "0.2.1-rc1",
+  "version": "0.2.1-rc.1",
   "private": true,
   "type": "module",
   "description": "RVguarder for DSH: managed runtime, embedded UI, PMKB authorization and runtime verification",

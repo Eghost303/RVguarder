@@ -1,4 +1,4 @@
-# DSH tests · v0.2.1-rc1
+# DSH tests · v0.2.1-rc.1
 
 Use Node 24 and a native Python 3.13+ backend. Link the SDK to the exact supported DSH rc.2/rc.3 runtime. For host-agent tests the snapshot also needs the same-version `dsh-agent-preset-registry` and `dsh-subagent-spawn-in-process`; the desktop SDK extractor includes these when available without changing the desktop installation.
 
@@ -14,4 +14,4 @@ The suite contains 68 tests covering SDK allow/ask/deny, controlled byte receipt
 
 Run Python tests from the repository root: `python -m pytest tests/test_dsh_adapter.py tests/test_dsh_migration.py -q -rs`. Test fixtures are disposable data, not persistent desktop profiles. Real DSH integration uses only `~/.dsh/profiles/rvguarder-dev`. If a test runner restricts access to system temporary directories, select a fresh writable workspace temporary directory; do not relax ACL validation.
 
-Browser tests and current results are documented in the [release record](../../docs/dev/release-v0.2.1-rc1.md). Browser verification does not substitute for desktop acceptance or online model tests.
+Browser tests and current results are documented in the [release record](../../docs/dev/release-v0.2.1-rc.1.md). Browser verification does not substitute for desktop acceptance or online model tests.

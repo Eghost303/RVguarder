@@ -1,6 +1,6 @@
 # 架构文档索引
 
-> **核对版本：** v0.2.1-rc1（2026-10-29）
+> **核对版本：** v0.2.1-rc.1（2026-10-29）
 > **文档状态：** 现行架构入口
 
 本目录只放面向当前实现的架构说明。当前实现、测试基线和已知边界以本索引及[安全能力与边界](../rvguarder-security-capabilities-and-boundaries.md)为准。
@@ -18,7 +18,7 @@
 | 6 | [质量保障方案](./quality-assurance.md) | 测试分层、合约门禁、性能和回归策略 |
 | 7 | [DSH 插件迁移调研与开发计划](./dsh-plugin-migration-feasibility-2026-10-19.md) | DeepSeek Harness 的可行性、扩展点映射与阶段计划 |
 
-当前 DSH 实现包含托管运行时、宿主内嵌 UI、host-agent 语义模式、任务授权及效果证据，见 [架构总览](overview.md) 与 [发布验证](../dev/release-v0.2.1-rc1.md)。
+当前 DSH 实现包含托管运行时、宿主内嵌 UI、host-agent 语义模式、任务授权及效果证据，见 [架构总览](overview.md) 与 [发布验证](../dev/release-v0.2.1-rc.1.md)。
 
 ## 当前架构要点
 
