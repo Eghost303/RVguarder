@@ -4,7 +4,7 @@ import { ActionCard } from '../components/ActionCard';
 
 const STATUSES = [
   'pending_approval', 'approved', 'executing',
-  'executed', 'rejected', 'blocked', 'failed', 'unknown_result',
+  'executed', 'rejected', 'blocked', 'failed', 'cancelled', 'unknown_result',
   'proposed', 'allow',
 ];
 
@@ -25,9 +25,26 @@ export function Actions() {
 
   const items = (summary.actions || {}).items || [];
   const filtered = items.filter((i) => matchesFilter(i, actionFilter));
-  const total = Math.max(1, Math.ceil(filtered.length / pageSize));
+  // PTC 内层调用折叠到父调用下；找不到父调用的内层调用仍单独展示。
+  const byCallId = new Map(
+    filtered
+      .map((item) => [item.event?.metadata?.dsh?.call_id, item])
+      .filter(([callId]) => Boolean(callId)),
+  );
+  const childrenOf = new Map();
+  const topLevel = [];
+  for (const item of filtered) {
+    const parent = item.event?.metadata?.dsh?.parent_call_id;
+    if (parent && byCallId.has(parent)) {
+      if (!childrenOf.has(parent)) childrenOf.set(parent, []);
+      childrenOf.get(parent).push(item);
+    } else {
+      topLevel.push(item);
+    }
+  }
+  const total = Math.max(1, Math.ceil(topLevel.length / pageSize));
   const cur = Math.min(Math.max(pages.actions || 1, 1), total);
-  const page = filtered.slice((cur - 1) * pageSize, cur * pageSize);
+  const page = topLevel.slice((cur - 1) * pageSize, cur * pageSize);
 
   return (
     <div class="stack-view">
@@ -50,7 +67,22 @@ export function Actions() {
       </div>
       <div class="approval-list">
         {page.length > 0 ? (
-          page.map((item) => <ActionCard key={item.action_id} item={item} />)
+          page.map((item) => {
+            const children = childrenOf.get(item.event?.metadata?.dsh?.call_id) || [];
+            return (
+              <div key={item.action_id} class="action-group">
+                <ActionCard item={item} />
+                {children.length > 0 && (
+                  <details class="inner-calls">
+                    <summary>{t("内层调用")} · {children.length}</summary>
+                    <div class="approval-list">
+                      {children.map((child) => <ActionCard key={child.action_id} item={child} />)}
+                    </div>
+                  </details>
+                )}
+              </div>
+            );
+          })
         ) : (
           <div class="empty">{t('noActions')}</div>
         )}

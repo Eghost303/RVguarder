@@ -720,6 +720,7 @@ class GuardServices:
             "failed": sum(1 for item in actions if item.status == "failed"),
             "rejected": sum(1 for item in actions if item.status == "rejected"),
             "blocked": sum(1 for item in actions if item.status == "blocked"),
+            "cancelled": sum(1 for item in actions if item.status == "cancelled"),
             # 结果未知既不记为成功也不记为失败，单独计数。
             "unknown": sum(1 for item in actions if item.execution_state == "unknown"),
         }
@@ -729,6 +730,19 @@ class GuardServices:
             "command_reuse": sum(1 for item in actions
                                  if (item.event.metadata or {}).get("deciding_layer") == "task_command_reuse"),
         }
+        approvals = {"total": 0, "by_reason": {}, "by_layer": {}, "by_task": {}}
+        for item in actions:
+            record = (item.event.metadata or {}).get("decision_record") or {}
+            decision = record.get("decision") or {}
+            if decision.get("action") not in {"ask", "block"}:
+                continue
+            approvals["total"] += 1
+            reason = decision.get("dominant_reason") or "unattributed"
+            approvals["by_reason"][reason] = approvals["by_reason"].get(reason, 0) + 1
+            layer = decision.get("deciding_layer") or "unknown"
+            approvals["by_layer"][layer] = approvals["by_layer"].get(layer, 0) + 1
+            task = (record.get("call") or {}).get("task_id") or "unknown"
+            approvals["by_task"][task] = approvals["by_task"].get(task, 0) + 1
         chat_status = self.chat_status()
         result = {
             "generated_at": utc_now_iso(),
@@ -737,7 +751,7 @@ class GuardServices:
             "paths": self.context.paths.to_dict(),
             "settings": self.context.settings.to_dict(),
             "capabilities": [item.to_dict() for item in self.collectors.capabilities()],
-            "actions": {"counts": counts, "dedup": dedup, "items": [item.to_dict() for item in list(reversed(actions))[:50]]},
+            "actions": {"counts": counts, "dedup": dedup, "approvals": approvals, "items": [item.to_dict() for item in list(reversed(actions))[:50]]},
             "console": {},
             "chat": chat_status.to_dict(),
             "hook": self.hook_status(),

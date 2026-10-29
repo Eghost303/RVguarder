@@ -182,3 +182,15 @@ def test_summary_counts_task_grant_allowances(dsh) -> None:
 
     dedup = manager.summary(compact=True)["actions"]["dedup"]
     assert dedup["task_grant"] >= 1
+
+
+def test_summary_reports_approval_attribution(dsh) -> None:
+    manager, client, workspace = dsh
+    body = client.post("/api/dsh/before", json=_call(
+        workspace, "write", {"path": "notes.md", "content": "x"}, call_id="a1")).json()
+    assert body["kind"] == "ask"
+
+    approvals = manager.summary(compact=True)["actions"]["approvals"]
+
+    assert approvals["total"] >= 1
+    assert approvals["by_reason"].get("policy_requires_approval", 0) >= 1

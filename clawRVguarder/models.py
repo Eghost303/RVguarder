@@ -30,7 +30,7 @@ ActionType = Literal[
 ]
 EventStatus = Literal[
     "proposed", "pending_approval", "approved", "rejected",
-    "blocked", "executing", "executed", "failed",
+    "blocked", "executing", "executed", "failed", "cancelled",
     "allow",  # 兼容：auto-allow 路径设置的运行时状态
 ]
 

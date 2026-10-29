@@ -374,12 +374,14 @@ class DshServices(DshObservability, GuardServices):
             response = item.get("response")
             return response if isinstance(response, str) else None
 
-    def bridge_result(self, request: dict[str, Any], *, succeeded: bool, dispatched: bool, evidence: dict | None = None) -> dict[str, Any]:
+    def bridge_result(self, request: dict[str, Any], *, succeeded: bool, dispatched: bool,
+                      evidence: dict | None = None, cancelled: bool = False) -> dict[str, Any]:
         """幂等提交最终结果；仅实际 dispatch 且成功的工具扩充历史。"""
         with self.bridge_lock:
             payload = self.host_adapter.payload(request)
             key = f"{payload['runId']}:{payload['toolCallId']}"
-            completion = json.dumps({"succeeded": succeeded, "dispatched": dispatched, "evidence": evidence}, sort_keys=True)
+            completion = json.dumps({"succeeded": succeeded, "dispatched": dispatched,
+                                     "cancelled": bool(cancelled), "evidence": evidence}, sort_keys=True)
             with self._journal() as db:
                 row = db.execute("SELECT response,state,completion,digest FROM calls WHERE id=?", (key,)).fetchone()
                 if not row or row[3] != sha256_text(json.dumps(request, ensure_ascii=False, sort_keys=True)):
@@ -408,7 +410,13 @@ class DshServices(DshObservability, GuardServices):
                         raise BridgeConflict("dispatch_evidence_mismatch")
                 if succeeded and (not dispatched or response["kind"] == "deny"):
                     raise BridgeConflict("success_without_execution_permission")
-                if outcome_unknown:
+                cancelled = bool(cancelled and not dispatched)
+                if cancelled:
+                    # 未派发即取消：没有执行，既不是失败也不是未知。
+                    completion = json.dumps({"succeeded": False, "dispatched": False,
+                                             "cancelled": True, "evidence": None}, sort_keys=True)
+                    receipt = None
+                elif outcome_unknown:
                     completion = json.dumps({"succeeded": False, "dispatched": True,
                                              "outcome_unknown": True, "evidence": None}, sort_keys=True)
                     receipt = None
@@ -434,6 +442,21 @@ class DshServices(DshObservability, GuardServices):
                     })
                     self._replace_action(action)
                     self.audit_store.append("dsh_dispatch_ack_unknown",
+                                            {"action_id": action.action_id, "call_id": request["call_id"]})
+                elif cancelled:
+                    # 未派发即取消：工具没有执行，记取消而不是失败。
+                    action.status = "cancelled"
+                    action.decision_state = "cancelled"
+                    action.execution_state = "not_started"
+                    action.sync_state = "synced"
+                    action.execution_result.update({
+                        "status": "cancelled",
+                        "error_code": "cancelled",
+                        "message": "tool call cancelled before dispatch",
+                        "completed_at": utc_now_iso(),
+                    })
+                    self._replace_action(action)
+                    self.audit_store.append("dsh_call_cancelled",
                                             {"action_id": action.action_id, "call_id": request["call_id"]})
                 else:
                     if action.status == "pending_approval":

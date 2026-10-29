@@ -149,7 +149,7 @@ def resolve_hook_approval(manager: GuardServices, payload: dict[str, Any]) -> Js
         allowed = normalized_decision in {"allow-once", "allow-always"}
         desired_state = "allowed" if allowed else "denied"
         existing = action.get("resolution") or {}
-        terminal_statuses = {"approved", "rejected", "blocked", "executed", "failed", "allow"}
+        terminal_statuses = {"approved", "rejected", "blocked", "executed", "failed", "allow", "cancelled"}
         if existing:
             if (
                 action.get("status") in terminal_statuses

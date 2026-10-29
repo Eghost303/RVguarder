@@ -94,3 +94,37 @@ def test_outcome_unknown_is_counted_separately(dsh) -> None:
     assert counts["unknown"] == 1
     assert counts["executed"] == 0
     assert counts["failed"] == 0
+
+
+def test_cancelled_before_dispatch_is_not_a_failure(dsh) -> None:
+    manager, workspace = dsh
+    call = _call(workspace)
+    manager.bridge_before(dict(call))
+    manager.bridge_result(dict(call), succeeded=False, dispatched=False, cancelled=True)
+
+    payload = manager.host_adapter.payload(dict(call))
+    action = manager._find_action_by_hook_key(f"{payload['runId']}:{payload['toolCallId']}")
+
+    assert action.status == "cancelled"
+    assert action.execution_state == "not_started"
+    counts = manager.summary(compact=True)["actions"]["counts"]
+    assert counts["cancelled"] == 1
+    assert counts["failed"] == 0
+    assert counts["unknown"] == 0
+
+
+def test_result_route_accepts_cancelled_flag(dsh) -> None:
+    from fastapi.testclient import TestClient
+
+    from clawRVguarder.web.app import create_app
+
+    manager, workspace = dsh
+    client = TestClient(create_app(manager))
+    client.headers["x-rvguarder-token"] = manager.bridge_token
+    call = _call(workspace)
+
+    assert client.post("/api/dsh/before", json=call).status_code == 200
+    response = client.post("/api/dsh/result", json={
+        "call": call, "dispatched": False, "succeeded": False, "cancelled": True})
+
+    assert response.status_code == 200

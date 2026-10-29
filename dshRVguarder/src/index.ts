@@ -144,7 +144,7 @@ function applyCore(ctx:Context,config:Config,onFailure?:(error:unknown)=>void) {
     const receipt=controlled?.finish(exec.token) || nativeReceipt;
     if(!item) return;
     try {
-      outbox.push({call:item.call,dispatched:item.dispatched,succeeded:item.dispatched&&result.isError===false,...(result.isError===false&&receipt?{evidence:receipt}:{})});
+      outbox.push({call:item.call,dispatched:item.dispatched,succeeded:item.dispatched&&result.isError===false,cancelled:exec.signal?.aborted===true,...(result.isError===false&&receipt?{evidence:receipt}:{})});
       outbox.settle(item.call);
       void outbox.flush(client).catch(()=>{});
     } catch(error) {failure=error;onFailure?.(error);}

@@ -18,6 +18,7 @@ export function Settings() {
 
   const [trust, setTrust] = useState([]);
   const [taskAuth, setTaskAuth] = useState(null);
+  const summary = useStore((s) => s.summary);
   const dsh = useStore((s) => s.summary.host?.kind === 'dsh');
   const embedded = useStore((s) => s.embedded);
   const showToast = useStore((s) => s.showToast);
@@ -55,6 +56,30 @@ export function Settings() {
   return (
     <div class="settings-grid">
       <ScanProgress />
+      {summary?.actions?.approvals && (
+        <article class="card trust-card">
+          <div class="card-head">
+            <h3>{t("审批归因")}</h3>
+            <span class="badge info">{summary.actions.approvals.total || 0}</span>
+          </div>
+          <p class="trust-intro">{t("按支配原因统计已记录的审批与阻断；未知原因单列。")}</p>
+          {Object.entries(summary.actions.approvals.by_reason || {}).length ? (
+            <div class="trust-list">
+              {Object.entries(summary.actions.approvals.by_reason)
+                .sort((a, b) => b[1] - a[1])
+                .slice(0, 6)
+                .map(([reason, count]) => (
+                  <div class="trust-item" key={reason}>
+                    <div>
+                      <strong>{esc(reason)}</strong>
+                      <p>{t("次数")}{count}</p>
+                    </div>
+                  </div>
+                ))}
+            </div>
+          ) : <div class="empty">{t("暂无审批记录。")}</div>}
+        </article>
+      )}
       {(dsh || embedded) && (
         <article class="card trust-card">
           <div class="card-head">

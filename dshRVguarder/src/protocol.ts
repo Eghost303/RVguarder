@@ -11,4 +11,4 @@ export interface GuardDecision {
   evidence_binding?:{principal_id:string;task_id:string};
   kind: 'allow' | 'ask' | 'deny'; reason: string; action_id: string; policy_version: string; expires_at: number;
 }
-export interface Completion { call: GuardCall; succeeded: boolean; dispatched: boolean; evidence?:Record<string,unknown>; }
+export interface Completion { call: GuardCall; succeeded: boolean; dispatched: boolean; cancelled?: boolean; evidence?:Record<string,unknown>; }

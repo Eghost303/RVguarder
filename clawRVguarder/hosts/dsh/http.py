@@ -47,6 +47,7 @@ class Completion(BaseModel):
     call: Call
     succeeded: bool
     dispatched: bool
+    cancelled: bool = False
     evidence: dict[str, Any] | None = None
 
 
@@ -140,7 +141,7 @@ def configure_app(app, manager: DshServices) -> None:
 
     @router.post("/result")
     def result(completion: Completion):
-        return operation(manager.bridge_result, checked(completion.call), succeeded=completion.succeeded, dispatched=completion.dispatched, evidence=completion.evidence)
+        return operation(manager.bridge_result, checked(completion.call), succeeded=completion.succeeded, dispatched=completion.dispatched, cancelled=completion.cancelled, evidence=completion.evidence)
 
     @router.post("/degraded")
     def degraded(payload: dict):

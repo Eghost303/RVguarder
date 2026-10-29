@@ -76,12 +76,16 @@ class ActionService:
                         action.decision_state = "allowed"
                     elif action.status in {"rejected", "blocked"}:
                         action.decision_state = "denied"
+                    elif action.status == "cancelled":
+                        action.decision_state = "cancelled"
                     if action.status == "executing":
                         action.execution_state = "running"
                     elif action.status == "executed":
                         action.execution_state = "executed"
                     elif action.status == "failed":
                         action.execution_state = "failed"
+                    elif action.status == "cancelled":
+                        action.execution_state = "not_started"
                     result.append(action)
                 except Exception:
                     continue

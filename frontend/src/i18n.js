@@ -32,6 +32,7 @@ const T = {
   status_approved: '已批准',
   status_executing: '执行中',
   status_unknown_result: '结果未知',
+  status_cancelled: '已取消',
   pendingTitle: '待确认动作',
   noPending: '当前没有待确认动作。',
   recentActions: '最近动作',
